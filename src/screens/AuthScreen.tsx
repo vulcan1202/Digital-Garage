@@ -36,31 +36,28 @@ export const AuthScreen: React.FC = () => {
           password: password.trim(),
         });
         if (error) {
-          // If email not confirmed in development/test, provide bypass to enter cockpit
-          Alert.alert(
-            '登入提示',
-            `${error.message}\n\n是否以測試車主身分快速進入車庫？`,
-            [
-              { text: '取消', style: 'cancel' },
-              {
-                text: '快速進入車庫',
-                onPress: () => {
-                  // Trigger auth update with DEV_TEST_USER
-                  supabase.auth.onAuthStateChange; // reference
-                  // We can sign in anonymously or dispatch event
-                  const devUser = {
-                    id: '197c7dd3-6cc4-430a-997b-49a6063e3548',
-                    app_metadata: { provider: 'email' },
-                    user_metadata: {},
-                    aud: 'authenticated',
-                    created_at: '2026-09-13T05:30:18Z',
-                    email: email.trim(),
-                  };
-                  (globalThis as any).__dev_login?.(devUser);
-                },
-              },
-            ]
-          );
+          let errorTitle = '登入失敗';
+          let errorMessage = '帳號或密碼不正確，請重新檢查後再試。';
+
+          const msg = (error.message || '').toLowerCase();
+          if (msg.includes('invalid login credentials') || msg.includes('invalid_grant')) {
+            errorMessage = '帳號或密碼輸入錯誤，請確認後重新輸入。';
+          } else if (msg.includes('email not confirmed')) {
+            errorTitle = '電子信箱尚未驗證';
+            errorMessage = '此帳號尚未完成信箱啟用驗證。請至您的電子信箱點擊確認信中的連結後再進行登入。';
+          } else if (msg.includes('user not found')) {
+            errorMessage = '找不到此車主帳號，請確認信箱是否正確或先切換至「註冊新車主」。';
+          } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+            errorTitle = '連線異常';
+            errorMessage = '無法連線至車庫雲端伺服器，請檢查您的網路連線狀態。';
+          } else if (msg.includes('too many requests')) {
+            errorTitle = '嘗試次數過多';
+            errorMessage = '登入嘗試次數過於頻繁，為保護帳號安全，請稍後幾分鐘後再試。';
+          } else {
+            errorMessage = error.message || errorMessage;
+          }
+
+          Alert.alert(errorTitle, errorMessage);
         }
       } else {
         const { error, data } = await supabase.auth.signUp({

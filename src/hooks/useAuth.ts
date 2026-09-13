@@ -51,18 +51,8 @@ export function useAuth() {
       }
     );
 
-    // Provide global trigger for dev login in emulator test
-    (globalThis as any).__dev_login = (devUser: User) => {
-      setAuthState({
-        user: devUser,
-        session: null,
-        isLoading: false,
-      });
-    };
-
     return () => {
       subscription.unsubscribe();
-      delete (globalThis as any).__dev_login;
     };
   }, []);
 

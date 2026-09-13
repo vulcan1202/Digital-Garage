@@ -369,8 +369,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.85}
               >
                 <DoubleBezelCard
-                  className={`w-64 ${isSelected ? 'border-racing-orange/60' : 'border-white/10'}`}
-                  innerClassName={isSelected ? 'bg-zinc-900/90' : 'bg-garage-card'}
+                  className={`w-64 ${
+                    isSelected
+                      ? 'border-2 border-racing-orange shadow-lg shadow-racing-orange/40'
+                      : 'border-white/10 opacity-75'
+                  }`}
+                  innerClassName={isSelected ? 'bg-zinc-900 border-racing-orange/30' : 'bg-garage-card'}
                 >
                   <View className="h-28 w-full rounded-lg overflow-hidden bg-zinc-950 mb-3 relative">
                     {v.cover_url ? (
@@ -384,6 +388,17 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                         <Ionicons name="car-sport-outline" size={40} color="#52525b" />
                       </View>
                     )}
+
+                    {/* 選擇中指示徽章 (Active Badge) */}
+                    {isSelected && (
+                      <View className="absolute top-2 left-2 bg-racing-orange px-2 py-0.5 rounded flex-row items-center gap-1 shadow-md shadow-black">
+                        <View className="w-1.5 h-1.5 rounded-full bg-black" />
+                        <Text className="text-[10px] font-mono font-black text-black tracking-wider">
+                          ACTIVE
+                        </Text>
+                      </View>
+                    )}
+
                     <View className="absolute top-2 right-2 bg-black/70 px-2 py-0.5 rounded border border-white/10">
                       <Text className="text-[10px] font-mono text-metal-200">
                         {v.year ? `${v.year}` : 'N/A'}
@@ -391,9 +406,19 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                     </View>
                   </View>
 
-                  <Text className="text-white font-bold text-base tracking-tight" numberOfLines={1}>
-                    {v.brand} {v.model}
-                  </Text>
+                  <View className="flex-row items-center justify-between">
+                    <Text
+                      className={`font-bold text-base tracking-tight flex-1 mr-2 ${
+                        isSelected ? 'text-racing-orange' : 'text-white'
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {v.brand} {v.model}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={16} color="#FF5500" />
+                    )}
+                  </View>
 
                   <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-white/[0.06]">
                     <Text className="text-[11px] text-metal-400 font-mono">ODOMETER</Text>

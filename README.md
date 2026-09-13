@@ -85,9 +85,13 @@
 * **即時篩選**：支援切換「全部動態」、「加油紀錄」、「保修保養」、「改裝升級」膠囊標籤。
 * **行內操作**：時間軸卡片直接提供「編輯」與「刪除」功能，操作完成後即時重新計算愛車最高里程。
 
-### 2.8 智慧鍵盤避讓佈局 (Keyboard Avoiding System)
-* **原生整合**：深度適配 Android `windowSoftInputMode="adjustResize"`，Android 端 `KeyboardAvoidingView` 採用 `undefined` 避免雙重收縮；iOS 端使用 `padding`。
-* **彈性空間**：全域所有輸入 Modal 均採用 `flex-1` 搭配 `contentContainerStyle={{ paddingBottom: 60 }}`，彈出軟鍵盤時可自如上下滑動，操作按鈕絕不被遮擋。
+### 2.8 雙軌架構鍵盤避讓機制 (Dual-Track Keyboard Avoiding Architecture)
+* **平台分工設計**：
+  - **Android 平台**：原生 `<Modal>` 為獨立 `android.app.Dialog` Window，不繼承主 Activity 之 `windowSoftInputMode="adjustResize"`。專案建置專屬 [`useKeyboardBottomInset`](file:///e:/%E6%95%B8%E4%BD%8D%E8%BB%8A%E5%BA%AB%20%28Digital%20Garage%29/src/hooks/useKeyboardBottomInset.ts) Hook，精準監聽 Android 鍵盤開啟／收合事件，並注入 `LayoutAnimation.Presets.easeInEaseOut` 實現平滑推昇過渡動畫。
+  - **iOS 平台**：維持既有原生最佳實踐 `KeyboardAvoidingView behavior="padding"`，強制不套用 Android 底部推昇補償，杜絕疊加位移衝突。
+* **空間與導覽適配**：全域 10 個業務 Modal 統一採用 `max-h-[88%]` 彈性頂部餘裕與 `ScrollView contentContainerStyle={{ paddingBottom: 60 }}`，徹底解決三鍵式虛擬鍵盤與全螢幕手勢導覽條環境下的按鈕與輸入框遮擋問題。
+* **車輛選擇清晰高亮**：車庫主畫面（`GarageDashboardScreen`）車輛橫向選單，選取中車輛以鮮明亮橘粗邊框 (`border-2 border-racing-orange`)、發光光暈 (`shadow-racing-orange/40`) 與即時狀態徽章 (`● ACTIVE`) 醒目標示。
+* **純淨登入體驗**：`AuthScreen` 移除任何測試後門提示，採用分類結構化繁體中文錯誤指引（密碼錯誤、未驗證信箱、伺服器異常等）。
 
 ---
 
@@ -174,6 +178,7 @@
 │   │       └── AddSettingSetModal.tsx       # 新增調校設定組與細項參數
 │   ├── hooks/
 │   │   ├── useAuth.ts                       # 身分驗證與狀態監聽 Hook
+│   │   ├── useKeyboardBottomInset.ts        # Android Modal 鍵盤高度監聽與平滑動畫 Hook
 │   │   └── queries/                         # React Query 快取管理層
 │   │       ├── queryKeys.ts                 # 集中式 Query Key 工廠
 │   │       ├── useVehicles.ts               # 車輛與車輛相簿 Query / Mutation

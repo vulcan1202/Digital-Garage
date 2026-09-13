@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { useCreateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordType } from '../../types/database';
 import { reminderService } from '../../services/reminderService';
@@ -50,6 +51,8 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
   const createMaintenanceMutation = useCreateMaintenanceRecord();
+  const rawKeyboardInset = useKeyboardBottomInset();
+  const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
 
   const resetForm = () => {
     setRecordType('maintenance');
@@ -146,14 +149,9 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     }
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        <View className="flex-1 bg-black/80 justify-end">
-          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90%] flex-1 justify-between">
+  const modalBody = (
+    <View className="flex-1 bg-black/80 justify-end" style={{ paddingBottom: androidKeyboardInset }}>
+      <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[88%] flex-1 justify-between">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between pb-4 border-b border-white/[0.08]">
               <View>
@@ -453,8 +451,18 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               </View>
             </ScrollView>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+    </View>
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          {modalBody}
+        </KeyboardAvoidingView>
+      ) : (
+        modalBody
+      )}
     </Modal>
   );
 };

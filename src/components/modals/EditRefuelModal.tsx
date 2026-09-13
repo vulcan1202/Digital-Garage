@@ -1,3 +1,4 @@
+import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -40,6 +41,8 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
   onSuccess,
 }) => {
   const updateRefuel = useUpdateRefuel();
+  const rawKeyboardInset = useKeyboardBottomInset();
+  const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
 
   const [refuelDate, setRefuelDate] = useState('');
   const [mileage, setMileage] = useState('');
@@ -119,18 +122,9 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-end bg-black/60"
-      >
-        <View className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-h-[90%] flex-1 justify-between p-6">
+  const modalBody = (
+    <View className="flex-1 justify-end bg-black/60" style={{ paddingBottom: androidKeyboardInset }}>
+      <View className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-h-[88%] flex-1 justify-between p-6">
           {/* Header */}
           <View className="flex-row items-center justify-between pb-4 border-b border-slate-800">
             <View className="flex-row items-center">
@@ -268,7 +262,23 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
             </View>
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          {modalBody}
+        </KeyboardAvoidingView>
+      ) : (
+        modalBody
+      )}
     </Modal>
   );
 };
