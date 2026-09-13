@@ -113,7 +113,11 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Brand & Model */}
               <View className="flex-row gap-3 mb-4">
                 <View className="flex-1">

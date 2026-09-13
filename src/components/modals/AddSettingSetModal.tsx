@@ -144,7 +144,11 @@ export const AddSettingSetModal: React.FC<AddSettingSetModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Profile Name */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">

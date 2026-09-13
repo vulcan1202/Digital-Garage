@@ -120,7 +120,11 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* 工單性質切換 (Regular Maintenance vs Repair) */}
               <View className="flex-row bg-zinc-950 p-1 rounded-xl border border-white/10 mb-4">
                 <TouchableOpacity

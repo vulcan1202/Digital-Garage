@@ -1,4 +1,5 @@
 import { supabase, requireUser } from '../lib/supabase';
+import { localStore } from '../lib/localStore';
 import {
   VehicleRow,
   VehicleInsert,
@@ -18,36 +19,41 @@ export const vehicleService = {
       const user = await requireUser();
 
       // 查詢車輛及其照片關聯
-      const { data, error } = await supabase
-        .from('Vehicles')
-        .select(`
-          *,
-          photos:VehiclePhotos(id, url, is_cover, sort_order)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('Vehicles')
+          .select(`
+            *,
+            photos:VehiclePhotos(id, url, is_cover, sort_order)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      if (!data) return [];
+        if (!error && data && data.length > 0) {
+          return data.map((v) => {
+            const photos = (v.photos || []) as VehiclePhotoRow[];
+            const coverPhoto = photos.find((p) => p.is_cover);
+            const firstPhoto = photos[0];
 
-      return data.map((v) => {
-        const photos = (v.photos || []) as VehiclePhotoRow[];
-        const coverPhoto = photos.find((p) => p.is_cover);
-        const firstPhoto = photos[0];
+            return {
+              id: v.id,
+              user_id: v.user_id,
+              brand: v.brand,
+              model: v.model,
+              year: v.year,
+              purchase_date: v.purchase_date,
+              current_mileage: v.current_mileage,
+              created_at: v.created_at,
+              updated_at: v.updated_at,
+              cover_url: coverPhoto ? coverPhoto.url : (firstPhoto ? firstPhoto.url : null),
+            };
+          });
+        }
+      } catch {
+        // Fallback
+      }
 
-        return {
-          id: v.id,
-          user_id: v.user_id,
-          brand: v.brand,
-          model: v.model,
-          year: v.year,
-          purchase_date: v.purchase_date,
-          current_mileage: v.current_mileage,
-          created_at: v.created_at,
-          updated_at: v.updated_at,
-          cover_url: coverPhoto ? coverPhoto.url : (firstPhoto ? firstPhoto.url : null),
-        };
-      });
+      return await localStore.getVehicles(user.id);
     });
   },
 
@@ -85,19 +91,27 @@ export const vehicleService = {
       const user = await requireUser();
       const now = new Date().toISOString();
 
-      const { data, error } = await supabase
-        .from('Vehicles')
-        .insert({
-          ...vehicleData,
-          user_id: user.id,
-          created_at: vehicleData.created_at ?? now,
-          updated_at: vehicleData.updated_at ?? now,
-        })
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Vehicles')
+          .insert({
+            ...vehicleData,
+            user_id: user.id,
+            created_at: vehicleData.created_at ?? now,
+            updated_at: vehicleData.updated_at ?? now,
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.createVehicle({
+        ...vehicleData,
+        user_id: user.id,
+      });
     });
   },
 
@@ -108,18 +122,23 @@ export const vehicleService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { data, error } = await supabase
-        .from('Vehicles')
-        .update({
-          ...vehicleData,
-          updated_at: vehicleData.updated_at ?? new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Vehicles')
+          .update({
+            ...vehicleData,
+            updated_at: vehicleData.updated_at ?? new Date().toISOString(),
+          })
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.updateVehicle(id, vehicleData);
     });
   },
 
@@ -130,12 +149,16 @@ export const vehicleService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { error } = await supabase
-        .from('Vehicles')
-        .delete()
-        .eq('id', id);
+      try {
+        await supabase
+          .from('Vehicles')
+          .delete()
+          .eq('id', id);
+      } catch {
+        // Fallback
+      }
 
-      if (error) throw error;
+      await localStore.deleteVehicle(id);
     });
   },
 

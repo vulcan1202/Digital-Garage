@@ -144,7 +144,11 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* 油品選擇器 (Horizontal Pill Selector) */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-2">

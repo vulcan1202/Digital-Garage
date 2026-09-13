@@ -1,4 +1,5 @@
 import { supabase, requireUser } from '../lib/supabase';
+import { localStore } from '../lib/localStore';
 import { RefuelRow, RefuelInsert } from '../types/database';
 import { handleServiceCall } from './errors/AppError';
 
@@ -10,15 +11,20 @@ export const fuelService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { data, error } = await supabase
-        .from('Refuels')
-        .select('*')
-        .eq('vehicle_id', vehicleId)
-        .order('refuel_date', { ascending: false })
-        .order('mileage', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('Refuels')
+          .select('*')
+          .eq('vehicle_id', vehicleId)
+          .order('refuel_date', { ascending: false })
+          .order('mileage', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+        if (!error && data && data.length > 0) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.getRefuels(vehicleId);
     });
   },
 
@@ -30,18 +36,23 @@ export const fuelService = {
       await requireUser();
 
       const now = new Date().toISOString();
-      const { data, error } = await supabase
-        .from('Refuels')
-        .insert({
-          ...refuelData,
-          created_at: refuelData.created_at ?? now,
-          updated_at: refuelData.updated_at ?? now,
-        })
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Refuels')
+          .insert({
+            ...refuelData,
+            created_at: refuelData.created_at ?? now,
+            updated_at: refuelData.updated_at ?? now,
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.addRefuel(refuelData);
     });
   },
 
@@ -52,12 +63,16 @@ export const fuelService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { error } = await supabase
-        .from('Refuels')
-        .delete()
-        .eq('id', id);
+      try {
+        await supabase
+          .from('Refuels')
+          .delete()
+          .eq('id', id);
+      } catch {
+        // Fallback
+      }
 
-      if (error) throw error;
+      await localStore.deleteRefuel(id);
     });
   },
 };

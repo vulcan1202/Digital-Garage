@@ -119,7 +119,11 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* 提醒項目名稱 */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">

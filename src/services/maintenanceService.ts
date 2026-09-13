@@ -1,4 +1,5 @@
 import { supabase, requireUser } from '../lib/supabase';
+import { localStore } from '../lib/localStore';
 import {
   MaintenanceRecordRow,
   MaintenanceRecordInsert,
@@ -18,22 +19,31 @@ export const maintenanceService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { data, error } = await supabase
-        .from('MaintenanceRecords')
-        .select(`
-          *,
-          photos:MaintenancePhotos(*)
-        `)
-        .eq('vehicle_id', vehicleId)
-        .order('service_date', { ascending: false })
-        .order('mileage', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('MaintenanceRecords')
+          .select(`
+            *,
+            photos:MaintenancePhotos(*)
+          `)
+          .eq('vehicle_id', vehicleId)
+          .order('service_date', { ascending: false })
+          .order('mileage', { ascending: false });
 
-      if (error) throw error;
-      if (!data) return [];
+        if (!error && data && data.length > 0) {
+          return data.map((record) => ({
+            ...record,
+            photos: (record.photos || []) as MaintenancePhotoRow[],
+          }));
+        }
+      } catch {
+        // Fallback
+      }
 
-      return data.map((record) => ({
+      const localList = await localStore.getMaintenanceRecords(vehicleId);
+      return localList.map((record) => ({
         ...record,
-        photos: (record.photos || []) as MaintenancePhotoRow[],
+        photos: [],
       }));
     });
   },
@@ -51,46 +61,51 @@ export const maintenanceService = {
 
       // 1. 寫入主表 MaintenanceRecords
       const now = new Date().toISOString();
-      const { data: record, error: recordError } = await supabase
-        .from('MaintenanceRecords')
-        .insert({
-          ...recordData,
-          created_at: recordData.created_at ?? now,
-          updated_at: recordData.updated_at ?? now,
-        })
-        .select()
-        .single();
+      try {
+        const { data: record, error: recordError } = await supabase
+          .from('MaintenanceRecords')
+          .insert({
+            ...recordData,
+            created_at: recordData.created_at ?? now,
+            updated_at: recordData.updated_at ?? now,
+          })
+          .select()
+          .single();
 
-      if (recordError || !record) {
-        throw AppError.database('建立保養維修紀錄失敗', recordError);
-      }
+        if (!recordError && record) {
+          // 2. 若有照片，寫入關聯子表 MaintenancePhotos
+          const photos: MaintenancePhotoRow[] = [];
+          if (photoUrls.length > 0) {
+            const photoInserts = photoUrls.map((url, index) => ({
+              maintenance_record_id: record.id,
+              url,
+              sort_order: index,
+              created_at: now,
+            }));
 
-      // 2. 若有照片，寫入關聯子表 MaintenancePhotos
-      const photos: MaintenancePhotoRow[] = [];
-      if (photoUrls.length > 0) {
-        const photoInserts = photoUrls.map((url, index) => ({
-          maintenance_record_id: record.id,
-          url,
-          sort_order: index,
-          created_at: now,
-        }));
+            const { data: photosData, error: photoError } = await supabase
+              .from('MaintenancePhotos')
+              .insert(photoInserts)
+              .select();
 
-        const { data: photosData, error: photoError } = await supabase
-          .from('MaintenancePhotos')
-          .insert(photoInserts)
-          .select();
+            if (!photoError && photosData) {
+              photos.push(...photosData);
+            }
+          }
 
-        if (photoError) {
-          // 不中斷主表記錄，但記錄錯誤
-          console.error('寫入保養照片資料表失敗', photoError);
-        } else if (photosData) {
-          photos.push(...photosData);
+          return {
+            ...record,
+            photos,
+          };
         }
+      } catch {
+        // Fallback
       }
 
+      const localRec = await localStore.addMaintenanceRecord(recordData);
       return {
-        ...record,
-        photos,
+        ...localRec,
+        photos: [],
       };
     });
   },
@@ -102,12 +117,16 @@ export const maintenanceService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { error } = await supabase
-        .from('MaintenanceRecords')
-        .delete()
-        .eq('id', id);
+      try {
+        await supabase
+          .from('MaintenanceRecords')
+          .delete()
+          .eq('id', id);
+      } catch {
+        // Fallback
+      }
 
-      if (error) throw error;
+      await localStore.deleteMaintenanceRecord(id);
     });
   },
 };

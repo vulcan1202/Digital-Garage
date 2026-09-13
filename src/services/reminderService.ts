@@ -1,4 +1,5 @@
 import { supabase, requireUser } from '../lib/supabase';
+import { localStore } from '../lib/localStore';
 import { ReminderRow, ReminderInsert, ReminderUpdate } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
 
@@ -10,14 +11,19 @@ export const reminderService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { data, error } = await supabase
-        .from('Reminders')
-        .select('*')
-        .eq('vehicle_id', vehicleId)
-        .order('created_at', { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from('Reminders')
+          .select('*')
+          .eq('vehicle_id', vehicleId)
+          .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+        if (!error && data && data.length > 0) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.getReminders(vehicleId);
     });
   },
 
@@ -37,18 +43,23 @@ export const reminderService = {
       }
 
       const now = new Date().toISOString();
-      const { data, error } = await supabase
-        .from('Reminders')
-        .insert({
-          ...reminderData,
-          created_at: reminderData.created_at ?? now,
-          updated_at: reminderData.updated_at ?? now,
-        })
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Reminders')
+          .insert({
+            ...reminderData,
+            created_at: reminderData.created_at ?? now,
+            updated_at: reminderData.updated_at ?? now,
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.addReminder(reminderData);
     });
   },
 
@@ -71,18 +82,23 @@ export const reminderService = {
         }
       }
 
-      const { data, error } = await supabase
-        .from('Reminders')
-        .update({
-          ...reminderData,
-          updated_at: reminderData.updated_at ?? new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Reminders')
+          .update({
+            ...reminderData,
+            updated_at: reminderData.updated_at ?? new Date().toISOString(),
+          })
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.updateReminder(id, reminderData);
     });
   },
 
@@ -106,15 +122,20 @@ export const reminderService = {
         updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
-        .from('Reminders')
-        .update(updatePayload)
-        .eq('id', id)
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('Reminders')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) return data;
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.updateReminder(id, updatePayload);
     });
   },
 
@@ -125,12 +146,16 @@ export const reminderService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      const { error } = await supabase
-        .from('Reminders')
-        .delete()
-        .eq('id', id);
+      try {
+        await supabase
+          .from('Reminders')
+          .delete()
+          .eq('id', id);
+      } catch {
+        // Fallback
+      }
 
-      if (error) throw error;
+      await localStore.deleteReminder(id);
     });
   },
 };

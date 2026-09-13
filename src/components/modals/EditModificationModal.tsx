@@ -150,7 +150,11 @@ export const EditModificationModal: React.FC<EditModificationModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              className="mt-4"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* 改裝品名稱 (必填) */}
               <View className="mb-4">
                 <Text className="text-xs font-mono text-metal-300 uppercase mb-1.5">

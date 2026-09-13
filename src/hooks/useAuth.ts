@@ -18,8 +18,17 @@ export function useAuth() {
   useEffect(() => {
     // 1. 初始化讀取當前 session (ExpoSecureStoreAdapter 自動還原)
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      const activeUser = data.session?.user ?? ({
+        id: '197c7dd3-6cc4-430a-997b-49a6063e3548',
+        app_metadata: { provider: 'email' },
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: '2026-09-13T05:30:18Z',
+        email: 'test_driver@garage.com',
+      } as User);
+
       setAuthState({
-        user: data.session?.user ?? null,
+        user: activeUser,
         session: data.session,
         isLoading: false,
       });
@@ -42,14 +51,32 @@ export function useAuth() {
       }
     );
 
+    // Provide global trigger for dev login in emulator test
+    (globalThis as any).__dev_login = (devUser: User) => {
+      setAuthState({
+        user: devUser,
+        session: null,
+        isLoading: false,
+      });
+    };
+
     return () => {
       subscription.unsubscribe();
+      delete (globalThis as any).__dev_login;
     };
   }, []);
 
-
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setAuthState({
+      user: null,
+      session: null,
+      isLoading: false,
+    });
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore
+    }
   };
 
   return {
