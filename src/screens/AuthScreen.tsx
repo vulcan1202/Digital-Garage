@@ -22,6 +22,8 @@ export const AuthScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const VERIFIED_REDIRECT_URL = 'https://vulcan1202.github.io/Digital-Garage/verified.html';
+
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('輸入不完整', '請輸入電子信箱與密碼。');
@@ -36,15 +38,46 @@ export const AuthScreen: React.FC = () => {
           password: password.trim(),
         });
         if (error) {
+          // 精確使用 error.code 判斷信箱未驗證，提供重新寄發驗證信按鈕
+          if (error.code === 'email_not_confirmed') {
+            Alert.alert(
+              '電子信箱尚未驗證',
+              '此帳號尚未完成信箱啟用驗證。請至您的電子信箱點擊確認信中的連結後再進行登入。\n\n若未收到驗證信，可點擊下方按鈕重新發送。',
+              [
+                { text: '稍後再試', style: 'cancel' },
+                {
+                  text: '重新發送驗證信',
+                  onPress: async () => {
+                    setIsLoading(true);
+                    try {
+                      const { error: resendErr } = await supabase.auth.resend({
+                        type: 'signup',
+                        email: email.trim(),
+                        options: {
+                          emailRedirectTo: VERIFIED_REDIRECT_URL,
+                        },
+                      });
+                      if (resendErr) {
+                        Alert.alert('發送失敗', resendErr.message);
+                      } else {
+                        Alert.alert('已重新發送', '新的驗證信已寄出，請前往信箱查收。');
+                      }
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  },
+                },
+              ]
+            );
+            return;
+          }
+
           let errorTitle = '登入失敗';
           let errorMessage = '帳號或密碼不正確，請重新檢查後再試。';
 
           const msg = (error.message || '').toLowerCase();
           if (msg.includes('invalid login credentials') || msg.includes('invalid_grant')) {
             errorMessage = '帳號或密碼輸入錯誤，請確認後重新輸入。';
-          } else if (msg.includes('email not confirmed')) {
-            errorTitle = '電子信箱尚未驗證';
-            errorMessage = '此帳號尚未完成信箱啟用驗證。請至您的電子信箱點擊確認信中的連結後再進行登入。';
           } else if (msg.includes('user not found')) {
             errorMessage = '找不到此車主帳號，請確認信箱是否正確或先切換至「註冊新車主」。';
           } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
@@ -63,14 +96,20 @@ export const AuthScreen: React.FC = () => {
         const { error, data } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
+          options: {
+            emailRedirectTo: VERIFIED_REDIRECT_URL,
+          },
         });
         if (error) {
           Alert.alert('註冊失敗', error.message || '請確認輸入資訊。');
         } else if (data.session) {
           Alert.alert('註冊成功', '已自動登入數位車庫。');
         } else {
-          Alert.alert('註冊確認', '若已開啟信箱驗證，請至信箱點擊確認信後再登入。');
-          setMode('login');
+          Alert.alert(
+            '驗證信已寄出',
+            `系統已發送驗證信至 ${email.trim()}。\n\n請至信箱點擊連結完成驗證後，返回此畫面輸入帳號密碼登入。`,
+            [{ text: '我知道了', onPress: () => setMode('login') }]
+          );
         }
       }
     } catch (err: unknown) {

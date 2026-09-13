@@ -46,23 +46,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
 });
 
 
-const DEV_TEST_USER: User = {
-  id: '197c7dd3-6cc4-430a-997b-49a6063e3548',
-  app_metadata: { provider: 'email' },
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: '2026-09-13T05:30:18Z',
-  email: 'test_driver@garage.com',
-} as User;
-
 /**
  * 獲取當前登入之使用者
- * 若未登入或 Session 已過期，回傳已在 Supabase auth.users 中登記之測試車主或拋出 AppError.authRequired
+ * 若未登入或 Session 已過期，安全拋出 AppError.authRequired
  */
 export async function requireUser(): Promise<User> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
-    return DEV_TEST_USER;
+    throw AppError.authRequired('請先登入數位車庫帳號');
   }
   return user;
 }

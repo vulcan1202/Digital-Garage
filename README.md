@@ -91,7 +91,12 @@
   - **iOS 平台**：維持既有原生最佳實踐 `KeyboardAvoidingView behavior="padding"`，強制不套用 Android 底部推昇補償，杜絕疊加位移衝突。
 * **空間與導覽適配**：全域 10 個業務 Modal 統一採用 `max-h-[88%]` 彈性頂部餘裕與 `ScrollView contentContainerStyle={{ paddingBottom: 60 }}`，徹底解決三鍵式虛擬鍵盤與全螢幕手勢導覽條環境下的按鈕與輸入框遮擋問題。
 * **車輛選擇清晰高亮**：車庫主畫面（`GarageDashboardScreen`）車輛橫向選單，選取中車輛以鮮明亮橘粗邊框 (`border-2 border-racing-orange`)、發光光暈 (`shadow-racing-orange/40`) 與即時狀態徽章 (`● ACTIVE`) 醒目標示。
-* **純淨登入體驗**：`AuthScreen` 移除任何測試後門提示，採用分類結構化繁體中文錯誤指引（密碼錯誤、未驗證信箱、伺服器異常等）。
+* **純淨登入體驗**：`AuthScreen` 移除任何測試後門提示，採用分類結構化繁體中文錯誤指引（密碼錯誤、查無帳號、伺服器異常等）。
+
+### 2.9 健全 Email 驗證與靜態中繼引導 (Email Verification & Static Web Gateway)
+* **標準 HTTPS 跨平台驗證**：註冊時 `signUp()` 指定 `options.emailRedirectTo` 指向由 GitHub Pages 託管的靜態驗證提示頁面（`https://vulcan1202.github.io/Digital-Garage/verified.html`），完全免除自訂 Scheme 於桌機或特定瀏覽器引發之「無法開啟此網址」相容性問題。
+* **精確代碼判定與補寄機制**：登入時嚴格以 `error.code === 'email_not_confirmed'` 作為判斷基準，跳出彈窗提示車主至信箱收信啟用，並提供「**重新發送驗證信**」快捷呼叫（`supabase.auth.resend`），徹底防止斷點。
+* **安全基準強化**：清理底層 `requireUser()` 假測試車主回退，未驗證帳號受 Supabase Auth 與 RLS 嚴密防護，未登入者安全拋出 `AppError.authRequired`。
 
 ---
 
@@ -221,6 +226,8 @@
 │           └── reminderCalculator.ts        # 保養提醒狀態計算
 ├── 數位車庫 (Digital Garage).sql            # 資料庫 Schema 唯一真理定義檔 (DDL + RLS + View)
 ├── 數位車庫_DigitalGarage.apk               # 最新打包完成之 Release APK 安裝檔
+├── docs/                                    # 靜態文件與 GitHub Pages 部署來源
+│   └── verified.html                        # Email 驗證成功提示頁 (暗黑機油金屬風)
 ├── App.tsx                                  # 應用程式進入點與基礎路由狀態
 ├── app.json                                 # Expo 專案設定檔
 ├── jest.config.js                           # Jest 測試設定檔
