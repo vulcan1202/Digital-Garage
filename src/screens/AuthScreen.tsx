@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { DoubleBezelCard } from '../components/DoubleBezelCard';
+import { isEmailAlreadyRegistered } from '../utils/authHelpers';
 
 export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -104,6 +105,19 @@ export const AuthScreen: React.FC = () => {
             emailRedirectTo: VERIFIED_REDIRECT_URL,
           },
         });
+        // 優先檢查是否為「信箱已被註冊」情境
+        if (isEmailAlreadyRegistered(error, data)) {
+          Alert.alert(
+            '此信箱已被註冊',
+            `電子信箱「${email.trim()}」已經註冊過數位車庫帳號。\n\n請直接使用密碼登入；若尚未完成信箱驗證，可在登入畫面點擊「重新發送驗證信」。`,
+            [
+              { text: '稍後', style: 'cancel' },
+              { text: '前往登入', onPress: () => setMode('login') },
+            ]
+          );
+          return;
+        }
+
         if (error) {
           if (error.code === 'over_email_send_rate_limit') {
             Alert.alert(
