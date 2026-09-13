@@ -58,7 +58,11 @@ export const AuthScreen: React.FC = () => {
                         },
                       });
                       if (resendErr) {
-                        Alert.alert('發送失敗', resendErr.message);
+                        if (resendErr.code === 'over_email_send_rate_limit') {
+                          Alert.alert('發送頻率過高', '系統已在短時間內發送過驗證信件。為防止郵件濫用，請稍候約 1~2 分鐘後再試。');
+                        } else {
+                          Alert.alert('發送失敗', resendErr.message);
+                        }
                       } else {
                         Alert.alert('已重新發送', '新的驗證信已寄出，請前往信箱查收。');
                       }
@@ -101,7 +105,14 @@ export const AuthScreen: React.FC = () => {
           },
         });
         if (error) {
-          Alert.alert('註冊失敗', error.message || '請確認輸入資訊。');
+          if (error.code === 'over_email_send_rate_limit') {
+            Alert.alert(
+              '發送頻率過高',
+              '系統已在短時間內發送過驗證信件。為防止郵件濫用，請稍候約 1~2 分鐘後再試，或先檢查您的垃圾郵件信匣。'
+            );
+          } else {
+            Alert.alert('註冊失敗', error.message || '請確認輸入資訊。');
+          }
         } else if (data.session) {
           Alert.alert('註冊成功', '已自動登入數位車庫。');
         } else {
