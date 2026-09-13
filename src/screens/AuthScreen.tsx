@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
@@ -102,9 +103,11 @@ export const AuthScreen: React.FC = () => {
       >
         {/* Brand / Header */}
         <View className="items-center mb-8">
-          <View className="w-16 h-16 rounded-2xl bg-zinc-900 border border-racing-orange/40 items-center justify-center mb-4 shadow-lg shadow-racing-orange/20">
-            <Ionicons name="car-sport" size={34} color="#ff6b00" />
-          </View>
+          <Image
+            source={require('../../assets/icon.png')}
+            className="w-24 h-24 rounded-3xl mb-4 shadow-2xl border border-amber-400/30"
+            resizeMode="cover"
+          />
           <View className="px-3 py-1 rounded-full bg-racing-orange/10 border border-racing-orange/30 mb-2">
             <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange font-bold uppercase">
               HIGH-PERFORMANCE TELEMETRY

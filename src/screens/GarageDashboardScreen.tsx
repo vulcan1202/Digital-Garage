@@ -236,13 +236,20 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
     <ScrollView className="flex-1 bg-garage-bg" contentContainerStyle={{ paddingBottom: 60 }}>
       {/* 頂部 Header */}
       <View className="pt-14 px-5 pb-4 flex-row items-center justify-between border-b border-white/[0.06]">
-        <View>
-          <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold">
-            DIGITAL GARAGE TELEMETRY
-          </Text>
-          <Text className="text-2xl font-bold text-white tracking-tight mt-0.5">
-            數位車庫座艙
-          </Text>
+        <View className="flex-row items-center gap-3">
+          <Image
+            source={require('../../assets/icon.png')}
+            className="w-11 h-11 rounded-xl border border-amber-400/30 shadow-md"
+            resizeMode="cover"
+          />
+          <View>
+            <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold">
+              DIGITAL GARAGE TELEMETRY
+            </Text>
+            <Text className="text-2xl font-bold text-white tracking-tight mt-0.5">
+              數位車庫座艙
+            </Text>
+          </View>
         </View>
 
         {/* 狀態指示燈與登出按鈕 */}
