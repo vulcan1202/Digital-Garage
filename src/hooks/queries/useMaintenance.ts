@@ -1,0 +1,61 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { maintenanceService, MaintenanceRecordWithPhotos } from '../../services/maintenanceService';
+import { MaintenanceRecordInsert } from '../../types/database';
+import { queryKeys } from './queryKeys';
+
+/**
+ * 保養維修紀錄清單 Query Hook
+ */
+export function useMaintenanceRecords(vehicleId: number) {
+  return useQuery({
+    queryKey: queryKeys.maintenance(vehicleId),
+    queryFn: () => maintenanceService.getMaintenanceRecords(vehicleId),
+    enabled: typeof vehicleId === 'number' && vehicleId > 0,
+  });
+}
+
+/**
+ * 新增保養維修紀錄 Mutation Hook (包含照片連結寫入)
+ */
+export function useCreateMaintenanceRecord() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      recordData,
+      photoUrls,
+    }: {
+      recordData: MaintenanceRecordInsert;
+      photoUrls?: string[];
+    }) => maintenanceService.createRecordWithPhotos(recordData, photoUrls),
+    onSuccess: (newRecord) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.maintenance(newRecord.vehicle_id),
+      });
+      // 同步刷新時間軸與車輛費用
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(newRecord.vehicle_id),
+      });
+    },
+  });
+}
+
+/**
+ * 刪除保養維修紀錄 Mutation Hook
+ */
+export function useDeleteMaintenanceRecord() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, vehicleId }: { id: number; vehicleId: number }) =>
+      maintenanceService.deleteMaintenanceRecord(id),
+    onSuccess: (_, { vehicleId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.maintenance(vehicleId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(vehicleId),
+      });
+    },
+  });
+}

@@ -1,0 +1,813 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { DoubleBezelCard } from '../components/DoubleBezelCard';
+import { useVehicles, useDeleteVehicle } from '../hooks/queries/useVehicles';
+import { useRefuels } from '../hooks/queries/useFuel';
+import { useReminders, useCompleteReminder, useDeleteReminder } from '../hooks/queries/useReminders';
+import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
+import { useMaintenanceRecords } from '../hooks/queries/useMaintenance';
+import { calculateVehicleTotalCost, calculateAverageCostPerKm } from '../utils/calculators/costCalculator';
+import { calculateAverageFuelCostPerKm, calculateFuelEconomy } from '../utils/calculators/fuelCalculator';
+import { evaluateReminderStatus } from '../utils/calculators/reminderCalculator';
+import { ModificationRow } from '../types/database';
+
+import { AddVehicleModal } from '../components/modals/AddVehicleModal';
+import { EditVehicleModal } from '../components/modals/EditVehicleModal';
+import { AddRefuelModal } from '../components/modals/AddRefuelModal';
+import { AddMaintenanceModal } from '../components/modals/AddMaintenanceModal';
+import { AddReminderModal } from '../components/modals/AddReminderModal';
+import { AddModificationModal } from '../components/modals/AddModificationModal';
+import { EditModificationModal } from '../components/modals/EditModificationModal';
+
+interface GarageDashboardScreenProps {
+  onNavigateToTimeline: (vehicleId: number) => void;
+  onNavigateToModDetail: (modId: number) => void;
+  onSignOut?: () => void;
+}
+
+export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
+  onNavigateToTimeline,
+  onNavigateToModDetail,
+  onSignOut,
+}) => {
+  const { data: vehicles = [], isLoading: isLoadingVehicles } = useVehicles();
+  const deleteVehicleMutation = useDeleteVehicle();
+  const completeReminderMutation = useCompleteReminder();
+  const deleteReminderMutation = useDeleteReminder();
+  const deleteModMutation = useDeleteModification();
+
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+
+  // Modals state
+  const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+  const [isEditVehicleOpen, setIsEditVehicleOpen] = useState(false);
+  const [isAddRefuelOpen, setIsAddRefuelOpen] = useState(false);
+  const [isAddMaintenanceOpen, setIsAddMaintenanceOpen] = useState(false);
+  const [isAddReminderOpen, setIsAddReminderOpen] = useState(false);
+
+  const [isAddModOpen, setIsAddModOpen] = useState(false);
+  const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
+
+  // 當車輛清單加載後，預設選取第一台車
+  const activeVehicle = useMemo(() => {
+    if (!vehicles.length) return null;
+    if (selectedVehicleId) {
+      const found = vehicles.find((v) => v.id === selectedVehicleId);
+      if (found) return found;
+    }
+    return vehicles[0];
+  }, [vehicles, selectedVehicleId]);
+
+  const activeId = activeVehicle ? activeVehicle.id : 0;
+
+  // 取得選取車輛的各項業務資料以進行遙測計算
+  const { data: refuels = [] } = useRefuels(activeId);
+  const { data: maintenanceRecords = [] } = useMaintenanceRecords(activeId);
+  const { data: reminders = [] } = useReminders(activeId);
+  const { data: modifications = [] } = useModifications(activeId);
+
+  // 遙測統計計算 (純函式 Calculators)
+  const costStats = useMemo(() => {
+    return calculateVehicleTotalCost(refuels, maintenanceRecords, modifications);
+  }, [refuels, maintenanceRecords, modifications]);
+
+  const minMileage = useMemo(() => {
+    if (!refuels.length) return 0;
+    return Math.min(...refuels.map((r) => r.mileage));
+  }, [refuels]);
+
+  const averageCostPerKm = useMemo(() => {
+    if (!activeVehicle) return null;
+    return calculateAverageCostPerKm(costStats.totalCost, minMileage, activeVehicle.current_mileage);
+  }, [costStats.totalCost, minMileage, activeVehicle]);
+
+  const fuelStats = useMemo(() => {
+    const avgCostKm = calculateAverageFuelCostPerKm(refuels);
+    let latestEconomy = null;
+    if (refuels.length >= 2) {
+      latestEconomy = calculateFuelEconomy(refuels[0], refuels[1]);
+    }
+    return { avgCostKm, latestEconomy };
+  }, [refuels]);
+
+  // 保養提醒狀態過濾與統計
+  const reminderEvals = useMemo(() => {
+    if (!activeVehicle) return [];
+    return reminders.map((r) => ({
+      reminder: r,
+      evaluation: evaluateReminderStatus(r, activeVehicle.current_mileage),
+    }));
+  }, [reminders, activeVehicle]);
+
+  const alertCounts = useMemo(() => {
+    let overdue = 0;
+    let dueSoon = 0;
+    reminderEvals.forEach((item) => {
+      if (item.evaluation.status === 'OVERDUE') overdue++;
+      if (item.evaluation.status === 'DUE_SOON') dueSoon++;
+    });
+    return { overdue, dueSoon };
+  }, [reminderEvals]);
+
+  const handleDeleteVehicle = () => {
+    if (!activeVehicle) return;
+    Alert.alert(
+      '確認移除愛車？',
+      `此操作將永久刪除「${activeVehicle.brand} ${activeVehicle.model}」及其所有加油、保修、改裝紀錄（SQL 級聯刪除），無法還原！`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確認刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteVehicleMutation.mutateAsync(activeVehicle.id);
+              setSelectedVehicleId(null);
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : '刪除車輛失敗';
+              Alert.alert('刪除失敗', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCompleteReminder = (reminderId: number, itemName: string) => {
+    if (!activeVehicle) return;
+    const today = new Date().toISOString().split('T')[0];
+    Alert.alert(
+      '標記保養完成',
+      `確認已完成「${itemName}」？此操作將基準里程更新為目前車輛里程 (${activeVehicle.current_mileage} km)，起算下一週期。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確認完成',
+          onPress: async () => {
+            try {
+              await completeReminderMutation.mutateAsync({
+                id: reminderId,
+                vehicleId: activeVehicle.id,
+                completedMileage: activeVehicle.current_mileage,
+                completedDate: today,
+              });
+              Alert.alert('已更新', '保養基準已成功前移！');
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : '更新失敗';
+              Alert.alert('更新失敗', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteReminder = (reminderId: number, itemName: string) => {
+    if (!activeVehicle) return;
+    Alert.alert('刪除提醒', `確定要刪除「${itemName}」提醒雷達？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteReminderMutation.mutateAsync({
+              id: reminderId,
+              vehicleId: activeVehicle.id,
+            });
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : '刪除失敗';
+            Alert.alert('刪除失敗', msg);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteMod = (modId: number, itemName: string) => {
+    if (!activeVehicle) return;
+    Alert.alert(
+      '刪除改裝品',
+      `確定要刪除「${itemName}」及其所有調校設定嗎？此操作無法還原。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteModMutation.mutateAsync({
+                id: modId,
+                vehicleId: activeVehicle.id,
+              });
+              Alert.alert('已刪除', '改裝品已自車庫中移除。');
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : '刪除失敗';
+              Alert.alert('刪除失敗', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+
+  if (isLoadingVehicles) {
+    return (
+      <View className="flex-1 bg-garage-bg items-center justify-center">
+        <ActivityIndicator size="large" color="#ff6b00" />
+        <Text className="text-metal-400 mt-4 text-xs tracking-widest uppercase">
+          Initializing Digital Garage...
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView className="flex-1 bg-garage-bg" contentContainerStyle={{ paddingBottom: 60 }}>
+      {/* 頂部 Header */}
+      <View className="pt-14 px-5 pb-4 flex-row items-center justify-between border-b border-white/[0.06]">
+        <View>
+          <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold">
+            DIGITAL GARAGE TELEMETRY
+          </Text>
+          <Text className="text-2xl font-bold text-white tracking-tight mt-0.5">
+            數位車庫座艙
+          </Text>
+        </View>
+
+        {/* 狀態指示燈與登出按鈕 */}
+        <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/10">
+            <View className="w-2 h-2 rounded-full bg-racing-green mr-1.5" />
+            <Text className="text-[11px] text-metal-300 font-mono">ONLINE</Text>
+          </View>
+
+          {onSignOut && (
+            <TouchableOpacity
+              onPress={onSignOut}
+              className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
+            >
+              <Ionicons name="log-out-outline" size={16} color="#a1a1aa" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* 車輛切換橫向選單 (Horizontal Selector) */}
+      <View className="mt-5">
+        <View className="px-5 mb-3 flex-row items-center justify-between">
+          <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
+            ACTIVE FLEET ({vehicles.length})
+          </Text>
+          <TouchableOpacity
+            onPress={() => setIsAddVehicleOpen(true)}
+            className="flex-row items-center bg-racing-orange/15 px-2.5 py-1 rounded-full border border-racing-orange/30"
+          >
+            <Ionicons name="add" size={13} color="#ff6b00" />
+            <Text className="text-[11px] text-racing-orange font-bold ml-1 font-mono">
+              新增愛車
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+        >
+          {vehicles.map((v) => {
+            const isSelected = activeVehicle?.id === v.id;
+            return (
+              <TouchableOpacity
+                key={v.id}
+                onPress={() => setSelectedVehicleId(v.id)}
+                activeOpacity={0.85}
+              >
+                <DoubleBezelCard
+                  className={`w-64 ${isSelected ? 'border-racing-orange/60' : 'border-white/10'}`}
+                  innerClassName={isSelected ? 'bg-zinc-900/90' : 'bg-garage-card'}
+                >
+                  <View className="h-28 w-full rounded-lg overflow-hidden bg-zinc-950 mb-3 relative">
+                    {v.cover_url ? (
+                      <Image
+                        source={{ uri: v.cover_url }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View className="w-full h-full items-center justify-center bg-white/[0.02]">
+                        <Ionicons name="car-sport-outline" size={40} color="#52525b" />
+                      </View>
+                    )}
+                    <View className="absolute top-2 right-2 bg-black/70 px-2 py-0.5 rounded border border-white/10">
+                      <Text className="text-[10px] font-mono text-metal-200">
+                        {v.year ? `${v.year}` : 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text className="text-white font-bold text-base tracking-tight" numberOfLines={1}>
+                    {v.brand} {v.model}
+                  </Text>
+
+                  <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-white/[0.06]">
+                    <Text className="text-[11px] text-metal-400 font-mono">ODOMETER</Text>
+                    <Text className="text-xs font-mono font-semibold text-metal-100">
+                      {v.current_mileage.toLocaleString()} KM
+                    </Text>
+                  </View>
+                </DoubleBezelCard>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* 車輛遙測儀表面板 (Telemetry Grid - Visual Density: 7) */}
+      {activeVehicle && (
+        <View className="px-5 mt-6">
+          <View className="flex-row items-center justify-between mb-3">
+            <View>
+              <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
+                VEHICLE TELEMETRY
+              </Text>
+              <Text className="text-[11px] font-mono text-metal-500">
+                ID: DG-{String(activeVehicle.id).padStart(4, '0')} · {activeVehicle.brand} {activeVehicle.model}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-2">
+              <TouchableOpacity
+                onPress={() => setIsEditVehicleOpen(true)}
+                className="flex-row items-center bg-white/10 px-2.5 py-1 rounded-full border border-white/20"
+              >
+                <Ionicons name="pencil-outline" size={12} color="#fff" />
+                <Text className="text-[10px] font-mono text-white ml-1">編輯車輛</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDeleteVehicle}
+                className="flex-row items-center bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20"
+              >
+                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                <Text className="text-[10px] font-mono text-racing-red ml-1">刪除車輛</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+
+
+          {/* 4 核心數據儀表 (2x2 Grid) */}
+          <View className="flex-row flex-wrap gap-2.5">
+            {/* 總花費 */}
+            <View className="flex-1 min-w-[45%]">
+              <DoubleBezelCard innerClassName="p-3.5">
+                <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
+                  TOTAL EXPENSE
+                </Text>
+                <Text className="text-xl font-bold text-white font-mono mt-1">
+                  ${costStats.totalCost.toLocaleString()}
+                </Text>
+                <Text className="text-[10px] text-metal-500 mt-1">
+                  改裝 + 保修 + 加油總計
+                </Text>
+              </DoubleBezelCard>
+            </View>
+
+            {/* 每公里成本 */}
+            <View className="flex-1 min-w-[45%]">
+              <DoubleBezelCard innerClassName="p-3.5">
+                <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
+                  COST PER KM
+                </Text>
+                <Text className="text-xl font-bold text-racing-orange font-mono mt-1">
+                  {averageCostPerKm !== null ? `$${averageCostPerKm}` : '--'}
+                </Text>
+                <Text className="text-[10px] text-metal-500 mt-1">
+                  全車公里攤提
+                </Text>
+              </DoubleBezelCard>
+            </View>
+
+            {/* 平均油耗 */}
+            <View className="flex-1 min-w-[45%]">
+              <DoubleBezelCard innerClassName="p-3.5">
+                <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
+                  FUEL ECONOMY
+                </Text>
+                <Text className="text-xl font-bold text-racing-blue font-mono mt-1">
+                  {fuelStats.latestEconomy
+                    ? `${fuelStats.latestEconomy.kmPerLiter} km/L`
+                    : '--'}
+                </Text>
+                <Text className="text-[10px] text-metal-500 mt-1">
+                  {fuelStats.avgCostKm ? `平均 $${fuelStats.avgCostKm}/km` : '需至少兩筆加油'}
+                </Text>
+              </DoubleBezelCard>
+            </View>
+
+            {/* 改裝品項數量 */}
+            <View className="flex-1 min-w-[45%]">
+              <DoubleBezelCard innerClassName="p-3.5">
+                <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
+                  MODIFICATIONS
+                </Text>
+                <Text className="text-xl font-bold text-white font-mono mt-1">
+                  {modifications.length} <Text className="text-xs text-metal-400 font-normal">ITEMS</Text>
+                </Text>
+                <Text className="text-[10px] text-metal-500 mt-1">
+                  改裝投資 ${costStats.modificationPurchaseCost.toLocaleString()}
+                </Text>
+              </DoubleBezelCard>
+            </View>
+          </View>
+
+          {/* 保養提醒警示條 (Reminders Telemetry Bar) */}
+          <View className="mt-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center">
+                <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                  MAINTENANCE RADAR
+                </Text>
+                {alertCounts.overdue > 0 && (
+                  <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
+                    <Text className="text-[10px] font-mono text-racing-red font-bold">
+                      {alertCounts.overdue} OVERDUE
+                    </Text>
+                  </View>
+                )}
+                {alertCounts.dueSoon > 0 && (
+                  <View className="bg-racing-amber/20 px-2 py-0.5 rounded-full border border-racing-amber/40">
+                    <Text className="text-[10px] font-mono text-racing-amber font-bold">
+                      {alertCounts.dueSoon} DUE SOON
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {reminderEvals.length === 0 ? (
+              <DoubleBezelCard innerClassName="py-6 items-center">
+                <Ionicons name="shield-checkmark-outline" size={32} color="#10b981" />
+                <Text className="text-metal-400 text-xs mt-2 font-mono">所有保養項目均在健康範圍內</Text>
+              </DoubleBezelCard>
+            ) : (
+              <View className="gap-2">
+                {reminderEvals.slice(0, 5).map(({ reminder, evaluation }) => {
+                  let statusBg = 'bg-white/[0.02] border-white/10';
+                  let badgeColor = 'text-racing-green';
+                  let badgeBg = 'bg-racing-green/10 border-racing-green/30';
+
+                  if (evaluation.status === 'OVERDUE') {
+                    statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                    badgeColor = 'text-racing-red';
+                    badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                  } else if (evaluation.status === 'DUE_SOON') {
+                    statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
+                    badgeColor = 'text-racing-amber';
+                    badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
+                  }
+
+                  return (
+                    <View
+                      key={reminder.id}
+                      className={`p-3.5 rounded-xl border flex-row items-center justify-between ${statusBg}`}
+                    >
+                      <View className="flex-1 mr-3">
+                        <Text className="text-white font-semibold text-sm">
+                          {reminder.item_name}
+                        </Text>
+                        <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
+                          {evaluation.remainingMileage !== null
+                            ? `剩餘 ${evaluation.remainingMileage.toLocaleString()} km`
+                            : ''}
+                          {evaluation.remainingMileage !== null && evaluation.remainingDays !== null ? ' · ' : ''}
+                          {evaluation.remainingDays !== null
+                            ? `剩餘 ${evaluation.remainingDays} 天`
+                            : ''}
+                        </Text>
+                      </View>
+
+                      <View className="flex-row items-center gap-1.5">
+                        <TouchableOpacity
+                          onPress={() => handleCompleteReminder(reminder.id, reminder.item_name)}
+                          className="px-2 py-1 bg-white/10 rounded border border-white/20"
+                        >
+                          <Text className="text-[10px] font-mono text-white font-semibold">完成保養</Text>
+                        </TouchableOpacity>
+
+                        <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
+                          <Text className={`text-[10px] font-mono font-bold ${badgeColor}`}>
+                            {evaluation.status}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={() => handleDeleteReminder(reminder.id, reminder.item_name)}
+                          className="p-1 rounded bg-red-500/10 border border-red-500/20"
+                        >
+                          <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* 改裝品清單 (Modifications Fleet Specs - 可編輯) */}
+          <View className="mt-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center">
+                <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                  MODIFICATIONS LIST (改裝清單)
+                </Text>
+                <View className="bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/40">
+                  <Text className="text-[10px] font-mono text-purple-300 font-bold">
+                    {modifications.length} ITEMS
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setIsAddModOpen(true)}
+                className="flex-row items-center bg-purple-500/15 px-2.5 py-1 rounded-full border border-purple-500/30"
+              >
+                <Ionicons name="add" size={13} color="#c084fc" />
+                <Text className="text-[11px] text-purple-300 font-bold ml-1 font-mono">
+                  新增改裝
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {modifications.length === 0 ? (
+              <DoubleBezelCard innerClassName="py-6 items-center">
+                <MaterialCommunityIcons name="car-wrench" size={32} color="#a855f7" />
+                <Text className="text-metal-400 text-xs mt-2 font-mono">
+                  此車輛尚未登錄任何改裝品套件
+                </Text>
+              </DoubleBezelCard>
+            ) : (
+              <View className="gap-2.5">
+                {modifications.map((mod) => {
+                  const totalModCost =
+                    (Number(mod.purchase_price) || 0) + (Number(mod.install_price) || 0);
+                  return (
+                    <View
+                      key={mod.id}
+                      className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]"
+                    >
+                      <View className="flex-row items-start justify-between">
+                        <View className="flex-1 mr-2">
+                          <View className="flex-row items-center gap-2 mb-1">
+                            <View className="px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/30">
+                              <Text className="text-[10px] font-mono text-purple-400 font-bold uppercase">
+                                {mod.category}
+                              </Text>
+                            </View>
+                            {mod.shop_name ? (
+                              <Text className="text-[10px] text-metal-500 font-mono" numberOfLines={1}>
+                                {mod.shop_name}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <Text className="text-white font-bold text-sm tracking-tight">
+                            {mod.item_name}
+                          </Text>
+
+                          {(mod.brand || mod.model) && (
+                            <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
+                              {[mod.brand, mod.model].filter(Boolean).join(' · ')}
+                            </Text>
+                          )}
+                        </View>
+
+                        <View className="items-end">
+                          <Text className="text-xs font-mono font-bold text-white">
+                            ${totalModCost.toLocaleString()}
+                          </Text>
+                          <Text className="text-[9px] text-metal-500 font-mono">
+                            {mod.install_date || mod.purchase_date || '未註記日期'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06]">
+                        <View className="flex-row items-center">
+                          {mod.install_mileage !== null ? (
+                            <Text className="text-[10px] font-mono text-metal-400">
+                              @{mod.install_mileage.toLocaleString()} KM
+                            </Text>
+                          ) : (
+                            <Text className="text-[10px] font-mono text-metal-500">標準配置</Text>
+                          )}
+                        </View>
+
+                        <View className="flex-row items-center gap-1.5">
+                          <TouchableOpacity
+                            onPress={() => setEditingMod(mod)}
+                            className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
+                          >
+                            <Ionicons name="pencil" size={11} color="#fff" />
+                            <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
+                              編輯
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => onNavigateToModDetail(mod.id)}
+                            className="px-2.5 py-1 bg-purple-500/20 rounded-md border border-purple-500/40 flex-row items-center"
+                          >
+                            <MaterialCommunityIcons name="tune-vertical" size={11} color="#c084fc" />
+                            <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
+                              調校
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => handleDeleteMod(mod.id, mod.item_name)}
+                            className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
+                          >
+                            <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* 快捷遙測記錄中樞 (Telemetry Action Deck - Visual Density: 7) */}
+          <View className="mt-6">
+            <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mb-3">
+              TELEMETRY OPERATIONS (記錄發送)
+            </Text>
+
+            <View className="flex-row gap-2.5">
+              <TouchableOpacity
+                onPress={() => setIsAddRefuelOpen(true)}
+                className="flex-1 bg-zinc-900/90 border border-racing-blue/40 p-3 rounded-2xl items-center"
+              >
+                <View className="w-8 h-8 rounded-full bg-racing-blue/20 items-center justify-center mb-1.5">
+                  <Ionicons name="water" size={16} color="#007aff" />
+                </View>
+                <Text className="text-white font-mono font-bold text-xs">+ 加油</Text>
+                <Text className="text-[10px] font-mono text-metal-500 mt-0.5">油耗記錄</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsAddMaintenanceOpen(true)}
+                className="flex-1 bg-zinc-900/90 border border-racing-orange/40 p-3 rounded-2xl items-center"
+              >
+                <View className="w-8 h-8 rounded-full bg-racing-orange/20 items-center justify-center mb-1.5">
+                  <Ionicons name="construct" size={16} color="#ff6b00" />
+                </View>
+                <Text className="text-white font-mono font-bold text-xs">+ 保修</Text>
+                <Text className="text-[10px] font-mono text-metal-500 mt-0.5">工單履歷</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsAddReminderOpen(true)}
+                className="flex-1 bg-zinc-900/90 border border-racing-amber/40 p-3 rounded-2xl items-center"
+              >
+                <View className="w-8 h-8 rounded-full bg-racing-amber/20 items-center justify-center mb-1.5">
+                  <Ionicons name="pulse" size={16} color="#f59e0b" />
+                </View>
+
+                <Text className="text-white font-mono font-bold text-xs">+ 提醒</Text>
+                <Text className="text-[10px] font-mono text-metal-500 mt-0.5">週期監測</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsAddModOpen(true)}
+                className="flex-1 bg-zinc-900/90 border border-purple-500/40 p-3 rounded-2xl items-center"
+              >
+                <View className="w-8 h-8 rounded-full bg-purple-500/20 items-center justify-center mb-1.5">
+                  <MaterialCommunityIcons name="car-wrench" size={16} color="#a855f7" />
+                </View>
+                <Text className="text-white font-mono font-bold text-xs">+ 改裝</Text>
+                <Text className="text-[10px] font-mono text-metal-500 mt-0.5">套件入庫</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+
+          {/* 快速導航與操作按鈕 (Button-in-Button / Island CTA) */}
+          <View className="mt-8 gap-3">
+            {/* 導航至車輛時序牆 */}
+            <TouchableOpacity
+              onPress={() => onNavigateToTimeline(activeVehicle.id)}
+              activeOpacity={0.88}
+              className="rounded-full bg-racing-orange px-6 py-4 flex-row items-center justify-between shadow-lg"
+            >
+              <View>
+                <Text className="text-black font-bold text-base tracking-tight">
+                  進入愛車動態時間軸牆
+                </Text>
+                <Text className="text-black/70 text-[11px] font-medium">
+                  即時串接 SQL View 混合動態流
+                </Text>
+              </View>
+
+              {/* Nested Circle Icon (Button-in-Button) */}
+              <View className="w-9 h-9 rounded-full bg-black/15 items-center justify-center">
+                <Ionicons name="arrow-forward" size={18} color="#000" />
+              </View>
+            </TouchableOpacity>
+
+            {/* 導航至改裝品詳細 (若有改裝品) */}
+            {modifications.length > 0 && (
+              <TouchableOpacity
+                onPress={() => onNavigateToModDetail(modifications[0].id)}
+                activeOpacity={0.88}
+                className="rounded-full bg-white/[0.08] px-6 py-3.5 flex-row items-center justify-between border border-white/10"
+              >
+                <View>
+                  <Text className="text-white font-semibold text-sm">
+                    調校參數管理: {modifications[0].item_name}
+                  </Text>
+                  <Text className="text-metal-400 text-[11px]">
+                    檢視通用設定參數與版本控制
+                  </Text>
+                </View>
+
+                {/* Nested Circle Icon */}
+                <View className="w-8 h-8 rounded-full bg-white/10 items-center justify-center">
+                  <MaterialCommunityIcons name="tune-vertical" size={16} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* 業務 CRUD 模態窗群組 */}
+      <AddVehicleModal
+        visible={isAddVehicleOpen}
+        onClose={() => setIsAddVehicleOpen(false)}
+        onCreated={(newId) => setSelectedVehicleId(newId)}
+      />
+
+      {activeVehicle && (
+        <>
+          <EditVehicleModal
+            visible={isEditVehicleOpen}
+            vehicle={activeVehicle}
+            onClose={() => setIsEditVehicleOpen(false)}
+          />
+
+          <AddRefuelModal
+            visible={isAddRefuelOpen}
+            vehicleId={activeVehicle.id}
+            currentVehicleMileage={activeVehicle.current_mileage}
+            onClose={() => setIsAddRefuelOpen(false)}
+          />
+
+
+          <AddMaintenanceModal
+            visible={isAddMaintenanceOpen}
+            vehicleId={activeVehicle.id}
+            currentVehicleMileage={activeVehicle.current_mileage}
+            onClose={() => setIsAddMaintenanceOpen(false)}
+          />
+
+          <AddReminderModal
+            visible={isAddReminderOpen}
+            vehicleId={activeVehicle.id}
+            currentVehicleMileage={activeVehicle.current_mileage}
+            onClose={() => setIsAddReminderOpen(false)}
+          />
+
+          <AddModificationModal
+            visible={isAddModOpen}
+            vehicleId={activeVehicle.id}
+            currentVehicleMileage={activeVehicle.current_mileage}
+            onClose={() => setIsAddModOpen(false)}
+          />
+
+          <EditModificationModal
+            visible={!!editingMod}
+            modification={editingMod}
+            onClose={() => setEditingMod(null)}
+          />
+        </>
+      )}
+    </ScrollView>
+  );
+};
+

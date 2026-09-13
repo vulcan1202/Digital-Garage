@@ -1,0 +1,136 @@
+import { supabase, requireUser } from '../lib/supabase';
+import { ReminderRow, ReminderInsert, ReminderUpdate } from '../types/database';
+import { handleServiceCall, AppError } from './errors/AppError';
+
+export const reminderService = {
+  /**
+   * 獲取指定車輛的所有保養提醒
+   */
+  async getReminders(vehicleId: number): Promise<ReminderRow[]> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const { data, error } = await supabase
+        .from('Reminders')
+        .select('*')
+        .eq('vehicle_id', vehicleId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    });
+  },
+
+  /**
+   * 新增保養提醒
+   * 依 SQL 約束：interval_km 與 interval_months 至少一者必須為正整數 (> 0)
+   */
+  async addReminder(reminderData: ReminderInsert): Promise<ReminderRow> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const hasValidKm = typeof reminderData.interval_km === 'number' && reminderData.interval_km > 0;
+      const hasValidMonths = typeof reminderData.interval_months === 'number' && reminderData.interval_months > 0;
+
+      if (!hasValidKm && !hasValidMonths) {
+        throw AppError.validation('保養週期必須至少指定「公里數」或「月份」其中一項為正整數');
+      }
+
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('Reminders')
+        .insert({
+          ...reminderData,
+          created_at: reminderData.created_at ?? now,
+          updated_at: reminderData.updated_at ?? now,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    });
+  },
+
+  /**
+   * 更新保養提醒
+   */
+  async updateReminder(id: number, reminderData: ReminderUpdate): Promise<ReminderRow> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      if (
+        (reminderData.interval_km !== undefined || reminderData.interval_months !== undefined) &&
+        reminderData.interval_km !== undefined &&
+        reminderData.interval_months !== undefined
+      ) {
+        const hasValidKm = typeof reminderData.interval_km === 'number' && reminderData.interval_km > 0;
+        const hasValidMonths = typeof reminderData.interval_months === 'number' && reminderData.interval_months > 0;
+        if (!hasValidKm && !hasValidMonths) {
+          throw AppError.validation('保養週期必須至少指定「公里數」或「月份」其中一項為正整數');
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('Reminders')
+        .update({
+          ...reminderData,
+          updated_at: reminderData.updated_at ?? new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    });
+  },
+
+  /**
+   * 完成保養提醒 (更新基準前移)
+   * 業務鐵律：完成後，下一個週期以 last_completed_* 作為新基準，而非重新使用 base_*
+   */
+  async completeReminder(
+    id: number,
+    completedMileage: number,
+    completedDate: string,
+    maintenanceRecordId?: number
+  ): Promise<ReminderRow> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const updatePayload: ReminderUpdate = {
+        last_completed_mileage: completedMileage,
+        last_completed_date: completedDate,
+        last_maintenance_record_id: maintenanceRecordId ?? null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('Reminders')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    });
+  },
+
+  /**
+   * 刪除保養提醒
+   */
+  async deleteReminder(id: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const { error } = await supabase
+        .from('Reminders')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    });
+  },
+};
