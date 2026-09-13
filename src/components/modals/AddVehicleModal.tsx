@@ -27,11 +27,11 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   onClose,
   onCreated,
 }) => {
-  const [brand, setBrand] = useState('Porsche');
-  const [model, setModel] = useState('911 GT3');
-  const [year, setYear] = useState('2023');
-  const [currentMileage, setCurrentMileage] = useState('15000');
-  const [purchaseDate, setPurchaseDate] = useState('2023-08-15');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState('');
+  const [currentMileage, setCurrentMileage] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
 
   const createVehicleMutation = useCreateVehicle();
 
