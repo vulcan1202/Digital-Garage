@@ -369,7 +369,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
       {/* 編輯對話框掛載 */}
       <EditRefuelModal
         visible={!!editingRefuel}
-        refuel={editingRefuel}
+        record={editingRefuel}
         onClose={() => {
           setEditingRefuel(null);
           refetch();

@@ -62,11 +62,13 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     }
 
     try {
+      const finalMileage = isNaN(mileageNum) ? 0 : mileageNum;
       const created = await createVehicleMutation.mutateAsync({
         brand: brand.trim(),
         model: model.trim(),
         year: yearNum,
-        current_mileage: isNaN(mileageNum) ? 0 : mileageNum,
+        initial_mileage: finalMileage,
+        current_mileage: finalMileage,
         purchase_date: purchaseDate.trim() || null,
       });
 

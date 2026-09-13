@@ -1,27 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
+  Modal,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useUpdateRefuel } from '../../hooks/queries/useFuel';
-import { FuelType, RefuelRow } from '../../types/database';
+import { RefuelRow, FuelType } from '../../types/database';
 
 interface EditRefuelModalProps {
   visible: boolean;
-  refuel: RefuelRow | null;
   onClose: () => void;
+  record: RefuelRow | null;
+  onSuccess?: () => void;
 }
 
-const FUEL_TYPES: { label: string; value: FuelType }[] = [
+const FUEL_OPTIONS: { label: string; value: FuelType }[] = [
   { label: '98 無鉛', value: 'gasoline_98' },
   { label: '95 無鉛', value: 'gasoline_95' },
   { label: '92 無鉛', value: 'gasoline_92' },
@@ -34,267 +35,235 @@ const FUEL_TYPES: { label: string; value: FuelType }[] = [
 
 export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
   visible,
-  refuel,
   onClose,
+  record,
+  onSuccess,
 }) => {
+  const updateRefuel = useUpdateRefuel();
+
   const [refuelDate, setRefuelDate] = useState('');
   const [mileage, setMileage] = useState('');
   const [volume, setVolume] = useState('');
-  const [totalCost, setTotalCost] = useState('');
   const [pricePerUnit, setPricePerUnit] = useState('');
-  const [selectedFuelType, setSelectedFuelType] = useState<FuelType>('gasoline_98');
-
-  const updateRefuelMutation = useUpdateRefuel();
+  const [totalCost, setTotalCost] = useState('');
+  const [fuelType, setFuelType] = useState<FuelType>('gasoline_95');
 
   useEffect(() => {
-    if (refuel) {
-      setRefuelDate(refuel.refuel_date || '');
-      setMileage(typeof refuel.mileage === 'number' ? String(refuel.mileage) : '');
-      setVolume(refuel.volume !== null && refuel.volume !== undefined ? String(refuel.volume) : '');
-      setTotalCost(
-        refuel.total_cost !== null && refuel.total_cost !== undefined ? String(refuel.total_cost) : ''
-      );
-      setPricePerUnit(
-        refuel.price_per_unit !== null && refuel.price_per_unit !== undefined
-          ? String(refuel.price_per_unit)
-          : ''
-      );
-      setSelectedFuelType(refuel.fuel_type || 'gasoline_98');
+    if (record && visible) {
+      setRefuelDate(record.refuel_date ? record.refuel_date.substring(0, 10) : new Date().toISOString().substring(0, 10));
+      setMileage(record.mileage != null ? String(record.mileage) : '');
+      setVolume(record.volume != null ? String(record.volume) : '');
+      setPricePerUnit(record.price_per_unit != null ? String(record.price_per_unit) : '');
+      setTotalCost(record.total_cost != null ? String(record.total_cost) : '');
+      setFuelType(record.fuel_type || 'gasoline_95');
     }
-  }, [refuel]);
+  }, [record, visible]);
 
-  const handleVolumeChange = (text: string) => {
-    setVolume(text);
-    const v = parseFloat(text);
+  // 自動計算總金額
+  const handleVolumeChange = (val: string) => {
+    setVolume(val);
+    const v = parseFloat(val);
     const p = parseFloat(pricePerUnit);
     if (!isNaN(v) && !isNaN(p) && v > 0 && p > 0) {
       setTotalCost((v * p).toFixed(2));
     }
   };
 
-  const handlePricePerUnitChange = (text: string) => {
-    setPricePerUnit(text);
-    const p = parseFloat(text);
+  const handlePriceChange = (val: string) => {
+    setPricePerUnit(val);
     const v = parseFloat(volume);
+    const p = parseFloat(val);
     if (!isNaN(v) && !isNaN(p) && v > 0 && p > 0) {
       setTotalCost((v * p).toFixed(2));
     }
   };
 
   const handleSubmit = async () => {
-    if (!refuel) return;
+    if (!record) return;
 
-    const mileageNum = parseInt(mileage, 10);
-    const volumeNum = parseFloat(volume);
-    const totalCostNum = parseFloat(totalCost);
-    const unitPriceNum = pricePerUnit.trim() ? parseFloat(pricePerUnit) : null;
+    const parsedMileage = parseInt(mileage, 10);
+    const parsedVolume = parseFloat(volume);
+    const parsedPrice = parseFloat(pricePerUnit);
+    const parsedTotal = parseFloat(totalCost);
 
-    if (isNaN(mileageNum) || mileageNum < 0) {
-      Alert.alert('里程數格式錯誤', '請輸入加油時的車輛總里程數 (公里)。');
+    if (isNaN(parsedMileage) || parsedMileage < 0) {
+      Alert.alert('錯誤', '請輸入正確的里程數');
       return;
     }
-
-    if (isNaN(volumeNum) || volumeNum <= 0) {
-      Alert.alert('加油量格式錯誤', '加油量必須大於 0 公升。');
+    if (isNaN(parsedVolume) || parsedVolume <= 0) {
+      Alert.alert('錯誤', '請輸入正確的加油公升數 (容積)');
       return;
     }
-
-    if (isNaN(totalCostNum) || totalCostNum < 0) {
-      Alert.alert('總金額格式錯誤', '總金額必須大於或等於 0 元。');
+    if (isNaN(parsedTotal) || parsedTotal <= 0) {
+      Alert.alert('錯誤', '請輸入正確的加油總金額');
       return;
     }
 
     try {
-      await updateRefuelMutation.mutateAsync({
-        id: refuel.id,
+      await updateRefuel.mutateAsync({
+        id: record.id,
         data: {
-          refuel_date: refuelDate.trim() || refuel.refuel_date,
-          mileage: mileageNum,
-          volume: volumeNum,
-          total_cost: totalCostNum,
-          price_per_unit: unitPriceNum,
-          fuel_type: selectedFuelType,
+          refuel_date: refuelDate || new Date().toISOString().substring(0, 10),
+          mileage: parsedMileage,
+          volume: parsedVolume,
+          price_per_unit: isNaN(parsedPrice) ? null : parsedPrice,
+          total_cost: parsedTotal,
+          fuel_type: fuelType,
         },
       });
 
-      Alert.alert('紀錄更新成功', '已成功更新加油日誌！\n車輛里程與統計數據已同步計算。');
+      onSuccess?.();
       onClose();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '加油紀錄更新失敗';
-      Alert.alert('更新失敗', message);
+    } catch (err: any) {
+      Alert.alert('更新失敗', err.message || '無法更新加油紀錄');
     }
   };
 
-  if (!refuel) return null;
-
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80 justify-end">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="w-full"
-        >
-          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90vh]">
-            {/* Modal Header */}
-            <View className="flex-row items-center justify-between pb-4 border-b border-white/[0.08]">
-              <View>
-                <Text className="text-[10px] font-mono tracking-[0.2em] text-racing-blue uppercase font-bold">
-                  EDIT FUEL LOG
-                </Text>
-                <Text className="text-xl font-bold text-white tracking-tight mt-0.5">
-                  編輯加油紀錄
-                </Text>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1 justify-end bg-black/60"
+      >
+        <View className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-h-[90%] p-6">
+          {/* Header */}
+          <View className="flex-row items-center justify-between pb-4 border-b border-slate-800">
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center mr-3">
+                <Ionicons name="water-outline" size={20} color="#10B981" />
               </View>
-              <TouchableOpacity
-                onPress={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#fff" />
-              </TouchableOpacity>
+              <Text className="text-xl font-bold text-white">編輯加油紀錄</Text>
             </View>
-
-            <ScrollView
-              className="mt-4"
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+            <TouchableOpacity
+              onPress={onClose}
+              className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
             >
-              {/* 油品種類選擇 Pills */}
-              <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-2">
-                油品種類 FUEL TYPE
-              </Text>
-              <View className="flex-row flex-wrap gap-2 mb-4">
-                {FUEL_TYPES.map((t) => {
-                  const isSelected = selectedFuelType === t.value;
-                  return (
-                    <TouchableOpacity
-                      key={t.value}
-                      onPress={() => setSelectedFuelType(t.value)}
-                      className={`px-3 py-1.5 rounded-full border ${
-                        isSelected
-                          ? 'bg-racing-blue/20 border-racing-blue'
-                          : 'bg-zinc-950 border-white/10'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-mono ${
-                          isSelected ? 'text-racing-blue font-bold' : 'text-metal-400'
-                        }`}
-                      >
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <Ionicons name="close" size={20} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
 
-              {/* 加油日期與總里程數 */}
-              <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油日期 DATE
-                  </Text>
-                  <TextInput
-                    value={refuelDate}
-                    onChangeText={setRefuelDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#52525b"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油時總里程 KM *
-                  </Text>
-                  <TextInput
-                    value={mileage}
-                    onChangeText={setMileage}
-                    placeholder="例: 10500"
-                    placeholderTextColor="#52525b"
-                    keyboardType="number-pad"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
-              </View>
-
-              {/* 加油量與單價 */}
-              <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油量 VOLUME (L) *
-                  </Text>
-                  <TextInput
-                    value={volume}
-                    onChangeText={handleVolumeChange}
-                    placeholder="例: 45.5"
-                    placeholderTextColor="#52525b"
-                    keyboardType="decimal-pad"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    每公升單價 ($/L)
-                  </Text>
-                  <TextInput
-                    value={pricePerUnit}
-                    onChangeText={handlePricePerUnitChange}
-                    placeholder="例: 32.8"
-                    placeholderTextColor="#52525b"
-                    keyboardType="decimal-pad"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
-              </View>
-
-              {/* 總花費金額 */}
-              <View className="mb-6">
-                <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                  總金額 TOTAL COST ($) *
-                </Text>
+          <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+            {/* 日期與里程 */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">加油日期 (YYYY-MM-DD)</Text>
                 <TextInput
-                  value={totalCost}
-                  onChangeText={setTotalCost}
-                  placeholder="例: 1500"
-                  placeholderTextColor="#52525b"
-                  keyboardType="decimal-pad"
-                  className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-racing-blue font-mono font-bold text-lg"
+                  value={refuelDate}
+                  onChangeText={setRefuelDate}
+                  placeholder="2024-01-01"
+                  placeholderTextColor="#64748B"
+                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
                 />
               </View>
-
-              {/* Action Buttons */}
-              <View className="flex-row gap-3 mb-4">
-                <TouchableOpacity
-                  onPress={onClose}
-                  className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
-                >
-                  <Text className="text-metal-300 font-mono text-xs">取消</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleSubmit}
-                  disabled={updateRefuelMutation.isPending}
-                  className="flex-2 flex-row items-center justify-center rounded-full bg-racing-blue px-6 py-3.5 flex-1"
-                >
-                  {updateRefuelMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Text className="text-white font-bold font-mono text-xs mr-2">
-                        更新加油日誌
-                      </Text>
-                      <View className="w-5 h-5 rounded-full bg-white/20 items-center justify-center">
-                        <Ionicons name="checkmark" size={12} color="#fff" />
-                      </View>
-                    </>
-                  )}
-                </TouchableOpacity>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">當前里程 (KM) *</Text>
+                <TextInput
+                  value={mileage}
+                  onChangeText={setMileage}
+                  keyboardType="numeric"
+                  placeholder="例如: 12500"
+                  placeholderTextColor="#64748B"
+                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
+                />
               </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+            </View>
+
+            {/* 燃料種類 */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-slate-400 mb-1.5">燃料種類</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {FUEL_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => setFuelType(opt.value)}
+                    className={`px-3 py-2 rounded-xl border ${
+                      fuelType === opt.value
+                        ? 'bg-emerald-500/20 border-emerald-500'
+                        : 'bg-slate-800/80 border-slate-700'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-medium ${
+                        fuelType === opt.value ? 'text-emerald-400 font-bold' : 'text-slate-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* 公升數與單價 */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">加油量 (L) *</Text>
+                <TextInput
+                  value={volume}
+                  onChangeText={handleVolumeChange}
+                  keyboardType="numeric"
+                  placeholder="例如: 35.5"
+                  placeholderTextColor="#64748B"
+                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">每公升單價 ($)</Text>
+                <TextInput
+                  value={pricePerUnit}
+                  onChangeText={handlePriceChange}
+                  keyboardType="numeric"
+                  placeholder="例如: 31.2"
+                  placeholderTextColor="#64748B"
+                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
+                />
+              </View>
+            </View>
+
+            {/* 總費用 */}
+            <View className="mb-6">
+              <Text className="text-xs font-semibold text-slate-400 mb-1.5">總費用 ($) *</Text>
+              <TextInput
+                value={totalCost}
+                onChangeText={setTotalCost}
+                keyboardType="numeric"
+                placeholder="例如: 1108"
+                placeholderTextColor="#64748B"
+                className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
+              />
+            </View>
+
+            {/* Actions */}
+            <View className="flex-row gap-3 mb-6">
+              <TouchableOpacity
+                onPress={onClose}
+                className="flex-1 py-3.5 rounded-xl bg-slate-800 border border-slate-700 items-center justify-center"
+              >
+                <Text className="text-slate-300 font-semibold">取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={updateRefuel.isPending}
+                className="flex-1 py-3.5 rounded-xl bg-emerald-600 items-center justify-center flex-row gap-2 shadow-lg shadow-emerald-900/30"
+              >
+                {updateRefuel.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+                    <Text className="text-white font-bold">儲存變更</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

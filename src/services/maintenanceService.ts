@@ -76,6 +76,9 @@ export const maintenanceService = {
           .single();
 
         if (!recordError && record) {
+          // 同步最高里程
+          await vehicleService.syncVehicleMaxMileage(record.vehicle_id);
+
           // 2. 若有照片，寫入關聯子表 MaintenancePhotos
           const photos: MaintenancePhotoRow[] = [];
           if (photoUrls.length > 0) {
@@ -115,55 +118,71 @@ export const maintenanceService = {
   },
 
   /**
-   * 更新保養維修紀錄，並同步車輛最高里程與關聯保養提醒
+   * 更新保養維修紀錄
    */
   async updateMaintenanceRecord(
     id: number,
-    recordData: MaintenanceRecordUpdate
+    updateData: MaintenanceRecordUpdate
   ): Promise<MaintenanceRecordRow> {
     return handleServiceCall(async () => {
       await requireUser();
 
       const now = new Date().toISOString();
-      let updated: MaintenanceRecordRow | null = null;
       try {
-        const { data, error } = await supabase
+        const { data: record, error } = await supabase
           .from('MaintenanceRecords')
           .update({
-            ...recordData,
-            updated_at: recordData.updated_at ?? now,
+            ...updateData,
+            updated_at: updateData.updated_at ?? now,
           })
           .eq('id', id)
           .select()
           .single();
 
-        if (!error && data) updated = data;
+        if (!error && record) {
+          await vehicleService.syncVehicleMaxMileage(record.vehicle_id);
+          await reminderService.syncReminderBaseFromMaintenance(
+            id,
+            updateData.mileage,
+            updateData.service_date
+          );
+          return record;
+        }
       } catch {
         // Fallback
       }
 
-      if (!updated) {
-        updated = await localStore.updateMaintenanceRecord(id, recordData);
-      }
-
-      if (updated.vehicle_id) {
-        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
-      }
-
-      if (recordData.mileage !== undefined || recordData.service_date !== undefined) {
-        await reminderService.syncReminderFromMaintenance(id, recordData.mileage, recordData.service_date);
-      }
-
-      return updated;
+      const localRec = await localStore.updateMaintenanceRecord(id, updateData);
+      await vehicleService.syncVehicleMaxMileage(localRec.vehicle_id);
+      await reminderService.syncReminderBaseFromMaintenance(
+        id,
+        updateData.mileage,
+        updateData.service_date
+      );
+      return localRec;
     });
   },
 
   /**
-   * 刪除保養紀錄 (底層由 SQL ON DELETE CASCADE 級聯清除 MaintenancePhotos，不回退車輛最高里程)
+   * 刪除保養紀錄 (底層由 SQL ON DELETE CASCADE 級聯清除 MaintenancePhotos)
    */
-  async deleteMaintenanceRecord(id: number): Promise<void> {
+  async deleteMaintenanceRecord(id: number, vehicleId?: number): Promise<void> {
     return handleServiceCall(async () => {
       await requireUser();
+
+      let targetVehicleId = vehicleId;
+      if (!targetVehicleId) {
+        try {
+          const { data } = await supabase
+            .from('MaintenanceRecords')
+            .select('vehicle_id')
+            .eq('id', id)
+            .single();
+          if (data) targetVehicleId = data.vehicle_id;
+        } catch {
+          // ignore
+        }
+      }
 
       try {
         await supabase
@@ -175,6 +194,10 @@ export const maintenanceService = {
       }
 
       await localStore.deleteMaintenanceRecord(id);
+
+      if (targetVehicleId) {
+        await vehicleService.syncVehicleMaxMileage(targetVehicleId);
+      }
     });
   },
 };

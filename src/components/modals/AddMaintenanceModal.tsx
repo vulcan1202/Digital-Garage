@@ -15,7 +15,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCreateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordType } from '../../types/database';
 import { reminderService } from '../../services/reminderService';
-import { addMonthsToDateString } from '../../utils/calculators/reminderCalculator';
 
 interface AddMaintenanceModalProps {
   visible: boolean;
@@ -39,10 +38,10 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   const [shopName, setShopName] = useState('');
   const [note, setNote] = useState('');
 
-  // 下次保養提示設定 (選填)
-  const [enableReminder, setEnableReminder] = useState(false);
-  const [reminderKm, setReminderKm] = useState('5000');
-  const [reminderMonths, setReminderMonths] = useState('6');
+  // 下次保養提示設定
+  const [setNextReminder, setSetNextReminder] = useState(false);
+  const [intervalKm, setIntervalKm] = useState('5000');
+  const [intervalMonths, setIntervalMonths] = useState('6');
 
   const createMaintenanceMutation = useCreateMaintenanceRecord();
 
@@ -54,9 +53,9 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     setCost('');
     setShopName('');
     setNote('');
-    setEnableReminder(false);
-    setReminderKm('5000');
-    setReminderMonths('6');
+    setSetNextReminder(false);
+    setIntervalKm('5000');
+    setIntervalMonths('6');
   };
 
   const handleSubmit = async () => {
@@ -77,19 +76,8 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
       return;
     }
 
-    // 若有啟用提醒，校驗至少填寫一種有效週期
-    const rKmNum = reminderKm.trim() ? parseInt(reminderKm, 10) : null;
-    const rMonthsNum = reminderMonths.trim() ? parseInt(reminderMonths, 10) : null;
-    const hasValidKm = typeof rKmNum === 'number' && rKmNum > 0;
-    const hasValidMonths = typeof rMonthsNum === 'number' && rMonthsNum > 0;
-
-    if (enableReminder && !hasValidKm && !hasValidMonths) {
-      Alert.alert('提醒週期錯誤', '啟用下次提醒時，至少需填寫大於 0 之「間隔里程」或「間隔月數」。');
-      return;
-    }
-
     try {
-      const newRecord = await createMaintenanceMutation.mutateAsync({
+      const createdRecord = await createMaintenanceMutation.mutateAsync({
         recordData: {
           vehicle_id: vehicleId,
           record_type: recordType,
@@ -103,24 +91,30 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
         photoUrls: [],
       });
 
-      // 若啟用提醒，同步建立關聯提醒紀錄
-      if (enableReminder && (hasValidKm || hasValidMonths)) {
-        await reminderService.createMaintenanceReminder({
-          vehicleId,
-          itemName: `${itemName.trim()} (下次週期)`,
-          intervalKm: hasValidKm ? rKmNum : null,
-          intervalMonths: hasValidMonths ? rMonthsNum : null,
-          baseMileage: mileageNum,
-          baseDate: serviceDate.trim() || today,
-          maintenanceRecordId: newRecord.id,
-        });
+      // 同步建立下次保養提醒
+      if (setNextReminder) {
+        const kmNum = intervalKm.trim() ? parseInt(intervalKm, 10) : null;
+        const monthsNum = intervalMonths.trim() ? parseInt(intervalMonths, 10) : null;
+        if ((kmNum && kmNum > 0) || (monthsNum && monthsNum > 0)) {
+          try {
+            await reminderService.createMaintenanceReminder({
+              vehicleId,
+              itemName: `下次${itemName.trim()}`,
+              baseMileage: mileageNum,
+              baseDate: serviceDate.trim() || today,
+              intervalKm: kmNum && kmNum > 0 ? kmNum : null,
+              intervalMonths: monthsNum && monthsNum > 0 ? monthsNum : null,
+              maintenanceRecordId: createdRecord.id,
+            });
+          } catch (remErr) {
+            console.warn('建立下次保養提醒失敗:', remErr);
+          }
+        }
       }
 
       Alert.alert(
         '紀錄儲存成功',
-        `已成功建立 ${recordType === 'maintenance' ? '定期保養' : '維修工單'}：「${itemName.trim()}」！${
-          enableReminder ? '\n並已同步建立下次保養提醒雷達。' : ''
-        }`
+        `已成功建立 ${recordType === 'maintenance' ? '定期保養' : '維修工單'}：「${itemName.trim()}」！`
       );
       resetForm();
       onClose();
@@ -269,7 +263,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               </View>
 
               {/* 備註 */}
-              <View className="mb-6">
+              <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
                   技師備註 / 工單內容 NOTE
                 </Text>
@@ -284,174 +278,114 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 />
               </View>
 
-              {/* 下次保養提醒雷達設定 (選填) */}
-              <View className="mb-6 p-3.5 rounded-2xl bg-zinc-950 border border-white/10">
+              {/* 下次保養提醒設定 (選填) */}
+              <View className="mb-6 p-4 rounded-2xl bg-white/[0.03] border border-white/10">
                 <TouchableOpacity
-                  onPress={() => setEnableReminder(!enableReminder)}
+                  onPress={() => setSetNextReminder(!setNextReminder)}
                   activeOpacity={0.8}
                   className="flex-row items-center justify-between"
                 >
                   <View className="flex-row items-center flex-1 mr-2">
-                    <View className="w-8 h-8 rounded-full bg-racing-orange/20 items-center justify-center mr-2.5">
-                      <MaterialCommunityIcons name="radar" size={18} color="#ff6b00" />
+                    <View className="w-7 h-7 rounded-lg bg-amber-500/20 items-center justify-center mr-2.5">
+                      <Ionicons name="pulse" size={15} color="#f59e0b" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white font-bold text-xs font-mono">
-                        同步設定下次保養提醒 (Maintenance Radar)
+                      <Text className="text-white font-mono font-bold text-xs">
+                        同步設定下次保養提醒
                       </Text>
-                      <Text className="text-[10px] text-metal-500 font-mono mt-0.5">
-                        自訂里程或時間週期，先到者自動警示
+                      <Text className="text-[10px] text-metal-500 font-mono">
+                        依照里程數、時間月份或雙軌預警
                       </Text>
                     </View>
                   </View>
                   <View
-                    className={`w-5 h-5 rounded-md items-center justify-center border ${
-                      enableReminder
-                        ? 'bg-racing-orange border-racing-orange'
-                        : 'border-metal-600 bg-transparent'
+                    className={`w-5 h-5 rounded border items-center justify-center ${
+                      setNextReminder
+                        ? 'bg-amber-500 border-amber-500'
+                        : 'border-white/30 bg-black/40'
                     }`}
                   >
-                    {enableReminder && <Ionicons name="checkmark" size={14} color="#000" />}
+                    {setNextReminder && <Ionicons name="checkmark" size={14} color="#000" />}
                   </View>
                 </TouchableOpacity>
 
-                {enableReminder && (
-                  <View className="mt-4 pt-3 border-t border-white/[0.08] gap-3">
-                    {/* 依照里程提示 */}
-                    <View>
-                      <View className="flex-row items-center justify-between mb-1.5">
-                        <Text className="text-[11px] font-mono text-metal-400">
-                          依照里程提示 (每多少公里)
-                        </Text>
-                        <Text className="text-[10px] font-mono text-metal-500">
-                          留空則不依里程
-                        </Text>
-                      </View>
-                      <View className="flex-row gap-1.5 mb-2">
+                {setNextReminder && (
+                  <View className="mt-4 pt-3 border-t border-white/[0.06]">
+                    {/* 里程間隔 */}
+                    <View className="mb-3.5">
+                      <Text className="text-[11px] font-mono text-metal-400 mb-1.5">
+                        下次保養間隔里程 (KM)
+                      </Text>
+                      <View className="flex-row gap-2 mb-2">
                         {['3000', '5000', '10000'].map((km) => (
                           <TouchableOpacity
                             key={km}
-                            onPress={() => setReminderKm(km)}
-                            className={`px-2.5 py-1 rounded-full border ${
-                              reminderKm === km
-                                ? 'bg-racing-orange/20 border-racing-orange'
-                                : 'bg-white/[0.04] border-white/10'
+                            onPress={() => setIntervalKm(km)}
+                            className={`px-3 py-1 rounded-full border ${
+                              intervalKm === km
+                                ? 'bg-amber-500/20 border-amber-500'
+                                : 'bg-black/30 border-white/10'
                             }`}
                           >
                             <Text
                               className={`text-[10px] font-mono ${
-                                reminderKm === km ? 'text-racing-orange font-bold' : 'text-metal-400'
+                                intervalKm === km ? 'text-amber-400 font-bold' : 'text-metal-400'
                               }`}
                             >
-                              +{parseInt(km, 10).toLocaleString()} KM
+                              +{parseInt(km).toLocaleString()} KM
                             </Text>
                           </TouchableOpacity>
                         ))}
-                        <TouchableOpacity
-                          onPress={() => setReminderKm('')}
-                          className={`px-2.5 py-1 rounded-full border ${
-                            reminderKm === ''
-                              ? 'bg-red-500/20 border-red-500'
-                              : 'bg-white/[0.04] border-white/10'
-                          }`}
-                        >
-                          <Text
-                            className={`text-[10px] font-mono ${
-                              reminderKm === '' ? 'text-racing-red font-bold' : 'text-metal-500'
-                            }`}
-                          >
-                            不設
-                          </Text>
-                        </TouchableOpacity>
                       </View>
                       <TextInput
-                        value={reminderKm}
-                        onChangeText={setReminderKm}
-                        placeholder="例: 5000"
+                        value={intervalKm}
+                        onChangeText={setIntervalKm}
+                        placeholder="例: 5000 (留空則不依里程)"
                         placeholderTextColor="#52525b"
-                        keyboardType="number-pad"
-                        className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-xs"
+                        keyboardType="numeric"
+                        className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm"
                       />
                     </View>
 
-                    {/* 依照時間提示 */}
+                    {/* 時間間隔 */}
                     <View>
-                      <View className="flex-row items-center justify-between mb-1.5">
-                        <Text className="text-[11px] font-mono text-metal-400">
-                          依照時間提示 (每多少個月)
-                        </Text>
-                        <Text className="text-[10px] font-mono text-metal-500">
-                          留空則不依時間
-                        </Text>
-                      </View>
-                      <View className="flex-row gap-1.5 mb-2">
+                      <Text className="text-[11px] font-mono text-metal-400 mb-1.5">
+                        下次保養間隔時間 (月份)
+                      </Text>
+                      <View className="flex-row gap-2 mb-2">
                         {['3', '6', '12'].map((m) => (
                           <TouchableOpacity
                             key={m}
-                            onPress={() => setReminderMonths(m)}
-                            className={`px-2.5 py-1 rounded-full border ${
-                              reminderMonths === m
-                                ? 'bg-racing-orange/20 border-racing-orange'
-                                : 'bg-white/[0.04] border-white/10'
+                            onPress={() => setIntervalMonths(m)}
+                            className={`px-3 py-1 rounded-full border ${
+                              intervalMonths === m
+                                ? 'bg-amber-500/20 border-amber-500'
+                                : 'bg-black/30 border-white/10'
                             }`}
                           >
                             <Text
                               className={`text-[10px] font-mono ${
-                                reminderMonths === m ? 'text-racing-orange font-bold' : 'text-metal-400'
+                                intervalMonths === m ? 'text-amber-400 font-bold' : 'text-metal-400'
                               }`}
                             >
                               +{m} 個月
                             </Text>
                           </TouchableOpacity>
                         ))}
-                        <TouchableOpacity
-                          onPress={() => setReminderMonths('')}
-                          className={`px-2.5 py-1 rounded-full border ${
-                            reminderMonths === ''
-                              ? 'bg-red-500/20 border-red-500'
-                              : 'bg-white/[0.04] border-white/10'
-                          }`}
-                        >
-                          <Text
-                            className={`text-[10px] font-mono ${
-                              reminderMonths === '' ? 'text-racing-red font-bold' : 'text-metal-500'
-                            }`}
-                          >
-                            不設
-                          </Text>
-                        </TouchableOpacity>
                       </View>
                       <TextInput
-                        value={reminderMonths}
-                        onChangeText={setReminderMonths}
-                        placeholder="例: 6"
+                        value={intervalMonths}
+                        onChangeText={setIntervalMonths}
+                        placeholder="例: 6 (留空則不依時間)"
                         placeholderTextColor="#52525b"
-                        keyboardType="number-pad"
-                        className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-xs"
+                        keyboardType="numeric"
+                        className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm"
                       />
                     </View>
 
-                    {/* 即時預覽 */}
-                    {(parseInt(reminderKm, 10) > 0 || parseInt(reminderMonths, 10) > 0) && (
-                      <View className="bg-racing-orange/10 p-2.5 rounded-xl border border-racing-orange/30">
-                        <Text className="text-[10px] font-mono text-racing-orange font-bold uppercase mb-1">
-                          RADAR TARGET PREVIEW (預估提醒基準)
-                        </Text>
-                        {parseInt(reminderKm, 10) > 0 && (
-                          <Text className="text-[11px] font-mono text-metal-300">
-                            • 目標里程: {((parseInt(mileage, 10) || 0) + parseInt(reminderKm, 10)).toLocaleString()} KM
-                          </Text>
-                        )}
-                        {parseInt(reminderMonths, 10) > 0 && (
-                          <Text className="text-[11px] font-mono text-metal-300">
-                            • 目標日期: {addMonthsToDateString(serviceDate.trim() || today, parseInt(reminderMonths, 10))}
-                          </Text>
-                        )}
-                        <Text className="text-[9px] font-mono text-metal-500 mt-1">
-                          雙軌提示：任一條件先達到，保養雷達即發出警示。
-                        </Text>
-                      </View>
-                    )}
+                    <Text className="text-[10px] text-metal-500 font-mono mt-3">
+                      * 雙軌提示：保養雷達將自動比對里程與月份，兩者先到者先進行即期/過期警示。
+                    </Text>
                   </View>
                 )}
               </View>

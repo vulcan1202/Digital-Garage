@@ -64,64 +64,6 @@ export const reminderService = {
   },
 
   /**
-   * 建立與保養工單關聯之保養提醒
-   */
-  async createMaintenanceReminder(data: {
-    vehicleId: number;
-    itemName: string;
-    intervalKm?: number | null;
-    intervalMonths?: number | null;
-    baseMileage: number;
-    baseDate: string;
-    maintenanceRecordId: number;
-  }): Promise<ReminderRow> {
-    return await this.addReminder({
-      vehicle_id: data.vehicleId,
-      item_name: data.itemName,
-      interval_km: data.intervalKm ?? null,
-      interval_months: data.intervalMonths ?? null,
-      base_mileage: data.baseMileage,
-      base_date: data.baseDate,
-      last_maintenance_record_id: data.maintenanceRecordId,
-      status: 'active',
-    });
-  },
-
-  /**
-   * 根據保養紀錄變更，同步更新關聯提醒之基準里程與基準日期
-   */
-  async syncReminderFromMaintenance(
-    maintenanceRecordId: number,
-    newMileage?: number,
-    newDate?: string
-  ): Promise<void> {
-    return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const updatePayload: Partial<ReminderUpdate> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (typeof newMileage === 'number' && !isNaN(newMileage)) {
-          updatePayload.base_mileage = newMileage;
-        }
-        if (newDate) {
-          updatePayload.base_date = newDate;
-        }
-
-        await supabase
-          .from('Reminders')
-          .update(updatePayload)
-          .eq('last_maintenance_record_id', maintenanceRecordId);
-      } catch {
-        // Fallback
-      }
-
-      await localStore.syncReminderFromMaintenance(maintenanceRecordId, newMileage, newDate);
-    });
-  },
-
-  /**
    * 更新保養提醒
    */
   async updateReminder(id: number, reminderData: ReminderUpdate): Promise<ReminderRow> {
@@ -214,6 +156,64 @@ export const reminderService = {
       }
 
       await localStore.deleteReminder(id);
+    });
+  },
+
+  /**
+   * 建立與保養紀錄關聯之保養提醒
+   */
+  async createMaintenanceReminder({
+    vehicleId,
+    itemName,
+    baseMileage,
+    baseDate,
+    intervalKm,
+    intervalMonths,
+    maintenanceRecordId,
+  }: {
+    vehicleId: number;
+    itemName: string;
+    baseMileage: number;
+    baseDate: string;
+    intervalKm?: number | null;
+    intervalMonths?: number | null;
+    maintenanceRecordId?: number;
+  }): Promise<ReminderRow> {
+    return this.addReminder({
+      vehicle_id: vehicleId,
+      item_name: itemName,
+      base_mileage: baseMileage,
+      base_date: baseDate,
+      interval_km: intervalKm && intervalKm > 0 ? intervalKm : null,
+      interval_months: intervalMonths && intervalMonths > 0 ? intervalMonths : null,
+      last_maintenance_record_id: maintenanceRecordId ?? null,
+      status: 'active',
+    });
+  },
+
+  /**
+   * 當保養紀錄被編輯修改里程或日期時，同步更新關聯提醒之基準 (base_mileage / base_date)
+   */
+  async syncReminderBaseFromMaintenance(
+    maintenanceRecordId: number,
+    mileage?: number,
+    date?: string
+  ): Promise<void> {
+    return handleServiceCall(async () => {
+      const updatePayload: Partial<ReminderUpdate> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (typeof mileage === 'number') updatePayload.base_mileage = mileage;
+      if (date) updatePayload.base_date = date;
+
+      try {
+        await supabase
+          .from('Reminders')
+          .update(updatePayload)
+          .eq('last_maintenance_record_id', maintenanceRecordId);
+      } catch {
+        // Fallback
+      }
     });
   },
 };

@@ -1188,7 +1188,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
 
           <EditRefuelModal
             visible={!!editingRefuel}
-            refuel={editingRefuel}
+            record={editingRefuel}
             onClose={() => setEditingRefuel(null)}
           />
 

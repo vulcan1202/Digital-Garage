@@ -42,6 +42,7 @@ export const vehicleService = {
               model: v.model,
               year: v.year,
               purchase_date: v.purchase_date,
+              initial_mileage: v.initial_mileage ?? v.current_mileage ?? 0,
               current_mileage: v.current_mileage,
               created_at: v.created_at,
               updated_at: v.updated_at,
@@ -90,16 +91,20 @@ export const vehicleService = {
     return handleServiceCall(async () => {
       const user = await requireUser();
       const now = new Date().toISOString();
+      const initMileage = vehicleData.initial_mileage ?? vehicleData.current_mileage ?? 0;
+      const payload = {
+        ...vehicleData,
+        initial_mileage: initMileage,
+        current_mileage: vehicleData.current_mileage ?? initMileage,
+        user_id: user.id,
+        created_at: vehicleData.created_at ?? now,
+        updated_at: vehicleData.updated_at ?? now,
+      };
 
       try {
         const { data, error } = await supabase
           .from('Vehicles')
-          .insert({
-            ...vehicleData,
-            user_id: user.id,
-            created_at: vehicleData.created_at ?? now,
-            updated_at: vehicleData.updated_at ?? now,
-          })
+          .insert(payload)
           .select()
           .single();
 
@@ -108,10 +113,7 @@ export const vehicleService = {
         // Fallback
       }
 
-      return await localStore.createVehicle({
-        ...vehicleData,
-        user_id: user.id,
-      });
+      return await localStore.createVehicle(payload);
     });
   },
 
@@ -133,7 +135,12 @@ export const vehicleService = {
           .select()
           .single();
 
-        if (!error && data) return data;
+        if (!error && data) {
+          if (vehicleData.initial_mileage !== undefined || vehicleData.current_mileage !== undefined) {
+            await this.syncVehicleMaxMileage(id);
+          }
+          return data;
+        }
       } catch {
         // Fallback
       }
@@ -143,54 +150,40 @@ export const vehicleService = {
   },
 
   /**
-   * 重新掃描車輛所有相關紀錄 (加油、保養、改裝)，以最高里程更新車輛 current_mileage
+   * 重新掃描現存所有紀錄與初始建檔里程，取最高里程同步至 Vehicles.current_mileage
    */
   async syncVehicleMaxMileage(vehicleId: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
-
+      let initialMileage = 0;
+      let currentMileage = 0;
       try {
         const { data: vehicle } = await supabase
           .from('Vehicles')
-          .select('current_mileage')
+          .select('initial_mileage, current_mileage')
           .eq('id', vehicleId)
           .single();
 
-        const { data: refuels } = await supabase
-          .from('Refuels')
-          .select('mileage')
-          .eq('vehicle_id', vehicleId);
+        if (vehicle) {
+          initialMileage = vehicle.initial_mileage ?? 0;
+          currentMileage = vehicle.current_mileage ?? 0;
+        }
 
-        const { data: maints } = await supabase
-          .from('MaintenanceRecords')
-          .select('mileage')
-          .eq('vehicle_id', vehicleId);
+        const [refuelsRes, maintenanceRes, modsRes] = await Promise.all([
+          supabase.from('Refuels').select('mileage').eq('vehicle_id', vehicleId),
+          supabase.from('MaintenanceRecords').select('mileage').eq('vehicle_id', vehicleId),
+          supabase.from('Modifications').select('install_mileage').eq('vehicle_id', vehicleId).not('install_mileage', 'is', null),
+        ]);
 
-        const { data: mods } = await supabase
-          .from('Modifications')
-          .select('install_mileage')
-          .eq('vehicle_id', vehicleId);
+        const refuelMileages = (refuelsRes.data || []).map((r: { mileage: number }) => r.mileage);
+        const maintMileages = (maintenanceRes.data || []).map((m: { mileage: number }) => m.mileage);
+        const modMileages = (modsRes.data || [])
+          .map((mo: { install_mileage: number | null }) => mo.install_mileage)
+          .filter((m): m is number => typeof m === 'number');
 
-        const refuelMileages = (refuels || [])
-          .map((r) => r.mileage)
-          .filter((m) => typeof m === 'number' && !isNaN(m));
-        const maintMileages = (maints || [])
-          .map((m) => m.mileage)
-          .filter((m) => typeof m === 'number' && !isNaN(m));
-        const modMileages = (mods || [])
-          .map((m) => m.install_mileage)
-          .filter((m): m is number => typeof m === 'number' && m !== null && !isNaN(m));
+        const allMileages = [initialMileage, ...refuelMileages, ...maintMileages, ...modMileages];
+        const maxMileage = Math.max(...allMileages, 0);
 
-        const allMileages = [
-          vehicle?.current_mileage || 0,
-          ...refuelMileages,
-          ...maintMileages,
-          ...modMileages,
-        ];
-
-        const maxMileage = Math.max(...allMileages);
-
-        if (vehicle && vehicle.current_mileage !== maxMileage) {
+        if (currentMileage !== maxMileage) {
           await supabase
             .from('Vehicles')
             .update({
@@ -199,10 +192,12 @@ export const vehicleService = {
             })
             .eq('id', vehicleId);
         }
-      } catch {
-        // Fallback to localStore
+      } catch (err) {
+        // 同步失敗容錯保護
+        console.warn('syncVehicleMaxMileage remote sync error:', err);
       }
 
+      // 本地同步確保離線一致性
       await localStore.syncVehicleMaxMileage(vehicleId);
     });
   },

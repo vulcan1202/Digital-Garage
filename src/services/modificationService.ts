@@ -99,7 +99,6 @@ export const modificationService = {
       await requireUser();
 
       const now = new Date().toISOString();
-      let created: ModificationRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Modifications')
@@ -111,20 +110,17 @@ export const modificationService = {
           .select()
           .single();
 
-        if (!error && data) created = data;
+        if (!error && data) {
+          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
+          return data;
+        }
       } catch {
         // Fallback
       }
 
-      if (!created) {
-        created = await localStore.addModification(modData);
-      }
-
-      if (typeof modData.install_mileage === 'number' && !isNaN(modData.install_mileage)) {
-        await vehicleService.syncVehicleMaxMileage(modData.vehicle_id);
-      }
-
-      return created;
+      const localRec = await localStore.addModification(modData);
+      await vehicleService.syncVehicleMaxMileage(modData.vehicle_id);
+      return localRec;
     });
   },
 
@@ -135,7 +131,6 @@ export const modificationService = {
     return handleServiceCall(async () => {
       await requireUser();
 
-      let updated: ModificationRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Modifications')
@@ -147,20 +142,17 @@ export const modificationService = {
           .select()
           .single();
 
-        if (!error && data) updated = data;
+        if (!error && data) {
+          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
+          return data;
+        }
       } catch {
         // Fallback
       }
 
-      if (!updated) {
-        updated = await localStore.updateModification(id, modData);
-      }
-
-      if (updated.vehicle_id) {
-        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
-      }
-
-      return updated;
+      const localRec = await localStore.updateModification(id, modData);
+      await vehicleService.syncVehicleMaxMileage(localRec.vehicle_id);
+      return localRec;
     });
   },
 
@@ -309,9 +301,23 @@ export const modificationService = {
   /**
    * 刪除改裝品
    */
-  async deleteModification(id: number): Promise<void> {
+  async deleteModification(id: number, vehicleId?: number): Promise<void> {
     return handleServiceCall(async () => {
       await requireUser();
+
+      let targetVehicleId = vehicleId;
+      if (!targetVehicleId) {
+        try {
+          const { data } = await supabase
+            .from('Modifications')
+            .select('vehicle_id')
+            .eq('id', id)
+            .single();
+          if (data) targetVehicleId = data.vehicle_id;
+        } catch {
+          // ignore
+        }
+      }
 
       try {
         await supabase
@@ -323,6 +329,10 @@ export const modificationService = {
       }
 
       await localStore.deleteModification(id);
+
+      if (targetVehicleId) {
+        await vehicleService.syncVehicleMaxMileage(targetVehicleId);
+      }
     });
   },
 };

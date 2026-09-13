@@ -68,7 +68,7 @@ export function useDeleteRefuel() {
 
   return useMutation({
     mutationFn: ({ id, vehicleId }: { id: number; vehicleId: number }) =>
-      fuelService.deleteRefuel(id),
+      fuelService.deleteRefuel(id, vehicleId),
     onSuccess: (_, { vehicleId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.refuels(vehicleId),

@@ -50,6 +50,7 @@ export type VehicleRow = {
   model: string;
   year: number | null;
   purchase_date: string | null; // date
+  initial_mileage: number; // CHECK >= 0
   current_mileage: number; // CHECK >= 0
   created_at: string; // timestamptz
   updated_at: string; // timestamptz
@@ -62,6 +63,7 @@ export type VehicleInsert = {
   model: string;
   year?: number | null;
   purchase_date?: string | null;
+  initial_mileage?: number;
   current_mileage?: number;
   created_at?: string;
   updated_at?: string;
@@ -74,6 +76,7 @@ export type VehicleUpdate = {
   model?: string;
   year?: number | null;
   purchase_date?: string | null;
+  initial_mileage?: number;
   current_mileage?: number;
   created_at?: string;
   updated_at?: string;

@@ -37,7 +37,6 @@ export const fuelService = {
       await requireUser();
 
       const now = new Date().toISOString();
-      let created: RefuelRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Refuels')
@@ -49,63 +48,69 @@ export const fuelService = {
           .select()
           .single();
 
-        if (!error && data) created = data;
+        if (!error && data) {
+          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
+          return data;
+        }
       } catch {
         // Fallback
       }
 
-      if (!created) {
-        created = await localStore.addRefuel(refuelData);
-      }
-
+      const localRec = await localStore.addRefuel(refuelData);
       await vehicleService.syncVehicleMaxMileage(refuelData.vehicle_id);
-      return created;
+      return localRec;
     });
   },
 
   /**
    * 更新加油紀錄
    */
-  async updateRefuel(id: number, refuelData: RefuelUpdate): Promise<RefuelRow> {
+  async updateRefuel(id: number, updateData: RefuelUpdate): Promise<RefuelRow> {
     return handleServiceCall(async () => {
       await requireUser();
 
       const now = new Date().toISOString();
-      let updated: RefuelRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Refuels')
           .update({
-            ...refuelData,
-            updated_at: refuelData.updated_at ?? now,
+            ...updateData,
+            updated_at: updateData.updated_at ?? now,
           })
           .eq('id', id)
           .select()
           .single();
 
-        if (!error && data) updated = data;
+        if (!error && data) {
+          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
+          return data;
+        }
       } catch {
         // Fallback
       }
 
-      if (!updated) {
-        updated = await localStore.updateRefuel(id, refuelData);
-      }
-
-      if (updated.vehicle_id) {
-        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
-      }
-
-      return updated;
+      const localRec = await localStore.updateRefuel(id, updateData);
+      await vehicleService.syncVehicleMaxMileage(localRec.vehicle_id);
+      return localRec;
     });
   },
 
   /**
-   * 刪除加油紀錄 (不回退車輛最高里程)
+   * 刪除加油紀錄
    */
-  async deleteRefuel(id: number): Promise<void> {
+  async deleteRefuel(id: number, vehicleId?: number): Promise<void> {
     return handleServiceCall(async () => {
       await requireUser();
+
+      let targetVehicleId = vehicleId;
+      if (!targetVehicleId) {
+        try {
+          const { data } = await supabase.from('Refuels').select('vehicle_id').eq('id', id).single();
+          if (data) targetVehicleId = data.vehicle_id;
+        } catch {
+          // ignore
+        }
+      }
 
       try {
         await supabase
@@ -117,6 +122,10 @@ export const fuelService = {
       }
 
       await localStore.deleteRefuel(id);
+
+      if (targetVehicleId) {
+        await vehicleService.syncVehicleMaxMileage(targetVehicleId);
+      }
     });
   },
 };

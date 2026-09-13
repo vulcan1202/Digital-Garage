@@ -35,12 +35,12 @@ export function useCreateMaintenanceRecord() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.vehicles,
       });
-      // 同步刷新時間軸與保養提醒
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline(newRecord.vehicle_id),
-      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.reminders(newRecord.vehicle_id),
+      });
+      // 同步刷新時間軸與車輛費用
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(newRecord.vehicle_id),
       });
     },
   });
@@ -53,13 +53,8 @@ export function useUpdateMaintenanceRecord() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: MaintenanceRecordUpdate;
-    }) => maintenanceService.updateMaintenanceRecord(id, data),
+    mutationFn: ({ id, data }: { id: number; data: MaintenanceRecordUpdate }) =>
+      maintenanceService.updateMaintenanceRecord(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.maintenance(updated.vehicle_id),
@@ -68,10 +63,10 @@ export function useUpdateMaintenanceRecord() {
         queryKey: queryKeys.vehicles,
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline(updated.vehicle_id),
+        queryKey: queryKeys.reminders(updated.vehicle_id),
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.reminders(updated.vehicle_id),
+        queryKey: queryKeys.timeline(updated.vehicle_id),
       });
     },
   });
@@ -85,7 +80,7 @@ export function useDeleteMaintenanceRecord() {
 
   return useMutation({
     mutationFn: ({ id, vehicleId }: { id: number; vehicleId: number }) =>
-      maintenanceService.deleteMaintenanceRecord(id),
+      maintenanceService.deleteMaintenanceRecord(id, vehicleId),
     onSuccess: (_, { vehicleId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.maintenance(vehicleId),
@@ -94,10 +89,10 @@ export function useDeleteMaintenanceRecord() {
         queryKey: queryKeys.vehicles,
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline(vehicleId),
+        queryKey: queryKeys.reminders(vehicleId),
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.reminders(vehicleId),
+        queryKey: queryKeys.timeline(vehicleId),
       });
     },
   });

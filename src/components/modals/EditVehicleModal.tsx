@@ -40,7 +40,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
       setBrand(vehicle.brand || '');
       setModel(vehicle.model || '');
       setYear(vehicle.year ? String(vehicle.year) : '');
-      setCurrentMileage(String(vehicle.current_mileage ?? 0));
+      setCurrentMileage(String(vehicle.initial_mileage ?? vehicle.current_mileage ?? 0));
       setPurchaseDate(vehicle.purchase_date || '');
     }
   }, [vehicle]);
@@ -55,7 +55,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
     const mileageNum = parseInt(currentMileage, 10);
     if (isNaN(mileageNum) || mileageNum < 0) {
-      Alert.alert('里程數格式錯誤', '當前里程數必須為大於或等於 0 之整數。');
+      Alert.alert('里程數格式錯誤', '基準里程數必須為大於或等於 0 之整數。');
       return;
     }
 
@@ -72,7 +72,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
           brand: brand.trim(),
           model: model.trim(),
           year: yearNum,
-          current_mileage: mileageNum,
+          initial_mileage: mileageNum,
           purchase_date: purchaseDate.trim() || null,
         },
       });

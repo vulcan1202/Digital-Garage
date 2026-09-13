@@ -102,7 +102,7 @@ export function useDeleteModification() {
 
   return useMutation({
     mutationFn: ({ id, vehicleId }: { id: number; vehicleId: number }) =>
-      modificationService.deleteModification(id),
+      modificationService.deleteModification(id, vehicleId),
     onSuccess: (_, { vehicleId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.modifications(vehicleId),

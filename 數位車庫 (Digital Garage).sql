@@ -32,6 +32,7 @@ CREATE TABLE "Vehicles" (
   "model" varchar NOT NULL,
   "year" integer,
   "purchase_date" date,
+  "initial_mileage" integer NOT NULL DEFAULT 0 CHECK ("initial_mileage" >= 0),
   "current_mileage" integer NOT NULL DEFAULT 0 CHECK ("current_mileage" >= 0),
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
@@ -398,3 +399,33 @@ USING (
   bucket_id = 'vehicle-media' 
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
+
+-- ==========================================
+-- 8. MIGRATION & BACKFILL: initial_mileage
+-- ==========================================
+-- 為既有資料庫新增 initial_mileage 欄位並執行既有資料回填
+ALTER TABLE "Vehicles" ADD COLUMN IF NOT EXISTS "initial_mileage" integer NOT NULL DEFAULT 0 CHECK ("initial_mileage" >= 0);
+
+-- 既有資料回填：設為 current_mileage 與現存所有紀錄（加油、保修、改裝）中最小里程兩者的較小者
+UPDATE "Vehicles" v
+SET "initial_mileage" = COALESCE(
+  (
+    SELECT LEAST(
+      v."current_mileage",
+      COALESCE(
+        (
+          SELECT MIN(m) FROM (
+            SELECT "mileage" AS m FROM "Refuels" WHERE "vehicle_id" = v."id"
+            UNION ALL
+            SELECT "mileage" AS m FROM "MaintenanceRecords" WHERE "vehicle_id" = v."id"
+            UNION ALL
+            SELECT "install_mileage" AS m FROM "Modifications" WHERE "vehicle_id" = v."id" AND "install_mileage" IS NOT NULL
+          ) sub
+        ),
+        v."current_mileage"
+      )
+    )
+  ),
+  v."current_mileage",
+  0
+);
