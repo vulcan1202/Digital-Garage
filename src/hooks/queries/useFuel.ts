@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fuelService } from '../../services/fuelService';
-import { RefuelInsert } from '../../types/database';
+import { RefuelInsert, RefuelUpdate } from '../../types/database';
 import { queryKeys } from './queryKeys';
 
 /**
@@ -26,9 +26,35 @@ export function useAddRefuel() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.refuels(newRefuel.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
       // 加油也會在時間軸產生事件，同步 invalidate 時間軸
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newRefuel.vehicle_id),
+      });
+    },
+  });
+}
+
+/**
+ * 更新加油紀錄 Mutation Hook
+ */
+export function useUpdateRefuel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: RefuelUpdate }) =>
+      fuelService.updateRefuel(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.refuels(updated.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(updated.vehicle_id),
       });
     },
   });
@@ -46,6 +72,9 @@ export function useDeleteRefuel() {
     onSuccess: (_, { vehicleId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.refuels(vehicleId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),

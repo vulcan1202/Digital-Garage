@@ -6,8 +6,10 @@ import {
   VehicleUpdate,
   RefuelRow,
   RefuelInsert,
+  RefuelUpdate,
   MaintenanceRecordRow,
   MaintenanceRecordInsert,
+  MaintenanceRecordUpdate,
   ReminderRow,
   ReminderInsert,
   ReminderUpdate,
@@ -143,6 +145,58 @@ export const localStore = {
       .sort((a, b) => new Date(b.refuel_date).getTime() - new Date(a.refuel_date).getTime());
   },
 
+  async syncVehicleMaxMileage(vehicleId: number): Promise<void> {
+    await loadFromStorage();
+    const v = inMemoryDB.vehicles.find((veh) => veh.id === vehicleId);
+    if (!v) return;
+
+    const refuelMileages = inMemoryDB.refuels
+      .filter((r) => r.vehicle_id === vehicleId && typeof r.mileage === 'number' && !isNaN(r.mileage))
+      .map((r) => r.mileage);
+    const maintMileages = inMemoryDB.maintenanceRecords
+      .filter((m) => m.vehicle_id === vehicleId && typeof m.mileage === 'number' && !isNaN(m.mileage))
+      .map((m) => m.mileage);
+    const modMileages = inMemoryDB.modifications
+      .filter(
+        (mod) =>
+          mod.vehicle_id === vehicleId &&
+          typeof mod.install_mileage === 'number' &&
+          mod.install_mileage !== null &&
+          !isNaN(mod.install_mileage)
+      )
+      .map((mod) => mod.install_mileage as number);
+
+    const allMileages = [v.current_mileage || 0, ...refuelMileages, ...maintMileages, ...modMileages];
+    const maxMileage = Math.max(...allMileages);
+
+    if (v.current_mileage !== maxMileage) {
+      v.current_mileage = maxMileage;
+      v.updated_at = new Date().toISOString();
+      await saveToStorage();
+    }
+  },
+
+  async syncReminderFromMaintenance(
+    maintenanceRecordId: number,
+    newMileage?: number,
+    newDate?: string
+  ): Promise<void> {
+    await loadFromStorage();
+    const reminder = inMemoryDB.reminders.find(
+      (r) => r.last_maintenance_record_id === maintenanceRecordId
+    );
+    if (reminder) {
+      if (typeof newMileage === 'number' && !isNaN(newMileage)) {
+        reminder.base_mileage = newMileage;
+      }
+      if (newDate) {
+        reminder.base_date = newDate;
+      }
+      reminder.updated_at = new Date().toISOString();
+      await saveToStorage();
+    }
+  },
+
   async addRefuel(data: RefuelInsert): Promise<RefuelRow> {
     await loadFromStorage();
     const newId = inMemoryDB.refuels.length > 0 
@@ -162,15 +216,25 @@ export const localStore = {
       updated_at: now,
     };
     inMemoryDB.refuels.unshift(refuel);
-
-    const v = inMemoryDB.vehicles.find((veh) => veh.id === data.vehicle_id);
-    if (v && data.mileage > v.current_mileage) {
-      v.current_mileage = data.mileage;
-      v.updated_at = now;
-    }
-
     await saveToStorage();
+    await this.syncVehicleMaxMileage(data.vehicle_id);
     return refuel;
+  },
+
+  async updateRefuel(id: number, data: RefuelUpdate): Promise<RefuelRow> {
+    await loadFromStorage();
+    const index = inMemoryDB.refuels.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error('Refuel record not found');
+    const existing = inMemoryDB.refuels[index];
+    const updated: RefuelRow = {
+      ...existing,
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+    inMemoryDB.refuels[index] = updated;
+    await saveToStorage();
+    await this.syncVehicleMaxMileage(updated.vehicle_id);
+    return updated;
   },
 
   async deleteRefuel(id: number): Promise<void> {
@@ -207,15 +271,28 @@ export const localStore = {
       updated_at: now,
     };
     inMemoryDB.maintenanceRecords.unshift(record);
-
-    const v = inMemoryDB.vehicles.find((veh) => veh.id === data.vehicle_id);
-    if (v && data.mileage > v.current_mileage) {
-      v.current_mileage = data.mileage;
-      v.updated_at = now;
-    }
-
     await saveToStorage();
+    await this.syncVehicleMaxMileage(data.vehicle_id);
     return record;
+  },
+
+  async updateMaintenanceRecord(id: number, data: MaintenanceRecordUpdate): Promise<MaintenanceRecordRow> {
+    await loadFromStorage();
+    const index = inMemoryDB.maintenanceRecords.findIndex((m) => m.id === id);
+    if (index === -1) throw new Error('Maintenance record not found');
+    const existing = inMemoryDB.maintenanceRecords[index];
+    const updated: MaintenanceRecordRow = {
+      ...existing,
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+    inMemoryDB.maintenanceRecords[index] = updated;
+    await saveToStorage();
+    await this.syncVehicleMaxMileage(updated.vehicle_id);
+    if (data.mileage !== undefined || data.service_date !== undefined) {
+      await this.syncReminderFromMaintenance(id, data.mileage, data.service_date);
+    }
+    return updated;
   },
 
   async deleteMaintenanceRecord(id: number): Promise<void> {
@@ -331,6 +408,9 @@ export const localStore = {
     };
     inMemoryDB.modifications.unshift(mod);
     await saveToStorage();
+    if (typeof data.install_mileage === 'number' && !isNaN(data.install_mileage)) {
+      await this.syncVehicleMaxMileage(data.vehicle_id);
+    }
     return mod;
   },
 
@@ -346,6 +426,7 @@ export const localStore = {
     };
     inMemoryDB.modifications[index] = updated;
     await saveToStorage();
+    await this.syncVehicleMaxMileage(updated.vehicle_id);
     return updated;
   },
 

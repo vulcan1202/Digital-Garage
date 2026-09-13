@@ -42,6 +42,9 @@ export function useAddModification() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.modifications(newMod.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
       // 新增改裝品也會在時間軸產生事件，同步 invalidate 時間軸
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newMod.vehicle_id),
@@ -105,6 +108,9 @@ export function useDeleteModification() {
         queryKey: queryKeys.modifications(vehicleId),
       });
       queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
+      queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),
       });
     },
@@ -123,6 +129,9 @@ export function useUpdateModification() {
     onSuccess: (updatedMod) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.modifications(updatedMod.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.modificationDetail(updatedMod.id),

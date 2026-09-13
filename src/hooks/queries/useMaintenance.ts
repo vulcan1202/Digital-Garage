@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { maintenanceService, MaintenanceRecordWithPhotos } from '../../services/maintenanceService';
-import { MaintenanceRecordInsert } from '../../types/database';
+import { MaintenanceRecordInsert, MaintenanceRecordUpdate } from '../../types/database';
 import { queryKeys } from './queryKeys';
 
 /**
@@ -32,9 +32,46 @@ export function useCreateMaintenanceRecord() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.maintenance(newRecord.vehicle_id),
       });
-      // 同步刷新時間軸與車輛費用
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
+      // 同步刷新時間軸與保養提醒
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newRecord.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reminders(newRecord.vehicle_id),
+      });
+    },
+  });
+}
+
+/**
+ * 更新保養維修紀錄 Mutation Hook
+ */
+export function useUpdateMaintenanceRecord() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: MaintenanceRecordUpdate;
+    }) => maintenanceService.updateMaintenanceRecord(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.maintenance(updated.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(updated.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reminders(updated.vehicle_id),
       });
     },
   });
@@ -54,7 +91,13 @@ export function useDeleteMaintenanceRecord() {
         queryKey: queryKeys.maintenance(vehicleId),
       });
       queryClient.invalidateQueries({
+        queryKey: queryKeys.vehicles,
+      });
+      queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reminders(vehicleId),
       });
     },
   });

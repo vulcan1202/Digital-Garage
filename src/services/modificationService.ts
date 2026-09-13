@@ -12,6 +12,7 @@ import {
   ModificationSettingInsert,
 } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
+import { vehicleService } from './vehicleService';
 
 export const modificationService = {
   /**
@@ -98,6 +99,7 @@ export const modificationService = {
       await requireUser();
 
       const now = new Date().toISOString();
+      let created: ModificationRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Modifications')
@@ -109,12 +111,20 @@ export const modificationService = {
           .select()
           .single();
 
-        if (!error && data) return data;
+        if (!error && data) created = data;
       } catch {
         // Fallback
       }
 
-      return await localStore.addModification(modData);
+      if (!created) {
+        created = await localStore.addModification(modData);
+      }
+
+      if (typeof modData.install_mileage === 'number' && !isNaN(modData.install_mileage)) {
+        await vehicleService.syncVehicleMaxMileage(modData.vehicle_id);
+      }
+
+      return created;
     });
   },
 
@@ -125,6 +135,7 @@ export const modificationService = {
     return handleServiceCall(async () => {
       await requireUser();
 
+      let updated: ModificationRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Modifications')
@@ -136,12 +147,20 @@ export const modificationService = {
           .select()
           .single();
 
-        if (!error && data) return data;
+        if (!error && data) updated = data;
       } catch {
         // Fallback
       }
 
-      return await localStore.updateModification(id, modData);
+      if (!updated) {
+        updated = await localStore.updateModification(id, modData);
+      }
+
+      if (updated.vehicle_id) {
+        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
+      }
+
+      return updated;
     });
   },
 

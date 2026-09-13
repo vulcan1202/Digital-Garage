@@ -143,6 +143,71 @@ export const vehicleService = {
   },
 
   /**
+   * 重新掃描車輛所有相關紀錄 (加油、保養、改裝)，以最高里程更新車輛 current_mileage
+   */
+  async syncVehicleMaxMileage(vehicleId: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      try {
+        const { data: vehicle } = await supabase
+          .from('Vehicles')
+          .select('current_mileage')
+          .eq('id', vehicleId)
+          .single();
+
+        const { data: refuels } = await supabase
+          .from('Refuels')
+          .select('mileage')
+          .eq('vehicle_id', vehicleId);
+
+        const { data: maints } = await supabase
+          .from('MaintenanceRecords')
+          .select('mileage')
+          .eq('vehicle_id', vehicleId);
+
+        const { data: mods } = await supabase
+          .from('Modifications')
+          .select('install_mileage')
+          .eq('vehicle_id', vehicleId);
+
+        const refuelMileages = (refuels || [])
+          .map((r) => r.mileage)
+          .filter((m) => typeof m === 'number' && !isNaN(m));
+        const maintMileages = (maints || [])
+          .map((m) => m.mileage)
+          .filter((m) => typeof m === 'number' && !isNaN(m));
+        const modMileages = (mods || [])
+          .map((m) => m.install_mileage)
+          .filter((m): m is number => typeof m === 'number' && m !== null && !isNaN(m));
+
+        const allMileages = [
+          vehicle?.current_mileage || 0,
+          ...refuelMileages,
+          ...maintMileages,
+          ...modMileages,
+        ];
+
+        const maxMileage = Math.max(...allMileages);
+
+        if (vehicle && vehicle.current_mileage !== maxMileage) {
+          await supabase
+            .from('Vehicles')
+            .update({
+              current_mileage: maxMileage,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', vehicleId);
+        }
+      } catch {
+        // Fallback to localStore
+      }
+
+      await localStore.syncVehicleMaxMileage(vehicleId);
+    });
+  },
+
+  /**
    * 刪除車輛 (底層由 SQL ON DELETE CASCADE 級聯清除所有子表記錄)
    */
   async deleteVehicle(id: number): Promise<void> {

@@ -11,19 +11,21 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoubleBezelCard } from '../components/DoubleBezelCard';
 import { useVehicles, useDeleteVehicle } from '../hooks/queries/useVehicles';
-import { useRefuels } from '../hooks/queries/useFuel';
+import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
 import { useReminders, useCompleteReminder, useDeleteReminder } from '../hooks/queries/useReminders';
 import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
-import { useMaintenanceRecords } from '../hooks/queries/useMaintenance';
+import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
 import { calculateVehicleTotalCost, calculateAverageCostPerKm } from '../utils/calculators/costCalculator';
 import { calculateAverageFuelCostPerKm, calculateFuelEconomy } from '../utils/calculators/fuelCalculator';
 import { evaluateReminderStatus } from '../utils/calculators/reminderCalculator';
-import { ModificationRow } from '../types/database';
+import { ModificationRow, RefuelRow, MaintenanceRecordRow } from '../types/database';
 
 import { AddVehicleModal } from '../components/modals/AddVehicleModal';
 import { EditVehicleModal } from '../components/modals/EditVehicleModal';
 import { AddRefuelModal } from '../components/modals/AddRefuelModal';
+import { EditRefuelModal } from '../components/modals/EditRefuelModal';
 import { AddMaintenanceModal } from '../components/modals/AddMaintenanceModal';
+import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal';
 import { AddReminderModal } from '../components/modals/AddReminderModal';
 import { AddModificationModal } from '../components/modals/AddModificationModal';
 import { EditModificationModal } from '../components/modals/EditModificationModal';
@@ -44,6 +46,8 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const completeReminderMutation = useCompleteReminder();
   const deleteReminderMutation = useDeleteReminder();
   const deleteModMutation = useDeleteModification();
+  const deleteRefuelMutation = useDeleteRefuel();
+  const deleteMaintenanceMutation = useDeleteMaintenanceRecord();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
@@ -54,8 +58,13 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [isAddMaintenanceOpen, setIsAddMaintenanceOpen] = useState(false);
   const [isAddReminderOpen, setIsAddReminderOpen] = useState(false);
 
+  // Fleet Records Tab state ('modifications' | 'maintenance' | 'refuels')
+  const [activeRecordTab, setActiveRecordTab] = useState<'modifications' | 'maintenance' | 'refuels'>('modifications');
+
   const [isAddModOpen, setIsAddModOpen] = useState(false);
   const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
+  const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
 
   // 當車輛清單加載後，預設選取第一台車
   const activeVehicle = useMemo(() => {
@@ -210,6 +219,60 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 vehicleId: activeVehicle.id,
               });
               Alert.alert('已刪除', '改裝品已自車庫中移除。');
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : '刪除失敗';
+              Alert.alert('刪除失敗', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteRefuel = (refuelId: number, refuelDate: string) => {
+    if (!activeVehicle) return;
+    Alert.alert(
+      '刪除加油紀錄',
+      `確定要刪除 ${refuelDate} 的加油紀錄嗎？\n此操作無法復原。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確定刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRefuelMutation.mutateAsync({
+                id: refuelId,
+                vehicleId: activeVehicle.id,
+              });
+              Alert.alert('已刪除', '加油紀錄已自車庫中移除。');
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : '刪除失敗';
+              Alert.alert('刪除失敗', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteMaintenance = (recordId: number, itemName: string) => {
+    if (!activeVehicle) return;
+    Alert.alert(
+      '刪除保修工單',
+      `確定要刪除「${itemName}」保修工單嗎？\n此操作無法復原。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確定刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMaintenanceMutation.mutateAsync({
+                id: recordId,
+                vehicleId: activeVehicle.id,
+              });
+              Alert.alert('已刪除', '保修工單已自車庫中移除。');
             } catch (err: unknown) {
               const msg = err instanceof Error ? err.message : '刪除失敗';
               Alert.alert('刪除失敗', msg);
@@ -534,127 +597,437 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             )}
           </View>
 
-          {/* 改裝品清單 (Modifications Fleet Specs - 可編輯) */}
+          {/* 車輛歷程履歷中樞 (Vehicle Fleet Records - 改裝/保養/加油 Tab 切換) */}
           <View className="mt-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center">
-                <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
-                  MODIFICATIONS LIST (改裝清單)
+            {/* 分頁切換器 (Tab Switcher) */}
+            <View className="flex-row bg-zinc-950 p-1 rounded-2xl border border-white/10 mb-4">
+              <TouchableOpacity
+                onPress={() => setActiveRecordTab('modifications')}
+                className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-1.5 ${
+                  activeRecordTab === 'modifications'
+                    ? 'bg-purple-500/20 border border-purple-500/40'
+                    : ''
+                }`}
+              >
+                <MaterialCommunityIcons
+                  name="car-wrench"
+                  size={14}
+                  color={activeRecordTab === 'modifications' ? '#c084fc' : '#71717a'}
+                />
+                <Text
+                  className={`text-xs font-mono font-bold ${
+                    activeRecordTab === 'modifications' ? 'text-purple-300' : 'text-metal-400'
+                  }`}
+                >
+                  改裝 ({modifications.length})
                 </Text>
-                <View className="bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/40">
-                  <Text className="text-[10px] font-mono text-purple-300 font-bold">
-                    {modifications.length} ITEMS
-                  </Text>
-                </View>
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setIsAddModOpen(true)}
-                className="flex-row items-center bg-purple-500/15 px-2.5 py-1 rounded-full border border-purple-500/30"
+                onPress={() => setActiveRecordTab('maintenance')}
+                className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-1.5 ${
+                  activeRecordTab === 'maintenance'
+                    ? 'bg-racing-orange/20 border border-racing-orange/40'
+                    : ''
+                }`}
               >
-                <Ionicons name="add" size={13} color="#c084fc" />
-                <Text className="text-[11px] text-purple-300 font-bold ml-1 font-mono">
-                  新增改裝
+                <Ionicons
+                  name="construct-outline"
+                  size={14}
+                  color={activeRecordTab === 'maintenance' ? '#ff6b00' : '#71717a'}
+                />
+                <Text
+                  className={`text-xs font-mono font-bold ${
+                    activeRecordTab === 'maintenance' ? 'text-racing-orange' : 'text-metal-400'
+                  }`}
+                >
+                  保修 ({maintenanceRecords.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setActiveRecordTab('refuels')}
+                className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-1.5 ${
+                  activeRecordTab === 'refuels'
+                    ? 'bg-racing-blue/20 border border-racing-blue/40'
+                    : ''
+                }`}
+              >
+                <Ionicons
+                  name="water-outline"
+                  size={14}
+                  color={activeRecordTab === 'refuels' ? '#007aff' : '#71717a'}
+                />
+                <Text
+                  className={`text-xs font-mono font-bold ${
+                    activeRecordTab === 'refuels' ? 'text-racing-blue' : 'text-metal-400'
+                  }`}
+                >
+                  加油 ({refuels.length})
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {modifications.length === 0 ? (
-              <DoubleBezelCard innerClassName="py-6 items-center">
-                <MaterialCommunityIcons name="car-wrench" size={32} color="#a855f7" />
-                <Text className="text-metal-400 text-xs mt-2 font-mono">
-                  此車輛尚未登錄任何改裝品套件
-                </Text>
-              </DoubleBezelCard>
-            ) : (
-              <View className="gap-2.5">
-                {modifications.map((mod) => {
-                  const totalModCost =
-                    (Number(mod.purchase_price) || 0) + (Number(mod.install_price) || 0);
-                  return (
-                    <View
-                      key={mod.id}
-                      className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]"
-                    >
-                      <View className="flex-row items-start justify-between">
-                        <View className="flex-1 mr-2">
-                          <View className="flex-row items-center gap-2 mb-1">
-                            <View className="px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/30">
-                              <Text className="text-[10px] font-mono text-purple-400 font-bold uppercase">
-                                {mod.category}
+            {/* TAB 1: 改裝清單 */}
+            {activeRecordTab === 'modifications' && (
+              <View>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                      MODIFICATIONS LIST (改裝清單)
+                    </Text>
+                    <View className="bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/40">
+                      <Text className="text-[10px] font-mono text-purple-300 font-bold">
+                        {modifications.length} ITEMS
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setIsAddModOpen(true)}
+                    className="flex-row items-center bg-purple-500/15 px-2.5 py-1 rounded-full border border-purple-500/30"
+                  >
+                    <Ionicons name="add" size={13} color="#c084fc" />
+                    <Text className="text-[11px] text-purple-300 font-bold ml-1 font-mono">
+                      新增改裝
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {modifications.length === 0 ? (
+                  <DoubleBezelCard innerClassName="py-6 items-center">
+                    <MaterialCommunityIcons name="car-wrench" size={32} color="#a855f7" />
+                    <Text className="text-metal-400 text-xs mt-2 font-mono">
+                      此車輛尚未登錄任何改裝品套件
+                    </Text>
+                  </DoubleBezelCard>
+                ) : (
+                  <View className="gap-2.5">
+                    {modifications.map((mod) => {
+                      const totalModCost =
+                        (Number(mod.purchase_price) || 0) + (Number(mod.install_price) || 0);
+                      return (
+                        <View
+                          key={mod.id}
+                          className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]"
+                        >
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 mr-2">
+                              <View className="flex-row items-center gap-2 mb-1">
+                                <View className="px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/30">
+                                  <Text className="text-[10px] font-mono text-purple-400 font-bold uppercase">
+                                    {mod.category}
+                                  </Text>
+                                </View>
+                                {mod.shop_name ? (
+                                  <Text className="text-[10px] text-metal-500 font-mono" numberOfLines={1}>
+                                    {mod.shop_name}
+                                  </Text>
+                                ) : null}
+                              </View>
+
+                              <Text className="text-white font-bold text-sm tracking-tight">
+                                {mod.item_name}
+                              </Text>
+
+                              {(mod.brand || mod.model) && (
+                                <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
+                                  {[mod.brand, mod.model].filter(Boolean).join(' · ')}
+                                </Text>
+                              )}
+                            </View>
+
+                            <View className="items-end">
+                              <Text className="text-xs font-mono font-bold text-white">
+                                ${totalModCost.toLocaleString()}
+                              </Text>
+                              <Text className="text-[9px] text-metal-500 font-mono">
+                                {mod.install_date || mod.purchase_date || '未註記日期'}
                               </Text>
                             </View>
-                            {mod.shop_name ? (
-                              <Text className="text-[10px] text-metal-500 font-mono" numberOfLines={1}>
-                                {mod.shop_name}
-                              </Text>
-                            ) : null}
                           </View>
 
-                          <Text className="text-white font-bold text-sm tracking-tight">
-                            {mod.item_name}
-                          </Text>
+                          <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06]">
+                            <View className="flex-row items-center">
+                              {mod.install_mileage !== null ? (
+                                <Text className="text-[10px] font-mono text-metal-400">
+                                  @{mod.install_mileage.toLocaleString()} KM
+                                </Text>
+                              ) : (
+                                <Text className="text-[10px] font-mono text-metal-500">標準配置</Text>
+                              )}
+                            </View>
 
-                          {(mod.brand || mod.model) && (
-                            <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
-                              {[mod.brand, mod.model].filter(Boolean).join(' · ')}
-                            </Text>
-                          )}
+                            <View className="flex-row items-center gap-1.5">
+                              <TouchableOpacity
+                                onPress={() => setEditingMod(mod)}
+                                className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
+                              >
+                                <Ionicons name="pencil" size={11} color="#fff" />
+                                <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
+                                  編輯
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => onNavigateToModDetail(mod.id)}
+                                className="px-2.5 py-1 bg-purple-500/20 rounded-md border border-purple-500/40 flex-row items-center"
+                              >
+                                <MaterialCommunityIcons name="tune-vertical" size={11} color="#c084fc" />
+                                <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
+                                  調校
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => handleDeleteMod(mod.id, mod.item_name)}
+                                className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
+                              >
+                                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
                         </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
 
-                        <View className="items-end">
-                          <Text className="text-xs font-mono font-bold text-white">
-                            ${totalModCost.toLocaleString()}
-                          </Text>
-                          <Text className="text-[9px] text-metal-500 font-mono">
-                            {mod.install_date || mod.purchase_date || '未註記日期'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06]">
-                        <View className="flex-row items-center">
-                          {mod.install_mileage !== null ? (
-                            <Text className="text-[10px] font-mono text-metal-400">
-                              @{mod.install_mileage.toLocaleString()} KM
-                            </Text>
-                          ) : (
-                            <Text className="text-[10px] font-mono text-metal-500">標準配置</Text>
-                          )}
-                        </View>
-
-                        <View className="flex-row items-center gap-1.5">
-                          <TouchableOpacity
-                            onPress={() => setEditingMod(mod)}
-                            className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
-                          >
-                            <Ionicons name="pencil" size={11} color="#fff" />
-                            <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
-                              編輯
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => onNavigateToModDetail(mod.id)}
-                            className="px-2.5 py-1 bg-purple-500/20 rounded-md border border-purple-500/40 flex-row items-center"
-                          >
-                            <MaterialCommunityIcons name="tune-vertical" size={11} color="#c084fc" />
-                            <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
-                              調校
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => handleDeleteMod(mod.id, mod.item_name)}
-                            className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
-                          >
-                            <Ionicons name="trash-outline" size={12} color="#ef4444" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
+            {/* TAB 2: 保養維修 */}
+            {activeRecordTab === 'maintenance' && (
+              <View>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                      MAINTENANCE & REPAIR (保修履歷)
+                    </Text>
+                    <View className="bg-racing-orange/20 px-2 py-0.5 rounded-full border border-racing-orange/40">
+                      <Text className="text-[10px] font-mono text-racing-orange font-bold">
+                        {maintenanceRecords.length} LOGS
+                      </Text>
                     </View>
-                  );
-                })}
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setIsAddMaintenanceOpen(true)}
+                    className="flex-row items-center bg-racing-orange/15 px-2.5 py-1 rounded-full border border-racing-orange/30"
+                  >
+                    <Ionicons name="add" size={13} color="#ff6b00" />
+                    <Text className="text-[11px] text-racing-orange font-bold ml-1 font-mono">
+                      新增保修
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {maintenanceRecords.length === 0 ? (
+                  <DoubleBezelCard innerClassName="py-6 items-center">
+                    <Ionicons name="construct-outline" size={32} color="#71717a" />
+                    <Text className="text-metal-400 text-xs mt-2 font-mono">
+                      此車輛尚未登錄任何保養或維修工單
+                    </Text>
+                  </DoubleBezelCard>
+                ) : (
+                  <View className="gap-2.5">
+                    {maintenanceRecords.map((record) => {
+                      const isRepair = record.record_type === 'repair';
+                      return (
+                        <View
+                          key={record.id}
+                          className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]"
+                        >
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 mr-2">
+                              <View className="flex-row items-center gap-2 mb-1">
+                                <View
+                                  className={`px-2 py-0.5 rounded border ${
+                                    isRepair
+                                      ? 'bg-racing-red/15 border-racing-red/30'
+                                      : 'bg-racing-orange/15 border-racing-orange/30'
+                                  }`}
+                                >
+                                  <Text
+                                    className={`text-[10px] font-mono font-bold uppercase ${
+                                      isRepair ? 'text-racing-red' : 'text-racing-orange'
+                                    }`}
+                                  >
+                                    {isRepair ? '維修故障' : '定期保養'}
+                                  </Text>
+                                </View>
+                                {record.shop_name ? (
+                                  <Text className="text-[10px] text-metal-500 font-mono" numberOfLines={1}>
+                                    {record.shop_name}
+                                  </Text>
+                                ) : null}
+                              </View>
+
+                              <Text className="text-white font-bold text-sm tracking-tight">
+                                {record.item_name}
+                              </Text>
+
+                              {record.note ? (
+                                <Text className="text-[11px] text-metal-400 font-mono mt-0.5" numberOfLines={2}>
+                                  {record.note}
+                                </Text>
+                              ) : null}
+                            </View>
+
+                            <View className="items-end">
+                              <Text className="text-xs font-mono font-bold text-white">
+                                ${Number(record.cost).toLocaleString()}
+                              </Text>
+                              <Text className="text-[9px] text-metal-500 font-mono">
+                                {record.service_date}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06]">
+                            <View className="flex-row items-center">
+                              <Ionicons name="speedometer-outline" size={12} color="#71717a" />
+                              <Text className="text-[10px] font-mono text-metal-400 ml-1">
+                                @{record.mileage.toLocaleString()} KM
+                              </Text>
+                            </View>
+
+                            <View className="flex-row items-center gap-1.5">
+                              <TouchableOpacity
+                                onPress={() => setEditingMaintenance(record)}
+                                className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
+                              >
+                                <Ionicons name="pencil" size={11} color="#fff" />
+                                <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
+                                  編輯
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => handleDeleteMaintenance(record.id, record.item_name)}
+                                className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
+                              >
+                                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* TAB 3: 加油日誌 */}
+            {activeRecordTab === 'refuels' && (
+              <View>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                      REFUEL LOGS (加油日誌)
+                    </Text>
+                    <View className="bg-racing-blue/20 px-2 py-0.5 rounded-full border border-racing-blue/40">
+                      <Text className="text-[10px] font-mono text-racing-blue font-bold">
+                        {refuels.length} LOGS
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setIsAddRefuelOpen(true)}
+                    className="flex-row items-center bg-racing-blue/15 px-2.5 py-1 rounded-full border border-racing-blue/30"
+                  >
+                    <Ionicons name="add" size={13} color="#007aff" />
+                    <Text className="text-[11px] text-racing-blue font-bold ml-1 font-mono">
+                      新增加油
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {refuels.length === 0 ? (
+                  <DoubleBezelCard innerClassName="py-6 items-center">
+                    <Ionicons name="water-outline" size={32} color="#71717a" />
+                    <Text className="text-metal-400 text-xs mt-2 font-mono">
+                      此車輛尚未登錄任何加油日誌
+                    </Text>
+                  </DoubleBezelCard>
+                ) : (
+                  <View className="gap-2.5">
+                    {refuels.map((refuel) => {
+                      const fuelLabelMap: Record<string, string> = {
+                        gasoline_98: '98 無鉛',
+                        gasoline_95: '95 無鉛',
+                        gasoline_92: '92 無鉛',
+                        diesel: '超級柴油',
+                        premium_diesel: '頂級柴油',
+                        electric: '純電充電',
+                        hybrid: '油電複合',
+                        other: '其他油品',
+                      };
+                      const fuelLabel = fuelLabelMap[refuel.fuel_type] || refuel.fuel_type;
+
+                      return (
+                        <View
+                          key={refuel.id}
+                          className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]"
+                        >
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 mr-2">
+                              <View className="flex-row items-center gap-2 mb-1">
+                                <View className="px-2 py-0.5 rounded bg-racing-blue/15 border border-racing-blue/30">
+                                  <Text className="text-[10px] font-mono text-racing-blue font-bold uppercase">
+                                    {fuelLabel}
+                                  </Text>
+                                </View>
+                                <Text className="text-[11px] text-metal-400 font-mono">
+                                  {refuel.volume} L {refuel.price_per_unit ? `@$${refuel.price_per_unit}/L` : ''}
+                                </Text>
+                              </View>
+
+                              <Text className="text-white font-bold text-sm tracking-tight font-mono">
+                                {refuel.refuel_date}
+                              </Text>
+                            </View>
+
+                            <View className="items-end">
+                              <Text className="text-xs font-mono font-bold text-racing-blue">
+                                ${Number(refuel.total_cost).toLocaleString()}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06]">
+                            <View className="flex-row items-center">
+                              <Ionicons name="speedometer-outline" size={12} color="#71717a" />
+                              <Text className="text-[10px] font-mono text-metal-400 ml-1">
+                                @{refuel.mileage.toLocaleString()} KM
+                              </Text>
+                            </View>
+
+                            <View className="flex-row items-center gap-1.5">
+                              <TouchableOpacity
+                                onPress={() => setEditingRefuel(refuel)}
+                                className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
+                              >
+                                <Ionicons name="pencil" size={11} color="#fff" />
+                                <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
+                                  編輯
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => handleDeleteRefuel(refuel.id, refuel.refuel_date)}
+                                className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
+                              >
+                                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -811,6 +1184,18 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             visible={!!editingMod}
             modification={editingMod}
             onClose={() => setEditingMod(null)}
+          />
+
+          <EditRefuelModal
+            visible={!!editingRefuel}
+            refuel={editingRefuel}
+            onClose={() => setEditingRefuel(null)}
+          />
+
+          <EditMaintenanceModal
+            visible={!!editingMaintenance}
+            record={editingMaintenance}
+            onClose={() => setEditingMaintenance(null)}
           />
         </>
       )}

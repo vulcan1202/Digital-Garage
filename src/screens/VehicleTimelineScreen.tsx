@@ -5,11 +5,24 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { DoubleBezelCard } from '../components/DoubleBezelCard';
 import { useTimeline } from '../hooks/queries/useTimeline';
-import { VehicleTimelineRow, TimelineEventType } from '../types/database';
+import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
+import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
+import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
+import {
+  VehicleTimelineRow,
+  TimelineEventType,
+  RefuelRow,
+  MaintenanceRecordRow,
+  ModificationRow,
+} from '../types/database';
+import { EditRefuelModal } from '../components/modals/EditRefuelModal';
+import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal';
+import { EditModificationModal } from '../components/modals/EditModificationModal';
 
 interface VehicleTimelineScreenProps {
   vehicleId: number;
@@ -23,6 +36,18 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   onBack,
 }) => {
   const [filter, setFilter] = useState<FilterCategory>('ALL');
+
+  const { data: refuels = [] } = useRefuels(vehicleId);
+  const { data: maintenanceRecords = [] } = useMaintenanceRecords(vehicleId);
+  const { data: modifications = [] } = useModifications(vehicleId);
+
+  const deleteRefuelMutation = useDeleteRefuel();
+  const deleteMaintenanceMutation = useDeleteMaintenanceRecord();
+  const deleteModMutation = useDeleteModification();
+
+  const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
+  const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
 
   const {
     data,
@@ -88,6 +113,83 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
     }
   };
 
+  const handleDeleteEvent = (item: VehicleTimelineRow) => {
+    let typeName = '紀錄';
+    if (item.event_type === 'refuel') typeName = '加油紀錄';
+    else if (item.event_type === 'maintenance' || item.event_type === 'repair') typeName = '保修工單';
+    else if (item.event_type === 'modification') typeName = '改裝品';
+
+    Alert.alert(`刪除${typeName}`, `確定要刪除「${item.title}」嗎？\n此操作無法復原。`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '確定刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (item.event_type === 'refuel') {
+              await deleteRefuelMutation.mutateAsync({ id: item.event_id, vehicleId });
+            } else if (item.event_type === 'maintenance' || item.event_type === 'repair') {
+              await deleteMaintenanceMutation.mutateAsync({ id: item.event_id, vehicleId });
+            } else if (item.event_type === 'modification') {
+              await deleteModMutation.mutateAsync({ id: item.event_id, vehicleId });
+            }
+            refetch();
+            Alert.alert('刪除成功', `已成功刪除該筆${typeName}。`);
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : '刪除失敗';
+            Alert.alert('刪除失敗', message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleEditEvent = (item: VehicleTimelineRow) => {
+    if (item.event_type === 'refuel') {
+      const found = refuels.find((r) => r.id === item.event_id);
+      if (found) {
+        setEditingRefuel(found);
+      } else {
+        setEditingRefuel({
+          id: item.event_id,
+          vehicle_id: vehicleId,
+          refuel_date: item.event_date,
+          mileage: item.mileage,
+          volume: 0,
+          price_per_unit: null,
+          total_cost: item.cost,
+          fuel_type: 'gasoline_98',
+          created_at: item.created_at,
+          updated_at: item.created_at,
+        });
+      }
+    } else if (item.event_type === 'maintenance' || item.event_type === 'repair') {
+      const found = maintenanceRecords.find((m) => m.id === item.event_id);
+      if (found) {
+        setEditingMaintenance(found);
+      } else {
+        setEditingMaintenance({
+          id: item.event_id,
+          vehicle_id: vehicleId,
+          record_type: item.event_type === 'repair' ? 'repair' : 'maintenance',
+          item_name: item.title,
+          service_date: item.event_date,
+          mileage: item.mileage,
+          cost: item.cost,
+          shop_name: null,
+          note: item.description,
+          created_at: item.created_at,
+          updated_at: item.created_at,
+        });
+      }
+    } else if (item.event_type === 'modification') {
+      const found = modifications.find((m) => m.id === item.event_id);
+      if (found) {
+        setEditingMod(found);
+      }
+    }
+  };
+
   const renderTimelineItem = ({ item }: { item: VehicleTimelineRow }) => {
     const badge = getEventBadge(item.event_type);
 
@@ -140,6 +242,24 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
                 ${Number(item.cost).toLocaleString()}
               </Text>
             </View>
+          </View>
+
+          {/* 操作按鈕 (編輯 & 刪除) */}
+          <View className="flex-row items-center justify-end gap-2 mt-2.5 pt-2 border-t border-white/[0.04]">
+            <TouchableOpacity
+              onPress={() => handleEditEvent(item)}
+              className="px-2.5 py-1 bg-white/10 rounded-md border border-white/20 flex-row items-center"
+            >
+              <Ionicons name="pencil" size={11} color="#fff" />
+              <Text className="text-[10px] font-mono text-white ml-1 font-semibold">編輯</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleDeleteEvent(item)}
+              className="p-1 rounded-md bg-red-500/10 border border-red-500/20"
+            >
+              <Ionicons name="trash-outline" size={12} color="#ef4444" />
+            </TouchableOpacity>
           </View>
         </DoubleBezelCard>
       </View>
@@ -245,6 +365,34 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           }
         />
       )}
+
+      {/* 編輯對話框掛載 */}
+      <EditRefuelModal
+        visible={!!editingRefuel}
+        refuel={editingRefuel}
+        onClose={() => {
+          setEditingRefuel(null);
+          refetch();
+        }}
+      />
+
+      <EditMaintenanceModal
+        visible={!!editingMaintenance}
+        record={editingMaintenance}
+        onClose={() => {
+          setEditingMaintenance(null);
+          refetch();
+        }}
+      />
+
+      <EditModificationModal
+        visible={!!editingMod}
+        modification={editingMod}
+        onClose={() => {
+          setEditingMod(null);
+          refetch();
+        }}
+      />
     </View>
   );
 };

@@ -1,7 +1,8 @@
 import { supabase, requireUser } from '../lib/supabase';
 import { localStore } from '../lib/localStore';
-import { RefuelRow, RefuelInsert } from '../types/database';
+import { RefuelRow, RefuelInsert, RefuelUpdate } from '../types/database';
 import { handleServiceCall } from './errors/AppError';
+import { vehicleService } from './vehicleService';
 
 export const fuelService = {
   /**
@@ -36,6 +37,7 @@ export const fuelService = {
       await requireUser();
 
       const now = new Date().toISOString();
+      let created: RefuelRow | null = null;
       try {
         const { data, error } = await supabase
           .from('Refuels')
@@ -47,17 +49,59 @@ export const fuelService = {
           .select()
           .single();
 
-        if (!error && data) return data;
+        if (!error && data) created = data;
       } catch {
         // Fallback
       }
 
-      return await localStore.addRefuel(refuelData);
+      if (!created) {
+        created = await localStore.addRefuel(refuelData);
+      }
+
+      await vehicleService.syncVehicleMaxMileage(refuelData.vehicle_id);
+      return created;
     });
   },
 
   /**
-   * 刪除加油紀錄
+   * 更新加油紀錄
+   */
+  async updateRefuel(id: number, refuelData: RefuelUpdate): Promise<RefuelRow> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const now = new Date().toISOString();
+      let updated: RefuelRow | null = null;
+      try {
+        const { data, error } = await supabase
+          .from('Refuels')
+          .update({
+            ...refuelData,
+            updated_at: refuelData.updated_at ?? now,
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (!error && data) updated = data;
+      } catch {
+        // Fallback
+      }
+
+      if (!updated) {
+        updated = await localStore.updateRefuel(id, refuelData);
+      }
+
+      if (updated.vehicle_id) {
+        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
+      }
+
+      return updated;
+    });
+  },
+
+  /**
+   * 刪除加油紀錄 (不回退車輛最高里程)
    */
   async deleteRefuel(id: number): Promise<void> {
     return handleServiceCall(async () => {

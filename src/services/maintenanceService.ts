@@ -3,9 +3,12 @@ import { localStore } from '../lib/localStore';
 import {
   MaintenanceRecordRow,
   MaintenanceRecordInsert,
+  MaintenanceRecordUpdate,
   MaintenancePhotoRow,
 } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
+import { vehicleService } from './vehicleService';
+import { reminderService } from './reminderService';
 
 export interface MaintenanceRecordWithPhotos extends MaintenanceRecordRow {
   photos: MaintenancePhotoRow[];
@@ -103,6 +106,7 @@ export const maintenanceService = {
       }
 
       const localRec = await localStore.addMaintenanceRecord(recordData);
+      await vehicleService.syncVehicleMaxMileage(recordData.vehicle_id);
       return {
         ...localRec,
         photos: [],
@@ -111,7 +115,51 @@ export const maintenanceService = {
   },
 
   /**
-   * 刪除保養紀錄 (底層由 SQL ON DELETE CASCADE 級聯清除 MaintenancePhotos)
+   * 更新保養維修紀錄，並同步車輛最高里程與關聯保養提醒
+   */
+  async updateMaintenanceRecord(
+    id: number,
+    recordData: MaintenanceRecordUpdate
+  ): Promise<MaintenanceRecordRow> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      const now = new Date().toISOString();
+      let updated: MaintenanceRecordRow | null = null;
+      try {
+        const { data, error } = await supabase
+          .from('MaintenanceRecords')
+          .update({
+            ...recordData,
+            updated_at: recordData.updated_at ?? now,
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (!error && data) updated = data;
+      } catch {
+        // Fallback
+      }
+
+      if (!updated) {
+        updated = await localStore.updateMaintenanceRecord(id, recordData);
+      }
+
+      if (updated.vehicle_id) {
+        await vehicleService.syncVehicleMaxMileage(updated.vehicle_id);
+      }
+
+      if (recordData.mileage !== undefined || recordData.service_date !== undefined) {
+        await reminderService.syncReminderFromMaintenance(id, recordData.mileage, recordData.service_date);
+      }
+
+      return updated;
+    });
+  },
+
+  /**
+   * 刪除保養紀錄 (底層由 SQL ON DELETE CASCADE 級聯清除 MaintenancePhotos，不回退車輛最高里程)
    */
   async deleteMaintenanceRecord(id: number): Promise<void> {
     return handleServiceCall(async () => {
