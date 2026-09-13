@@ -7,6 +7,7 @@ import {
   MaintenancePhotoRow,
 } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
+import { storageService } from './storageService';
 import { vehicleService } from './vehicleService';
 import { reminderService } from './reminderService';
 
@@ -197,6 +198,69 @@ export const maintenanceService = {
 
       if (targetVehicleId) {
         await vehicleService.syncVehicleMaxMileage(targetVehicleId);
+      }
+    });
+  },
+
+  /**
+   * 為既有的保養維修紀錄追加照片
+   */
+  async addMaintenancePhotos(
+    maintenanceRecordId: number,
+    photoUrls: string[]
+  ): Promise<MaintenancePhotoRow[]> {
+    return handleServiceCall(async () => {
+      await requireUser();
+      if (!photoUrls.length) return [];
+
+      const inserts = photoUrls.map((url, idx) => ({
+        maintenance_record_id: maintenanceRecordId,
+        url,
+        sort_order: idx,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { data, error } = await supabase
+        .from('MaintenancePhotos')
+        .insert(inserts)
+        .select();
+
+      if (error || !data) {
+        throw AppError.database('追加保養照片失敗', error);
+      }
+
+      return data;
+    });
+  },
+
+  /**
+   * 刪除單張保養照片，並同步清除 Storage 檔案
+   */
+  async deleteMaintenancePhoto(photoId: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      let photoUrl: string | null = null;
+      try {
+        const { data } = await supabase
+          .from('MaintenancePhotos')
+          .select('url')
+          .eq('id', photoId)
+          .single();
+        if (data) photoUrl = data.url;
+
+        await supabase
+          .from('MaintenancePhotos')
+          .delete()
+          .eq('id', photoId);
+      } catch (err) {
+        console.warn('刪除 MaintenancePhotos 記錄失敗:', err);
+      }
+
+      if (photoUrl) {
+        storageService.deleteVehicleMedia(photoUrl).catch((err) => {
+          console.warn('非同步清除保養照片 Storage 實體失敗:', err);
+        });
       }
     });
   },

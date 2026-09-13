@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoubleBezelCard } from '../components/DoubleBezelCard';
@@ -13,9 +14,14 @@ import {
   useModificationDetail,
   useSetCurrentSettingSet,
   useDeleteModification,
+  useAddModificationPhotos,
+  useDeleteModificationPhoto,
 } from '../hooks/queries/useModifications';
 import { AppError } from '../services/errors/AppError';
 import { AddSettingSetModal } from '../components/modals/AddSettingSetModal';
+import { ImageViewerModal } from '../components/modals/ImageViewerModal';
+import { storageService } from '../services/storageService';
+import { pickImagesFromLibrary, takePhotoWithCamera } from '../utils/imageOptimizer';
 
 interface ModificationDetailScreenProps {
   modificationId: number;
@@ -33,6 +39,74 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
   // 目前選取要查看參數的設定組 ID (若未手動選取，優先顯示 is_current = true 的版本)
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
   const [isAddSetModalOpen, setIsAddSetModalOpen] = useState(false);
+
+  // 改裝套件相片預覽與上傳狀態
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+
+  const addPhotosMutation = useAddModificationPhotos();
+  const deletePhotoMutation = useDeleteModificationPhoto();
+
+  const handleUploadPhoto = async (source: 'camera' | 'library') => {
+    if (!mod) return;
+    try {
+      let localUris: string[] = [];
+      if (source === 'camera') {
+        const p = await takePhotoWithCamera();
+        if (p) localUris.push(p.uri);
+      } else {
+        const list = await pickImagesFromLibrary({ allowsMultipleSelection: true, selectionLimit: 5 });
+        localUris = list.map((i) => i.uri);
+      }
+
+      if (localUris.length === 0) return;
+
+      setIsUploadingPhotos(true);
+      const photoPayload: Array<{ url: string; photo_type?: string }> = [];
+      for (const uri of localUris) {
+        try {
+          const res = await storageService.uploadLocalUri(mod.vehicle_id, 'modifications', uri);
+          photoPayload.push({ url: res.publicUrl });
+        } catch (upErr) {
+          console.warn('上傳改裝品相片失敗:', upErr);
+        }
+      }
+
+      if (photoPayload.length > 0) {
+        await addPhotosMutation.mutateAsync({
+          modificationId: mod.id,
+          photos: photoPayload,
+        });
+        Alert.alert('上傳成功', `已成功新增 ${photoPayload.length} 張改裝相片！`);
+      }
+    } catch (err: any) {
+      Alert.alert('上傳失敗', err?.message || '相片處理發生錯誤');
+    } finally {
+      setIsUploadingPhotos(false);
+    }
+  };
+
+  const handleDeletePhoto = (photoId: number) => {
+    if (!mod) return;
+    Alert.alert('刪除相片', '確定要刪除這張改裝相片嗎？此操作無法復原。', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '確定刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePhotoMutation.mutateAsync({
+              photoId,
+              modificationId: mod.id,
+            });
+            if (viewerIndex !== null) setViewerIndex(null);
+          } catch (err: any) {
+            Alert.alert('刪除失敗', err?.message || '刪除照片失敗');
+          }
+        },
+      },
+    ]);
+  };
 
 
   // 切換使用中版本之包裝處理 (具備 23505 唯一約束衝突提示)
@@ -215,6 +289,83 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
         </DoubleBezelCard>
       </View>
 
+      {/* 改裝套件實體相簿 (Photos Section) */}
+      <View className="mt-6 px-5">
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center">
+            <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+              MODIFICATION PHOTOS ({mod.photos.length})
+            </Text>
+            {isUploadingPhotos && (
+              <View className="flex-row items-center bg-racing-orange/10 px-2 py-0.5 rounded border border-racing-orange/30">
+                <ActivityIndicator size="small" color="#FF6B00" />
+                <Text className="text-[10px] font-mono text-racing-orange font-bold ml-1">
+                  上傳中...
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="flex-row items-center space-x-2">
+            <TouchableOpacity
+              onPress={() => handleUploadPhoto('camera')}
+              disabled={isUploadingPhotos}
+              className="flex-row items-center bg-white/10 px-2.5 py-1 rounded-full border border-white/20 active:bg-white/20"
+            >
+              <Ionicons name="camera-outline" size={12} color="#fff" />
+              <Text className="text-[10px] font-mono text-white font-bold ml-1">拍照</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleUploadPhoto('library')}
+              disabled={isUploadingPhotos}
+              className="flex-row items-center bg-purple-500/15 px-2.5 py-1 rounded-full border border-purple-500/30 active:bg-purple-500/25 ml-2"
+            >
+              <Ionicons name="images-outline" size={12} color="#c084fc" />
+              <Text className="text-[10px] font-mono text-purple-300 font-bold ml-1">相簿</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {mod.photos.length === 0 ? (
+          <DoubleBezelCard innerClassName="py-5 items-center">
+            <Ionicons name="images-outline" size={28} color="#52525b" />
+            <Text className="text-metal-400 text-xs mt-1.5 font-mono">
+              尚未上傳此改裝品的開箱或安裝實照
+            </Text>
+            <TouchableOpacity
+              onPress={() => handleUploadPhoto('library')}
+              disabled={isUploadingPhotos}
+              className="mt-2.5 px-3 py-1 bg-white/10 rounded-full border border-white/15"
+            >
+              <Text className="text-[11px] text-white font-bold">點此選取照片</Text>
+            </TouchableOpacity>
+          </DoubleBezelCard>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="py-1">
+            {mod.photos.map((photo, idx) => (
+              <View key={photo.id} className="relative mr-2.5">
+                <TouchableOpacity
+                  onPress={() => setViewerIndex(idx)}
+                  activeOpacity={0.85}
+                  className="w-24 h-24 rounded-xl overflow-hidden border border-white/10 bg-black/40"
+                >
+                  <Image source={{ uri: photo.url }} className="w-full h-full" resizeMode="cover" />
+                </TouchableOpacity>
+
+                {/* 刪除照片按鈕 */}
+                <TouchableOpacity
+                  onPress={() => handleDeletePhoto(photo.id)}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 items-center justify-center border border-white/20"
+                >
+                  <Ionicons name="trash-outline" size={11} color="#FF4D4D" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
       {/* 調校設定版本控制組 (ModificationSettingSets - Versioning) */}
       <View className="mt-6 px-5">
         <View className="flex-row items-center justify-between mb-3">
@@ -394,6 +545,17 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
         currentVehicleMileage={mod.install_mileage ?? undefined}
         onClose={() => setIsAddSetModalOpen(false)}
       />
+
+      {/* Modal: 全螢幕改裝照片瀏覽器 */}
+      {viewerIndex !== null && (
+        <ImageViewerModal
+          visible={viewerIndex !== null}
+          onClose={() => setViewerIndex(null)}
+          images={mod.photos.map((p) => ({ uri: p.url }))}
+          initialIndex={viewerIndex}
+          onDeletePhoto={(idx) => handleDeletePhoto(mod.photos[idx].id)}
+        />
+      )}
     </ScrollView>
   );
 };

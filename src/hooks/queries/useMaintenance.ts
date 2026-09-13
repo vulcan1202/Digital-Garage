@@ -97,3 +97,49 @@ export function useDeleteMaintenanceRecord() {
     },
   });
 }
+
+/**
+ * 追加保養照片 Mutation Hook
+ */
+export function useAddMaintenancePhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      maintenanceRecordId,
+      photoUrls,
+      vehicleId,
+    }: {
+      maintenanceRecordId: number;
+      photoUrls: string[];
+      vehicleId?: number;
+    }) => maintenanceService.addMaintenancePhotos(maintenanceRecordId, photoUrls),
+    onSuccess: (_, { vehicleId }) => {
+      if (vehicleId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance(vehicleId) });
+      }
+    },
+  });
+}
+
+/**
+ * 刪除單張保養照片 Mutation Hook
+ */
+export function useDeleteMaintenancePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      photoId,
+      vehicleId,
+    }: {
+      photoId: number;
+      vehicleId?: number;
+    }) => maintenanceService.deleteMaintenancePhoto(photoId),
+    onSuccess: (_, { vehicleId }) => {
+      if (vehicleId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance(vehicleId) });
+      }
+    },
+  });
+}

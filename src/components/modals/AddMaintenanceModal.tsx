@@ -15,6 +15,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCreateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordType } from '../../types/database';
 import { reminderService } from '../../services/reminderService';
+import { storageService } from '../../services/storageService';
+import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
 
 interface AddMaintenanceModalProps {
   visible: boolean;
@@ -43,6 +45,10 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   const [intervalKm, setIntervalKm] = useState('5000');
   const [intervalMonths, setIntervalMonths] = useState('6');
 
+  // 工單相片選取
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+
   const createMaintenanceMutation = useCreateMaintenanceRecord();
 
   const resetForm = () => {
@@ -56,6 +62,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     setSetNextReminder(false);
     setIntervalKm('5000');
     setIntervalMonths('6');
+    setSelectedPhotos([]);
   };
 
   const handleSubmit = async () => {
@@ -77,6 +84,19 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     }
 
     try {
+      setIsUploadingPhotos(true);
+
+      // 1. 若有選擇工單相片，先上傳至 Supabase Storage
+      const uploadedUrls: string[] = [];
+      for (const photo of selectedPhotos) {
+        try {
+          const res = await storageService.uploadLocalUri(vehicleId, 'maintenance', photo.uri);
+          uploadedUrls.push(res.publicUrl);
+        } catch (uploadErr) {
+          console.warn('上傳保養照片失敗:', uploadErr);
+        }
+      }
+
       const createdRecord = await createMaintenanceMutation.mutateAsync({
         recordData: {
           vehicle_id: vehicleId,
@@ -88,7 +108,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
           shop_name: shopName.trim() || null,
           note: note.trim() || null,
         },
-        photoUrls: [],
+        photoUrls: uploadedUrls,
       });
 
       // 同步建立下次保養提醒
@@ -121,6 +141,8 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '保養紀錄新增失敗';
       Alert.alert('新增失敗', message);
+    } finally {
+      setIsUploadingPhotos(false);
     }
   };
 
@@ -390,10 +412,20 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 )}
               </View>
 
+              {/* Maintenance Photos Picker */}
+              <PhotoPickerSection
+                photos={selectedPhotos}
+                onChangePhotos={setSelectedPhotos}
+                maxPhotos={5}
+                title="維修工單/發票照片"
+                subtitle="上傳工單證明或零件施作照片（等比壓縮至1920px）"
+              />
+
               {/* Action Buttons */}
               <View className="flex-row gap-3 mb-4">
                 <TouchableOpacity
                   onPress={onClose}
+                  disabled={createMaintenanceMutation.isPending || isUploadingPhotos}
                   className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
                 >
                   <Text className="text-metal-300 font-mono text-xs">取消</Text>
@@ -401,10 +433,10 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
                 <TouchableOpacity
                   onPress={handleSubmit}
-                  disabled={createMaintenanceMutation.isPending}
+                  disabled={createMaintenanceMutation.isPending || isUploadingPhotos}
                   className="flex-2 flex-row items-center justify-center rounded-full bg-racing-orange px-6 py-3.5 flex-1"
                 >
-                  {createMaintenanceMutation.isPending ? (
+                  {createMaintenanceMutation.isPending || isUploadingPhotos ? (
                     <ActivityIndicator size="small" color="#000" />
                   ) : (
                     <>

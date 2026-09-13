@@ -12,6 +12,7 @@ import {
   ModificationSettingInsert,
 } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
+import { storageService } from './storageService';
 import { vehicleService } from './vehicleService';
 
 export const modificationService = {
@@ -332,6 +333,70 @@ export const modificationService = {
 
       if (targetVehicleId) {
         await vehicleService.syncVehicleMaxMileage(targetVehicleId);
+      }
+    });
+  },
+
+  /**
+   * 為既有的改裝品追加相片
+   */
+  async addModificationPhotos(
+    modificationId: number,
+    photos: Array<{ url: string; photo_type?: string }>
+  ): Promise<ModificationPhotoRow[]> {
+    return handleServiceCall(async () => {
+      await requireUser();
+      if (!photos.length) return [];
+
+      const inserts = photos.map((p, idx) => ({
+        modification_id: modificationId,
+        url: p.url,
+        photo_type: p.photo_type || null,
+        sort_order: idx,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { data, error } = await supabase
+        .from('ModificationPhotos')
+        .insert(inserts)
+        .select();
+
+      if (error || !data) {
+        throw AppError.database('追加改裝照片失敗', error);
+      }
+
+      return data;
+    });
+  },
+
+  /**
+   * 刪除單張改裝照片，並同步清除 Storage 檔案
+   */
+  async deleteModificationPhoto(photoId: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      let photoUrl: string | null = null;
+      try {
+        const { data } = await supabase
+          .from('ModificationPhotos')
+          .select('url')
+          .eq('id', photoId)
+          .single();
+        if (data) photoUrl = data.url;
+
+        await supabase
+          .from('ModificationPhotos')
+          .delete()
+          .eq('id', photoId);
+      } catch (err) {
+        console.warn('刪除 ModificationPhotos 記錄失敗:', err);
+      }
+
+      if (photoUrl) {
+        storageService.deleteVehicleMedia(photoUrl).catch((err) => {
+          console.warn('非同步清除改裝照片 Storage 實體失敗:', err);
+        });
       }
     });
   },

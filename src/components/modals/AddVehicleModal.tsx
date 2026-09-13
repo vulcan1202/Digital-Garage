@@ -14,7 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateVehicle } from '../../hooks/queries/useVehicles';
 import { DoubleBezelCard } from '../DoubleBezelCard';
-
+import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
+import { storageService } from '../../services/storageService';
+import { vehicleService } from '../../services/vehicleService';
 
 interface AddVehicleModalProps {
   visible: boolean;
@@ -32,6 +34,8 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   const [year, setYear] = useState('');
   const [currentMileage, setCurrentMileage] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
   const createVehicleMutation = useCreateVehicle();
 
@@ -41,6 +45,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     setYear('');
     setCurrentMileage('');
     setPurchaseDate('');
+    setSelectedPhotos([]);
   };
 
   const handleCreate = async () => {
@@ -62,6 +67,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     }
 
     try {
+      setIsUploadingPhotos(true);
       const finalMileage = isNaN(mileageNum) ? 0 : mileageNum;
       const created = await createVehicleMutation.mutateAsync({
         brand: brand.trim(),
@@ -72,6 +78,28 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
         purchase_date: purchaseDate.trim() || null,
       });
 
+      // 若有選取相片，上傳至 vehicle-media 並寫入 VehiclePhotos (第一張自動為封面)
+      if (selectedPhotos.length > 0) {
+        for (let i = 0; i < selectedPhotos.length; i++) {
+          try {
+            const photo = selectedPhotos[i];
+            const uploadResult = await storageService.uploadLocalUri(
+              created.id,
+              'covers',
+              photo.uri
+            );
+            await vehicleService.addVehiclePhoto(
+              created.id,
+              uploadResult.publicUrl,
+              i === 0, // 第一張設為封面
+              i
+            );
+          } catch (photoErr) {
+            console.warn('新增車輛時上傳相片失敗:', photoErr);
+          }
+        }
+      }
+
       Alert.alert('車輛登錄成功', `${created.brand} ${created.model} 已加入您的車庫！`);
       resetForm();
       onClose();
@@ -81,6 +109,8 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '車輛新增失敗';
       Alert.alert('新增失敗', message);
+    } finally {
+      setIsUploadingPhotos(false);
     }
   };
 
@@ -176,7 +206,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
               </View>
 
               {/* Purchase Date */}
-              <View className="mb-6">
+              <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
                   購入日期 PURCHASE DATE (YYYY-MM-DD)
                 </Text>
@@ -189,10 +219,20 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
                 />
               </View>
 
+              {/* Vehicle Photos Picker */}
+              <PhotoPickerSection
+                photos={selectedPhotos}
+                onChangePhotos={setSelectedPhotos}
+                maxPhotos={5}
+                title="愛車相片 (第一張將作為封面)"
+                subtitle="支援即時拍照或相簿多選（客戶端等比壓縮最佳化）"
+              />
+
               {/* Action Buttons */}
               <View className="flex-row gap-3 mb-4">
                 <TouchableOpacity
                   onPress={onClose}
+                  disabled={createVehicleMutation.isPending || isUploadingPhotos}
                   className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
                 >
                   <Text className="text-metal-300 font-mono text-xs">取消</Text>
@@ -200,10 +240,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
 
                 <TouchableOpacity
                   onPress={handleCreate}
-                  disabled={createVehicleMutation.isPending}
+                  disabled={createVehicleMutation.isPending || isUploadingPhotos}
                   className="flex-2 flex-row items-center justify-center rounded-full bg-racing-orange px-6 py-3.5 flex-1"
                 >
-                  {createVehicleMutation.isPending ? (
+                  {createVehicleMutation.isPending || isUploadingPhotos ? (
                     <ActivityIndicator size="small" color="#000" />
                   ) : (
                     <>

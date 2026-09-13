@@ -21,12 +21,15 @@ import {
   ModificationSettingSetInsert,
   ModificationSettingRow,
   VehicleTimelineRow,
+  VehiclePhotoRow,
+  VehiclePhotoInsert,
 } from '../types/database';
 
 const LOCAL_STORE_KEY = 'DIGITAL_GARAGE_LOCAL_DB_V1';
 
 interface LocalDBState {
   vehicles: VehicleRow[];
+  vehiclePhotos: VehiclePhotoRow[];
   refuels: RefuelRow[];
   maintenanceRecords: MaintenanceRecordRow[];
   reminders: ReminderRow[];
@@ -37,6 +40,7 @@ interface LocalDBState {
 
 let inMemoryDB: LocalDBState = {
   vehicles: [],
+  vehiclePhotos: [],
   refuels: [],
   maintenanceRecords: [],
   reminders: [],
@@ -68,6 +72,9 @@ async function loadFromStorage() {
           }
         });
       }
+      if (!inMemoryDB.vehiclePhotos) {
+        inMemoryDB.vehiclePhotos = [];
+      }
     }
   } catch (e) {
     // ignore
@@ -86,10 +93,80 @@ export const localStore = {
     await loadFromStorage();
     return inMemoryDB.vehicles
       .filter((v) => v.user_id === userId)
-      .map((v) => ({
-        ...v,
-        cover_url: null,
-      }));
+      .map((v) => {
+        const photos = inMemoryDB.vehiclePhotos.filter((p) => p.vehicle_id === v.id);
+        const coverPhoto = photos.find((p) => p.is_cover);
+        const firstPhoto = photos[0];
+        return {
+          ...v,
+          cover_url: coverPhoto ? coverPhoto.url : (firstPhoto ? firstPhoto.url : null),
+        };
+      });
+  },
+
+  // Vehicle Photos
+  async getVehiclePhotos(vehicleId: number): Promise<VehiclePhotoRow[]> {
+    await loadFromStorage();
+    return inMemoryDB.vehiclePhotos
+      .filter((p) => p.vehicle_id === vehicleId)
+      .sort((a, b) => (b.is_cover ? 1 : 0) - (a.is_cover ? 1 : 0) || a.sort_order - b.sort_order);
+  },
+
+  async addVehiclePhoto(data: VehiclePhotoInsert): Promise<VehiclePhotoRow> {
+    await loadFromStorage();
+    const newId = inMemoryDB.vehiclePhotos.length > 0
+      ? Math.max(...inMemoryDB.vehiclePhotos.map((p) => p.id)) + 1
+      : 1;
+    const now = new Date().toISOString();
+
+    if (data.is_cover) {
+      inMemoryDB.vehiclePhotos
+        .filter((p) => p.vehicle_id === data.vehicle_id)
+        .forEach((p) => {
+          p.is_cover = false;
+        });
+    }
+
+    const photo: VehiclePhotoRow = {
+      id: newId,
+      vehicle_id: data.vehicle_id,
+      url: data.url,
+      sort_order: data.sort_order ?? 0,
+      is_cover: data.is_cover ?? false,
+      created_at: data.created_at ?? now,
+    };
+
+    inMemoryDB.vehiclePhotos.push(photo);
+    await saveToStorage();
+    return photo;
+  },
+
+  async setCoverPhoto(vehicleId: number, photoId: number): Promise<void> {
+    await loadFromStorage();
+    inMemoryDB.vehiclePhotos
+      .filter((p) => p.vehicle_id === vehicleId)
+      .forEach((p) => {
+        p.is_cover = p.id === photoId;
+      });
+    await saveToStorage();
+  },
+
+  async deleteVehiclePhoto(photoId: number, vehicleId: number): Promise<void> {
+    await loadFromStorage();
+    const target = inMemoryDB.vehiclePhotos.find((p) => p.id === photoId);
+    const wasCover = target?.is_cover ?? false;
+
+    inMemoryDB.vehiclePhotos = inMemoryDB.vehiclePhotos.filter((p) => p.id !== photoId);
+
+    // 若刪除的照片為當前封面，且該車仍有照片，自動指定下一張（第一張）為封面
+    if (wasCover) {
+      const remaining = inMemoryDB.vehiclePhotos.filter((p) => p.vehicle_id === vehicleId);
+      if (remaining.length > 0) {
+        remaining[0].is_cover = true;
+      }
+    }
+
+    await saveToStorage();
   },
 
   async getVehicleById(id: number): Promise<VehicleRow | null> {

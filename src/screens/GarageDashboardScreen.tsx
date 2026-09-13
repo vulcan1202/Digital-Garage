@@ -29,6 +29,8 @@ import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal'
 import { AddReminderModal } from '../components/modals/AddReminderModal';
 import { AddModificationModal } from '../components/modals/AddModificationModal';
 import { EditModificationModal } from '../components/modals/EditModificationModal';
+import { VehiclePhotoGalleryModal } from '../components/modals/VehiclePhotoGalleryModal';
+import { ImageViewerModal } from '../components/modals/ImageViewerModal';
 
 interface GarageDashboardScreenProps {
   onNavigateToTimeline: (vehicleId: number) => void;
@@ -57,6 +59,8 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [isAddRefuelOpen, setIsAddRefuelOpen] = useState(false);
   const [isAddMaintenanceOpen, setIsAddMaintenanceOpen] = useState(false);
   const [isAddReminderOpen, setIsAddReminderOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [maintenanceViewerImages, setMaintenanceViewerImages] = useState<Array<{ uri: string; title?: string }> | null>(null);
 
   // Fleet Records Tab state ('modifications' | 'maintenance' | 'refuels')
   const [activeRecordTab, setActiveRecordTab] = useState<'modifications' | 'maintenance' | 'refuels'>('modifications');
@@ -418,6 +422,14 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             </View>
 
             <View className="flex-row items-center gap-2">
+              <TouchableOpacity
+                onPress={() => setIsGalleryOpen(true)}
+                className="flex-row items-center bg-racing-orange/15 px-2.5 py-1 rounded-full border border-racing-orange/30 active:bg-racing-orange/25"
+              >
+                <Ionicons name="images-outline" size={12} color="#ff6b00" />
+                <Text className="text-[10px] font-mono text-racing-orange font-bold ml-1">相簿管理</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={() => setIsEditVehicleOpen(true)}
                 className="flex-row items-center bg-white/10 px-2.5 py-1 rounded-full border border-white/20"
@@ -871,6 +883,30 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                                   {record.note}
                                 </Text>
                               ) : null}
+
+                              {/* 工單照片縮圖列 */}
+                              {(record as any).photos && (record as any).photos.length > 0 && (
+                                <View className="flex-row items-center mt-2 space-x-1.5">
+                                  {(record as any).photos.map((p: any, pIdx: number) => (
+                                    <TouchableOpacity
+                                      key={p.id}
+                                      onPress={() => {
+                                        const viewerImgs = (record as any).photos.map((photo: any) => ({
+                                          uri: photo.url,
+                                          title: `${record.item_name} · 工單照片`,
+                                        }));
+                                        setMaintenanceViewerImages(viewerImgs);
+                                      }}
+                                      className="w-9 h-9 rounded-lg overflow-hidden border border-white/20 mr-1.5"
+                                    >
+                                      <Image source={{ uri: p.url }} className="w-full h-full" resizeMode="cover" />
+                                    </TouchableOpacity>
+                                  ))}
+                                  <Text className="text-[10px] text-metal-500 font-mono">
+                                    共 {(record as any).photos.length} 張
+                                  </Text>
+                                </View>
+                              )}
                             </View>
 
                             <View className="items-end">
@@ -1197,6 +1233,23 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             record={editingMaintenance}
             onClose={() => setEditingMaintenance(null)}
           />
+
+          {/* 車輛專屬相簿管理 Modal */}
+          <VehiclePhotoGalleryModal
+            visible={isGalleryOpen}
+            onClose={() => setIsGalleryOpen(false)}
+            vehicleId={activeVehicle.id}
+            vehicleName={`${activeVehicle.brand} ${activeVehicle.model}`}
+          />
+
+          {/* 保養紀錄工單照片大圖檢視 Modal */}
+          {maintenanceViewerImages && (
+            <ImageViewerModal
+              visible={!!maintenanceViewerImages}
+              onClose={() => setMaintenanceViewerImages(null)}
+              images={maintenanceViewerImages}
+            />
+          )}
         </>
       )}
     </ScrollView>

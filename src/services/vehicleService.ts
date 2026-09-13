@@ -8,6 +8,7 @@ import {
   VehicleWithCover,
 } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
+import { storageService } from './storageService';
 
 export const vehicleService = {
   /**
@@ -223,6 +224,33 @@ export const vehicleService = {
   },
 
   /**
+   * 取得特定車輛的所有照片清單 (封面置頂，其次依 sort_order 排序)
+   */
+  async getVehiclePhotos(vehicleId: number): Promise<VehiclePhotoRow[]> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      try {
+        const { data, error } = await supabase
+          .from('VehiclePhotos')
+          .select('*')
+          .eq('vehicle_id', vehicleId)
+          .order('is_cover', { ascending: false })
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.getVehiclePhotos(vehicleId);
+    });
+  },
+
+  /**
    * 寫入車輛照片至 VehiclePhotos 資料表
    */
   async addVehiclePhoto(
@@ -236,57 +264,144 @@ export const vehicleService = {
 
       // 若新照片直接指定為封面，先將現有封面取消 (兩步操作)
       if (isCover) {
-        await supabase
-          .from('VehiclePhotos')
-          .update({ is_cover: false })
-          .eq('vehicle_id', vehicleId)
-          .eq('is_cover', true);
+        try {
+          await supabase
+            .from('VehiclePhotos')
+            .update({ is_cover: false })
+            .eq('vehicle_id', vehicleId)
+            .eq('is_cover', true);
+        } catch {
+          // ignore
+        }
       }
 
-      const { data, error } = await supabase
-        .from('VehiclePhotos')
-        .insert({
-          vehicle_id: vehicleId,
-          url,
-          is_cover: isCover,
-          sort_order: sortOrder,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('VehiclePhotos')
+          .insert({
+            vehicle_id: vehicleId,
+            url,
+            is_cover: isCover,
+            sort_order: sortOrder,
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) {
+          await localStore.addVehiclePhoto(data);
+          return data;
+        }
+      } catch {
+        // Fallback
+      }
+
+      return await localStore.addVehiclePhoto({
+        vehicle_id: vehicleId,
+        url,
+        is_cover: isCover,
+        sort_order: sortOrder,
+      });
     });
   },
 
   /**
    * 設定車輛封面照片
-   * 注意：此兩步式 UPDATE 不具備 Database Transaction 原子性！
-   * 由 SQL Partial Unique Index idx_vehicle_single_cover 保證資料庫約束。
-   * 若並發造成 23505 違例，handleServiceCall 會自動轉換為 AppError.conflict(...)。
+   * 注意：此兩步式 UPDATE 由 SQL Partial Unique Index idx_vehicle_single_cover 保證資料庫約束。
    */
   async setCoverPhoto(vehicleId: number, photoId: number): Promise<void> {
     return handleServiceCall(async () => {
       await requireUser();
 
-      // 步驟 1: 將該車輛所有目前的封面照片更新為 false
-      const { error: unsetError } = await supabase
-        .from('VehiclePhotos')
-        .update({ is_cover: false })
-        .eq('vehicle_id', vehicleId)
-        .eq('is_cover', true);
+      try {
+        // 步驟 1: 將該車輛所有目前的封面照片更新為 false
+        await supabase
+          .from('VehiclePhotos')
+          .update({ is_cover: false })
+          .eq('vehicle_id', vehicleId)
+          .eq('is_cover', true);
 
-      if (unsetError) throw unsetError;
+        // 步驟 2: 將目標照片更新為 is_cover = true
+        const { error: setError } = await supabase
+          .from('VehiclePhotos')
+          .update({ is_cover: true })
+          .eq('id', photoId)
+          .eq('vehicle_id', vehicleId);
 
-      // 步驟 2: 將目標照片更新為 is_cover = true
-      const { error: setError } = await supabase
-        .from('VehiclePhotos')
-        .update({ is_cover: true })
-        .eq('id', photoId)
-        .eq('vehicle_id', vehicleId);
+        if (setError) throw setError;
+      } catch {
+        // Fallback
+      }
 
-      if (setError) throw setError;
+      await localStore.setCoverPhoto(vehicleId, photoId);
+    });
+  },
+
+  /**
+   * 刪除車輛照片
+   * 規格：若刪除的照片為當前封面 (is_cover = true)：
+   * - 若仍有其他照片，自動將下一張設為新封面
+   * - 若所有照片皆已刪除，封面清空
+   * - 同步自 Supabase Storage 中物理刪除檔案
+   */
+  async deleteVehiclePhoto(photoId: number, vehicleId: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      let photoUrl: string | null = null;
+      let wasCover = false;
+
+      try {
+        // 1. 查詢目標照片資訊
+        const { data: targetPhoto } = await supabase
+          .from('VehiclePhotos')
+          .select('url, is_cover')
+          .eq('id', photoId)
+          .single();
+
+        if (targetPhoto) {
+          photoUrl = targetPhoto.url;
+          wasCover = targetPhoto.is_cover;
+        }
+
+        // 2. 從資料表刪除該照片
+        await supabase
+          .from('VehiclePhotos')
+          .delete()
+          .eq('id', photoId)
+          .eq('vehicle_id', vehicleId);
+
+        // 3. 若為封面，自動將剩餘的第一張照片提升為封面
+        if (wasCover) {
+          const { data: remaining } = await supabase
+            .from('VehiclePhotos')
+            .select('id')
+            .eq('vehicle_id', vehicleId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true })
+            .limit(1);
+
+          if (remaining && remaining.length > 0) {
+            await supabase
+              .from('VehiclePhotos')
+              .update({ is_cover: true })
+              .eq('id', remaining[0].id)
+              .eq('vehicle_id', vehicleId);
+          }
+        }
+      } catch {
+        // Fallback
+      }
+
+      // 4. 同步更新本地資料庫
+      await localStore.deleteVehiclePhoto(photoId, vehicleId);
+
+      // 5. 非同步非阻塞清理 Supabase Storage 實體檔案
+      if (photoUrl) {
+        storageService.deleteVehicleMedia(photoUrl).catch((err) => {
+          console.warn('非同步清除車輛照片 Storage 實體失敗:', err);
+        });
+      }
     });
   },
 };

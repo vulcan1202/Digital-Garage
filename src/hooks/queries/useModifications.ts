@@ -143,3 +143,47 @@ export function useUpdateModification() {
   });
 }
 
+/**
+ * 追加改裝照片 Mutation Hook
+ */
+export function useAddModificationPhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      modificationId,
+      photos,
+    }: {
+      modificationId: number;
+      photos: Array<{ url: string; photo_type?: string }>;
+    }) => modificationService.addModificationPhotos(modificationId, photos),
+    onSuccess: (_, { modificationId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.modificationDetail(modificationId),
+      });
+    },
+  });
+}
+
+/**
+ * 刪除改裝照片 Mutation Hook
+ */
+export function useDeleteModificationPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      photoId,
+      modificationId,
+    }: {
+      photoId: number;
+      modificationId: number;
+    }) => modificationService.deleteModificationPhoto(photoId),
+    onSuccess: (_, { modificationId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.modificationDetail(modificationId),
+      });
+    },
+  });
+}
+

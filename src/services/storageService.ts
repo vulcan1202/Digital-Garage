@@ -61,4 +61,45 @@ export const storageService = {
       };
     });
   },
+
+  /**
+   * 直接傳入本機圖片 URI (例如 ImagePicker 或 ImageManipulator 產出之路徑)，
+   * 自動透過 fetch 轉換為 Blob 並呼叫 uploadVehicleMedia
+   */
+  async uploadLocalUri(
+    vehicleId: number,
+    folder: 'covers' | 'maintenance' | 'modifications',
+    localUri: string,
+    fileExtension = 'jpg',
+    contentType = 'image/jpeg'
+  ): Promise<StorageUploadResult> {
+    const response = await fetch(localUri);
+    const blob = await response.blob();
+    return this.uploadVehicleMedia(vehicleId, folder, blob, fileExtension, contentType);
+  },
+
+  /**
+   * 從 Supabase Storage 刪除檔案 (支援傳入完整 public URL 或 storagePath)
+   */
+  async deleteVehicleMedia(storagePathOrUrl: string): Promise<void> {
+    return handleServiceCall(async () => {
+      await requireUser();
+
+      let targetPath = storagePathOrUrl;
+      // 若傳入的是公開 URL，解析出 bucket 內部路徑 (在 vehicle-media/ 之後的部分)
+      const bucketIndicator = '/vehicle-media/';
+      if (storagePathOrUrl.includes(bucketIndicator)) {
+        targetPath = storagePathOrUrl.split(bucketIndicator)[1];
+      }
+
+      const { error } = await supabase.storage
+        .from('vehicle-media')
+        .remove([targetPath]);
+
+      if (error) {
+        // 若找不到檔案或已刪除，視為成功或警告即可，不中斷業務流程
+        console.warn('刪除 Storage 檔案警告:', error.message);
+      }
+    });
+  },
 };

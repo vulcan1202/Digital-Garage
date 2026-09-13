@@ -14,6 +14,9 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAddModification } from '../../hooks/queries/useModifications';
 import { ModificationCategory } from '../../types/database';
+import { storageService } from '../../services/storageService';
+import { modificationService } from '../../services/modificationService';
+import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
 
 interface AddModificationModalProps {
   visible: boolean;
@@ -56,6 +59,10 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
   const [shopName, setShopName] = useState('');
   const [note, setNote] = useState('');
 
+  // 改裝套件相片選取
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+
   const addModMutation = useAddModification();
 
   const resetForm = () => {
@@ -70,6 +77,7 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
     setInstallPrice('');
     setShopName('');
     setNote('');
+    setSelectedPhotos([]);
   };
 
   const handleSubmit = async () => {
@@ -92,7 +100,8 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
     }
 
     try {
-      await addModMutation.mutateAsync({
+      setIsUploadingPhotos(true);
+      const createdMod = await addModMutation.mutateAsync({
         vehicle_id: vehicleId,
         category,
         item_name: itemName.trim(),
@@ -107,12 +116,30 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
         note: note.trim() || null,
       });
 
+      // 若有選取相片，上傳至 Storage 並寫入 ModificationPhotos
+      if (selectedPhotos.length > 0 && createdMod) {
+        const photoPayload: Array<{ url: string; photo_type?: string }> = [];
+        for (const photo of selectedPhotos) {
+          try {
+            const res = await storageService.uploadLocalUri(vehicleId, 'modifications', photo.uri);
+            photoPayload.push({ url: res.publicUrl });
+          } catch (uploadErr) {
+            console.warn('上傳改裝套件相片失敗:', uploadErr);
+          }
+        }
+        if (photoPayload.length > 0) {
+          await modificationService.addModificationPhotos(createdMod.id, photoPayload);
+        }
+      }
+
       Alert.alert('改裝品登錄成功', `「${itemName.trim()}」已加入改裝庫！`);
       resetForm();
       onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '改裝品新增失敗';
       Alert.alert('新增失敗', message);
+    } finally {
+      setIsUploadingPhotos(false);
     }
   };
 
@@ -311,10 +338,20 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
                 />
               </View>
 
+              {/* Modification Photos Picker */}
+              <PhotoPickerSection
+                photos={selectedPhotos}
+                onChangePhotos={setSelectedPhotos}
+                maxPhotos={5}
+                title="改裝實品/安裝相片"
+                subtitle="上傳配件開箱或上車照片（等比壓縮至1920px）"
+              />
+
               {/* Action Buttons */}
               <View className="flex-row gap-3 mb-4">
                 <TouchableOpacity
                   onPress={onClose}
+                  disabled={addModMutation.isPending || isUploadingPhotos}
                   className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
                 >
                   <Text className="text-metal-300 font-mono text-xs">取消</Text>
@@ -322,10 +359,10 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
 
                 <TouchableOpacity
                   onPress={handleSubmit}
-                  disabled={addModMutation.isPending}
+                  disabled={addModMutation.isPending || isUploadingPhotos}
                   className="flex-2 flex-row items-center justify-center rounded-full bg-purple-600 px-6 py-3.5 flex-1"
                 >
-                  {addModMutation.isPending ? (
+                  {addModMutation.isPending || isUploadingPhotos ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <>

@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit"
   },
-
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@supabase/supabase-js": "^2.49.1",
@@ -19,6 +18,8 @@
     "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.22",
     "expo-crypto": "~57.0.0",
+    "expo-image-manipulator": "~57.0.17",
+    "expo-image-picker": "~57.0.17",
     "expo-secure-store": "~57.0.0",
     "expo-status-bar": "~57.0.1",
     "nativewind": "^4.1.23",

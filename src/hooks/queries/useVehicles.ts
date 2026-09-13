@@ -69,6 +69,43 @@ export function useDeleteVehicle() {
 }
 
 /**
+ * 車輛相片清單 Query Hook
+ */
+export function useVehiclePhotos(vehicleId: number) {
+  return useQuery({
+    queryKey: queryKeys.vehiclePhotos(vehicleId),
+    queryFn: () => vehicleService.getVehiclePhotos(vehicleId),
+    enabled: typeof vehicleId === 'number' && vehicleId > 0,
+  });
+}
+
+/**
+ * 車輛新增相片 Mutation Hook
+ */
+export function useAddVehiclePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      vehicleId,
+      url,
+      isCover,
+      sortOrder,
+    }: {
+      vehicleId: number;
+      url: string;
+      isCover?: boolean;
+      sortOrder?: number;
+    }) => vehicleService.addVehiclePhoto(vehicleId, url, isCover, sortOrder),
+    onSuccess: (_, { vehicleId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicle(vehicleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehiclePhotos(vehicleId) });
+    },
+  });
+}
+
+/**
  * 設定封面照 Mutation Hook
  */
 export function useSetCoverPhoto() {
@@ -80,6 +117,24 @@ export function useSetCoverPhoto() {
     onSuccess: (_, { vehicleId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicle(vehicleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehiclePhotos(vehicleId) });
+    },
+  });
+}
+
+/**
+ * 刪除車輛相片 Mutation Hook
+ */
+export function useDeleteVehiclePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ photoId, vehicleId }: { photoId: number; vehicleId: number }) =>
+      vehicleService.deleteVehiclePhoto(photoId, vehicleId),
+    onSuccess: (_, { vehicleId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicle(vehicleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehiclePhotos(vehicleId) });
     },
   });
 }
