@@ -165,9 +165,9 @@ CREATE TABLE "ModificationSettings" (
 -- ==========================================
 -- 3. 索引與業務唯一約束 (Indexes & Constraints)
 -- ==========================================
-CREATE INDEX idx_vehicles_user_id ON "Vehicles" ("user_id");
-CREATE INDEX idx_vehicle_photos_vehicle_id ON "VehiclePhotos" ("vehicle_id");
-CREATE INDEX idx_refuels_vehicle_id ON "Refuels" ("vehicle_id");
+CREATE INDEX IF NOT EXISTS idx_vehicles_user_id ON "Vehicles" ("user_id");
+CREATE INDEX IF NOT EXISTS idx_vehicle_photos_vehicle_id ON "VehiclePhotos" ("vehicle_id");
+CREATE INDEX IF NOT EXISTS idx_refuels_vehicle_id ON "Refuels" ("vehicle_id");
 CREATE INDEX idx_refuels_vehicle_date ON "Refuels" ("vehicle_id", "refuel_date");
 CREATE INDEX idx_refuels_vehicle_mileage ON "Refuels" ("vehicle_id", "mileage");
 CREATE INDEX idx_maintenance_vehicle_id ON "MaintenanceRecords" ("vehicle_id");
