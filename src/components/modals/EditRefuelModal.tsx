@@ -130,7 +130,7 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1 justify-end bg-black/60"
       >
-        <View className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-h-[90%] p-6">
+        <View className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-h-[90%] flex-1 justify-between p-6">
           {/* Header */}
           <View className="flex-row items-center justify-between pb-4 border-b border-slate-800">
             <View className="flex-row items-center">
@@ -147,7 +147,12 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="flex-1 mt-4"
+            contentContainerStyle={{ paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* 日期與里程 */}
             <View className="flex-row gap-3 mb-4">
               <View className="flex-1">

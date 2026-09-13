@@ -89,12 +89,12 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80 justify-end">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="w-full"
-        >
-          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90vh]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <View className="flex-1 bg-black/80 justify-end">
+          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90%] flex-1 justify-between">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between pb-4 border-b border-white/[0.08]">
               <View>
@@ -114,7 +114,8 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
             </View>
 
             <ScrollView
-              className="mt-4"
+              className="flex-1 mt-4"
+              contentContainerStyle={{ paddingBottom: 60 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -165,7 +166,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    當前里程 (KM) *
+                    目前里程 ODOMETER (KM)
                   </Text>
                   <TextInput
                     value={currentMileage}
@@ -222,8 +223,8 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

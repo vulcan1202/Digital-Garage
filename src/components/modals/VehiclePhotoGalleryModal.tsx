@@ -11,11 +11,13 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useVehiclePhotos,
   useSetCoverPhoto,
   useDeleteVehiclePhoto,
 } from '../../hooks/queries/useVehicles';
+import { queryKeys } from '../../hooks/queries/queryKeys';
 import { storageService } from '../../services/storageService';
 import { vehicleService } from '../../services/vehicleService';
 import {
@@ -41,6 +43,7 @@ export const VehiclePhotoGalleryModal: React.FC<VehiclePhotoGalleryModalProps> =
   vehicleName = '車輛相簿',
 }) => {
   const { data: photos = [], isLoading, refetch } = useVehiclePhotos(vehicleId);
+  const queryClient = useQueryClient();
   const setCoverMutation = useSetCoverPhoto();
   const deletePhotoMutation = useDeleteVehiclePhoto();
 
@@ -72,6 +75,9 @@ export const VehiclePhotoGalleryModal: React.FC<VehiclePhotoGalleryModalProps> =
       }
 
       await refetch();
+      // 同步刷新車輛列表與該車輛快取，確保車庫主畫面封面圖即時更新
+      await queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.vehicle(vehicleId) });
     } catch (err: any) {
       Alert.alert('上傳失敗', err?.message || '相片上傳發生錯誤');
     } finally {

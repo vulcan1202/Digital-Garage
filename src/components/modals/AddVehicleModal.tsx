@@ -12,7 +12,9 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreateVehicle } from '../../hooks/queries/useVehicles';
+import { queryKeys } from '../../hooks/queries/queryKeys';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
 import { storageService } from '../../services/storageService';
@@ -38,6 +40,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
   const createVehicleMutation = useCreateVehicle();
+  const queryClient = useQueryClient();
 
   const resetForm = () => {
     setBrand('');
@@ -98,6 +101,9 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             console.warn('新增車輛時上傳相片失敗:', photoErr);
           }
         }
+        // 上傳相片完畢後重新 invalidate 車庫列表，確保即時呈現封面圖
+        await queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.vehicle(created.id) });
       }
 
       Alert.alert('車輛登錄成功', `${created.brand} ${created.model} 已加入您的車庫！`);
@@ -116,12 +122,12 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80 justify-end">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="w-full"
-        >
-          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90vh]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <View className="flex-1 bg-black/80 justify-end">
+          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90%] flex-1 justify-between">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between pb-4 border-b border-white/[0.08]">
               <View>
@@ -141,7 +147,8 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             </View>
 
             <ScrollView
-              className="mt-4"
+              className="flex-1 mt-4"
+              contentContainerStyle={{ paddingBottom: 60 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -259,8 +266,8 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
               </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

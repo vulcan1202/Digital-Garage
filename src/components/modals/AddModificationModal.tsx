@@ -145,12 +145,12 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80 justify-end">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="w-full"
-        >
-          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90vh]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <View className="flex-1 bg-black/80 justify-end">
+          <View className="bg-garage-card rounded-t-3xl border-t border-white/10 p-6 max-h-[90%] flex-1 justify-between">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between pb-4 border-b border-white/[0.08]">
               <View>
@@ -170,7 +170,8 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
             </View>
 
             <ScrollView
-              className="mt-4"
+              className="flex-1 mt-4"
+              contentContainerStyle={{ paddingBottom: 60 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -378,8 +379,8 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
               </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
