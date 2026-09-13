@@ -1,337 +1,314 @@
 # 數位車庫 Digital Garage (Mobile App)
 
-> **一支手機，就是一座數位車庫。**  
-> Digital Garage 是專為熱血車主與性能愛好者打造的「車輛生命週期遙測監控與改裝管理」跨平台 Mobile App。
-
-[![React Native](https://img.shields.io/badge/React%20Native-0.83.2-61dafb?logo=react&logoColor=black)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-SDK%2057-black?logo=expo&logoColor=white)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![NativeWind](https://img.shields.io/badge/Tailwind-NativeWind%20v4-38bdf8?logo=tailwindcss&logoColor=white)](https://www.nativewind.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
-[![React Query](https://img.shields.io/badge/TanStack%20Query-v5-ff4154?logo=reactquery&logoColor=white)](https://tanstack.com/query)
+> **車輛生命週期遙測監控與改裝管理跨平台 Mobile App**  
+> 專為車主與性能愛好者打造，整合車隊管理、里程攤提、油耗計算、保養週期雷達、改裝品規格管理與調校設定組版本控制。
 
 ---
 
 ## 📑 目錄 (Table of Contents)
 
-1. [產品核心理念與視覺風格](#1-產品核心理念與視覺風格)
-2. [系統總體架構](#2-系統總體架構)
-3. [雙層韌性儲存架構 (Dual-Layer Resilience Architecture)](#3-雙層韌性儲存架構-dual-layer-resilience-architecture)
-4. [Git 分支與 Commit 規範](#4-git-分支與-commit-規範)
-5. [完整檔案結構與功能詳解](#5-完整檔案結構與功能詳解)
-6. [資料庫模型與關聯架構](#6-資料庫模型與關聯架構)
-7. [純函式計算管線 (Pure Calculators)](#7-純函式計算管線-pure-calculators)
-8. [環境變數與安全設定](#8-環境變數與安全設定)
-9. [本地開發與建置指南](#9-本地開發與建置指南)
+1. [專案概述 (Project Overview)](#1-專案概述-project-overview)
+2. [現行核心功能 (Current Features)](#2-現行核心功能-current-features)
+3. [技術棧與環境 (Technology Stack)](#3-技術棧與環境-technology-stack)
+4. [系統架構 (Architecture)](#4-系統架構-architecture)
+5. [專案目錄結構 (Project Structure)](#5-專案目錄結構-project-structure)
+6. [資料庫與模型定義 (Database & Schema)](#6-資料庫與模型定義-database--schema)
+7. [身分驗證與安全性 (Authentication & Security)](#7-身分驗證與安全性-authentication--security)
+8. [環境設定與安裝 (Setup)](#8-環境設定與安裝-setup)
+9. [執行與建置 (Running & Building)](#9-執行與建置-running--building)
+10. [測試驗證 (Testing)](#10-測試驗證-testing)
+11. [專案狀態與已知限制 (Project Status & Limitations)](#11-專案狀態與已知限制-project-status--limitations)
 
 ---
 
-## 1. 產品核心理念與視覺風格
+## 1. 專案概述 (Project Overview)
 
-Digital Garage 不只是單純的記帳工具，而是以**車輛遙測監控**與**硬體生命週期工程**為核心的數位座艙：
-
-* **車隊生命週期管理**：多車庫管理、即時總里程、動態公里攤提成本 (`Cost per KM`)。
-* **工單保修紀錄**：清楚區分定期保養 (Maintenance) 與維修排除 (Repair)，維護完整工單履歷。
-* **油耗遙測分析**：記錄單價、容量、燃油種類（98、95、92、柴油、電能），全自動計算即時油耗數據。
-* **保養週期雷達 (Maintenance Radar)**：支援雙維度（里程 + 時間）週期監控，自動判定保養狀態（健康、即將到期、已逾期）。
-* **改裝工程與版本控制 (Modifications & Tuning)**：支援 10 大硬體分類、施工店家與費用記錄，並提供**底盤/動力調校設定組版本控制 (Active Profile & Tuning Sets)**。
-* **即時動態時序牆 (Vehicle Timeline)**：聚合加油、保修、改裝三種異構業務，依時間軸以流暢卡片瀑布流動態呈現。
-* **視覺設計語言**：以暗色工業賽車座艙（Cyberpunk Minimalist Cockpit）為主調，搭配雙層金屬邊框 (`DoubleBezelCard`)、賽車橘 (`#ff6b00`)、競速藍 (`#007aff`) 與性能紫 (`#a855f7`) 高密度遙測資訊排版。
+「數位車庫 (Digital Garage)」解決車主在車輛管理上的多項分散痛點：
+* **多車庫與里程連動**：集中管理多輛愛車，里程同步機制自動以各項業務紀錄與初始里程之最大值為準，具備手誤極大里程刪除回滾的防污染防護。
+* **工單履歷完整追蹤**：細分定期保養 (Maintenance) 與故障維修 (Repair)，登錄保養時可自選設定下次週期提醒。
+* **加油日誌與油耗遙測**：支援多種油品規格，純函式計算百公里油耗與每公里行駛成本。
+* **改裝品規格與調校版本控制**：登錄改裝配件並針對特定套件建立多組細項調校參數（如阻尼段數、定位角度），以唯一約束管理當前生效版本 (`is_current`)。
+* **混合動態時序牆**：聚合加油、保修、改裝三大異質事件，以時間軸流水卡片呈現並支援即時編輯與刪除。
 
 ---
 
-## 2. 系統總體架構
+## 2. 現行核心功能 (Current Features)
 
-本專案採用嚴謹的五層分離架構：
+以下為程式碼中**已完整實作並可正常運作**的功能模組：
+
+### 2.1 車輛管理 (Vehicles Fleet)
+* **新增／編輯車輛**：設定廠牌、車型、年份、購入日期與里程。
+* **里程防污染架構 (方案 B)**：
+  - 建立車輛時寫入不可變建檔基準 `initial_mileage`。
+  - 加油、保養、改裝進行新增、更新或刪除時，自動觸發 `syncVehicleMaxMileage`，以現存所有紀錄里程與 `initial_mileage` 之最大值動態回寫 `current_mileage`。
+  - 若手誤輸入超大里程紀錄，刪除該紀錄後車輛總里程自動安全回滾至剩餘最大值，不污染底層資料。
+* **車輛刪除**：刪除車輛時連動級聯清除其下所有加油、保養、提醒與改裝紀錄。
+
+### 2.2 紀錄管理中樞 (Garage Dashboard Tabs)
+儀表板提供三大分頁切換檢視：
+* **改裝清單 (Modifications)**：列出套件分類、品名、品牌型號、購買與安裝花費、安裝里程，支援快速編輯、刪除與跳轉調校頁。
+* **保養維修 (Maintenance)**：卡片呈現定期保養與故障維修工單、施作日期、費用、店家與里程，支援直接編輯與刪除。
+* **加油日誌 (Refuels)**：呈現油品類型、公升數、每公升單價、總花費與紀錄日期，支援直接編輯與刪除。
+
+### 2.3 遙測與統計分析 (Telemetry Calculators)
+* **成本計算 (`costCalculator.ts`)**：累計改裝、保修與加油總支出，並計算每公里平均攤提成本 ($\text{Cost per KM} = \frac{\text{總費用}}{\text{當前里程} - \text{起算里程}}$)。
+* **油耗計算 (`fuelCalculator.ts`)**：計算相鄰兩次加油間隔之平均油耗（$\text{L}/100\text{km}$ 與 $\text{km}/\text{L}$）及歷史平均每公里油資。
+* **保養雷達評估 (`reminderCalculator.ts`)**：依據車輛當前里程與日期，評估剩餘里程與剩餘天數，標示狀態為 `OK`、`DUE_SOON`（即將到期）或 `OVERDUE`（已逾期）。
+
+### 2.4 保養提醒雷達 (Maintenance Reminders)
+* **週期監控**：支援依「里程間隔 (KM)」或「時間間隔 (月)」雙軌追蹤。
+* **保養連動**：新增保養時可直接勾選設定下次提醒；編輯既有保養紀錄之施作日期或里程時，自動同步更新關聯提醒之基準 (`base_mileage`, `base_date`)。
+* **週期推進**：手動標記完成保養時，基準里程自動前移至當前車輛里程，展開下一週期監控。
+
+### 2.5 改裝套件與調校設定組版本控制 (Modifications & Tuning)
+* **配件登錄**：支援 10 種硬體類別（避震、煞車、引擎、排氣、進氣、輪圈輪胎、外觀、內裝、電系、其他），記錄套件價格與安裝工資。
+* **版本控制 (Tuning Profiles)**：單一改裝品可建立多組設定組（例如「賽道設定」、「日常代步」），且透過資料庫唯一約束確保同時間僅有一組設定處於使用中 (`is_current = true`)。
+* **細項參數管理**：各設定組內可登錄多筆自訂鍵值參數與單位（例如「前伸側阻尼: 8 段」）。
+
+### 2.6 愛車動態時序牆 (Vehicle Timeline)
+* **聚合查詢**：向 SQL View `vehicle_timeline` 發起分頁查詢，將加油、定期保養、維修、改裝依日期排序匯聚呈現。
+* **即時篩選**：支援切換「全部動態」、「加油紀錄」、「保修保養」、「改裝升級」膠囊標籤。
+* **行內操作**：時間軸卡片直接提供「編輯」與「刪除」功能，操作完成後即時重新計算愛車最高里程。
+
+---
+
+## 3. 技術棧與環境 (Technology Stack)
+
+| 領域 | 核心技術 / 套件 | 專案實際版本 | 說明 |
+| :--- | :--- | :--- | :--- |
+| **Runtime / Framework** | React Native / Expo | `0.86.3` / `~57.0.22` | 行動應用程式跨平台框架 (Expo SDK 57) |
+| **Language** | TypeScript | `~6.0.3` | 全專案嚴格靜態型別支援 |
+| **React** | React | `19.2.3` | React 最新核心 |
+| **Styling** | NativeWind / Tailwind CSS | `^4.1.23` / `^3.4.17` | 原子化樣式系統 |
+| **Data Fetching & Cache** | TanStack React Query | `^5.66.11` | 異步伺服端狀態管理、快取自動失效與同步 |
+| **Backend & Database** | Supabase (@supabase/supabase-js) | `^2.49.1` | PostgreSQL、Row Level Security (RLS)、Auth |
+| **Local Storage** | Expo SecureStore | `~57.0.0` | 裝置端安全加密持久化（離線備援資料庫與 Auth Session） |
+| **Crypto & Utilities** | Expo Crypto | `~57.0.0` | UUID 生成與加解密 |
+| **Testing** | Jest / ts-jest | `^29.7.0` / `^29.2.5` | 單元測試與型別測試執行器 |
+| **Build & Tooling** | Android Gradle Plugin / JDK | Gradle 9.3.1 / JDK 17 | 原生 Android Release APK 編譯打包環境 |
+
+---
+
+## 4. 系統架構 (Architecture)
+
+專案採分層解耦架構，並實作「雲端優先、本地回退」的雙層韌性儲存：
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                       UI Layer (呈現層)                     │
-│  - React Native (Fabric) + NativeWind v4 (Tailwind CSS)     │
-│  - 4 大專用畫面 + 8 大業務 CRUD 模態視窗 + DoubleBezelCard   │
+│  - React Native + NativeWind v4 (Tailwind CSS)              │
+│  - 主畫面：AuthScreen, GarageDashboardScreen,               │
+│            VehicleTimelineScreen, ModificationDetailScreen  │
+│  - 業務 Modal：新增/編輯車輛、加油、保養、改裝、調校設定組    │
 └──────────────────────────────┬──────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────┐
-│                    Data Query Layer (快取層)                 │
+│                    Cache & Query Layer                      │
 │  - TanStack React Query v5                                  │
-│  - 集中式 queryKeys 工廠模式管理快取自動失效與同步更新          │
+│  - queryKeys 工廠集中管理快取鍵，CRUD 成功後精準失效刷新     │
 └──────────────────────────────┬──────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────┐
-│               Service & Calculator Layer (業務層)           │
-│  - 7 大專業 Service + 統一 handleServiceCall 錯誤邊界        │
-│  - 3 大純函式遙測計算引擎 (Cost, Fuel, Reminder Calculators)  │
+│                Service & Business Logic Layer               │
+│  - 業務 Services (vehicle, fuel, maintenance, mod, etc.)     │
+│  - handleServiceCall 統一錯誤捕捉與 AppError 轉換            │
+│  - 純函式計算引擎 (costCalculator, fuelCalculator, etc.)    │
 └──────────────────────────────┬──────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────┐
-│             Dual-Layer Storage Layer (容錯持久層)           │
-│  - 雲端層：Supabase Client (新版 Publishable Key + RLS)      │
-│  - 本地層：localStore (Expo SecureStore 高安全性離線儲存)    │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────┐
-│                     Database (資料核心)                     │
-│  - PostgreSQL 8 大實體資料表 + 1 個動態時序 View             │
-│  - 嚴格的外鍵級聯刪除 (ON DELETE CASCADE) 與 RLS 行級安全性  │
+│             Dual-Layer Resilience Storage Layer             │
+│  - 雲端層：Supabase PostgreSQL Client (含 RLS 安全性)       │
+│  - 離線層：localStore (Expo SecureStore 模擬完整關聯資料庫) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. 雙層韌性儲存架構 (Dual-Layer Resilience Architecture)
-
-為解決行動裝置離線、弱網環境或雲端服務存取限制（如 Supabase 註冊頻率限制或未驗證帳號），系統內建**雙層容錯架構**：
-
-1. **雲端優先 (Supabase Cloud First)**：
-   - 應用程式啟動時預設直接呼叫 Supabase PostgreSQL API 與 Auth 服務。
-2. **無縫本地回退 (Graceful Local Fallback)**：
-   - 若遠端連線失敗、伺服器錯誤或使用者處於離線狀態，Service 層會自動捕捉例外並降級至 `src/lib/localStore.ts`。
-   - `localStore` 以 `expo-secure-store` 實現完全符合 PostgreSQL 資料庫架構之儲存引擎，包含車輛、加油、保修、改裝品、調校參數與時序視窗的完整模擬。
-   - **保證 App 在任何極端環境下絕不卡死、絕空白屏，達到 100% 可用性。**
-
----
-
-## 4. Git 分支與 Commit 規範
-
-### 4.1 分支策略 (Branch Strategy)
-* **`main`**：主分支，所有通過真機測試、驗收確認且能穩定運行的代碼皆在此分支。
-* **`feature/*`**：新功能開發分支（如 `feature/obd-ble-telemetry`）。
-* **`fix/*`**：缺陷修復分支（如 `fix/modal-keyboard-offset`）。
-* **`refactor/*`**：架構優化與重構分支（如 `refactor/service-layer-cache`）。
-
-### 4.2 Commit 訊息規範 (Commit Convention)
-所有 Git commit 訊息皆統一採用**繁體中文**撰寫，並遵循 Conventional Commits 結構：
-
-```text
-<類型>(<範圍>): <簡短說明>
-
-[可選的詳細描述]
-```
-
-#### 常用類型：
-* `feat`: 新增功能 (Feature)
-* `fix`: 修復錯誤 (Bug Fix)
-* `style`: 介面排版、視覺樣式調整 (UI/CSS)
-* `refactor`: 程式碼重構（非新增功能亦非修復錯誤）
-* `perf`: 效能優化 (Performance)
-* `test`: 新增或調整測試案例
-* `docs`: 說明文件更新 (Documentation)
-* `chore`: 專案建置配置、相依套件更新
-
-#### 範例：
-```bash
-git commit -m "feat(mod): 新增改裝清單編輯與調校版本控制功能"
-git commit -m "fix(ux): 修正 Modal 內點擊事件被軟鍵盤攔截之問題"
-git commit -m "docs: 更新完整專案架構與檔案功能說明文件"
-```
-
----
-
-## 5. 完整檔案結構與功能詳解
+## 5. 專案目錄結構 (Project Structure)
 
 ```text
 數位車庫 (Digital Garage)/
-├── assets/                                 # 應用程式靜態資源
-│   ├── adaptive-icon.png                   # Android 自適應圖示
-│   ├── icon.png                            # 應用程式核心圖示
-│   └── splash.png                          # 開機啟動畫面 (Splash Screen)
-├── src/                                    # 原始碼根目錄
-│   ├── components/                         # 共用 UI 元件庫
-│   │   ├── DoubleBezelCard.tsx             # 雙層倒角高科技金屬卡片容器
-│   │   └── modals/                         # 業務 CRUD 模態視窗群組
-│   │       ├── AddVehicleModal.tsx         # 新增愛車彈窗（廠牌、車型、年份、里程、購入日）
-│   │       ├── EditVehicleModal.tsx        # 編輯車輛基本資料彈窗
-│   │       ├── AddRefuelModal.tsx          # 登錄加油日誌彈窗（油品選擇、容量、單價、總花費）
-│   │       ├── AddMaintenanceModal.tsx     # 登錄保修日誌彈窗（定期保養 vs 維修排除、工單費用）
-│   │       ├── AddReminderModal.tsx        # 設定保養雷達彈窗（里程與天數週期監控）
-│   │       ├── AddModificationModal.tsx    # 登錄改裝套件彈窗（10大分類、套件價、安裝工資）
-│   │       ├── EditModificationModal.tsx   # 編輯改裝套件資訊彈窗
-│   │       └── AddSettingSetModal.tsx      # 新增調校設定組彈窗（阻尼段數、定位角度等自訂細項參數）
-│   ├── hooks/                              # React 自訂 Hooks
-│   │   ├── useAuth.ts                      # 整合式身分驗證 Hook（登入、註冊、登出、快速測試模式）
-│   │   └── queries/                        # TanStack React Query 快取管理層
-│   │       ├── index.ts                    # Query Hooks 統一匯出入口
-│   │       ├── queryKeys.ts                # 集中式 Query Key 工廠（避免快取字串硬編碼）
-│   │       ├── useVehicles.ts              # 車輛清單與單一車輛詳情 Query / Mutation
-│   │       ├── useFuel.ts                  # 加油紀錄 Query / Mutation
-│   │       ├── useMaintenance.ts           # 保修工單紀錄 Query / Mutation
-│   │       ├── useReminders.ts             # 保養提醒雷達 Query / Mutation
-│   │       ├── useModifications.ts         # 改裝品清單、詳細規格與調校版本控制 Query / Mutation
-│   │       └── useTimeline.ts              # 車輛動態時間軸 SQL View Query
-│   ├── lib/                                # 核心基礎建設與外部整合
-│   │   ├── supabase.ts                     # Supabase Client 初始化、金鑰整合與安全認證橋接
-│   │   └── localStore.ts                   # 本地高安全性離線持久化儲存層 (Expo SecureStore)
-│   ├── screens/                            # 主畫面視圖
-│   │   ├── AuthScreen.tsx                  # 身分驗證畫面（登入 / 註冊切換、測試車主快速通道）
-│   │   ├── GarageDashboardScreen.tsx       # 數位車庫核心座艙儀表板（車隊選擇、遙測統計、改裝清單）
-│   │   ├── ModificationDetailScreen.tsx    # 改裝套件詳細規格、硬體參數與調校版本控制畫面
-│   │   └── VehicleTimelineScreen.tsx       # 愛車動態時序牆畫面（混合異構動態流、即時分類篩選）
-│   ├── services/                           # 商業邏輯與 API 服務層
-│   │   ├── vehicleService.ts               # 車輛 CRUD 服務（支援關聯車輛照片整合查詢）
-│   │   ├── fuelService.ts                  # 加油紀錄 CRUD 服務
-│   │   ├── maintenanceService.ts           # 保養與維修紀錄 CRUD 服務
-│   │   ├── reminderService.ts              # 保養週期雷達監控服務
-│   │   ├── modificationService.ts          # 改裝品規格、照片、調校設定組與細項參數服務
-│   │   ├── timelineService.ts              # 動態時序牆聚合視圖查詢服務
-│   │   ├── storageService.ts               # 車輛與改裝照片上傳儲存服務
-│   │   └── errors/                         # 錯誤處理架構
-│   │       ├── AppError.ts                 # 統一應用程式錯誤封裝與處理器 (handleServiceCall)
-│   │       └── __tests__/                  # 錯誤類別單元測試
-│   ├── types/                              # TypeScript 型別定義
-│   │   ├── database.ts                     # 與 PostgreSQL 結構嚴格對齊之資料庫型別定義
-│   │   └── index.ts                        # 全域共用業務型別定義
-│   └── utils/                              # 輔助函式庫
-│       └── calculators/                    # 純函式遙測計算引擎 (無副作用、100% 測試覆蓋)
-│           ├── costCalculator.ts           # 全車總費用、各項費用占比與每公里攤提費用計算
-│           ├── fuelCalculator.ts           # 加油間隔油耗 (L/100km, km/L) 與平均每公里油耗計算
-│           ├── reminderCalculator.ts       # 雙維度保養雷達狀態判定 (OK, DUE_SOON, OVERDUE)
-│           └── __tests__/                  # 計算引擎單元測試套件
-├── 數位車庫 (Digital Garage).sql           # 資料庫結構唯一真理定義檔 (Schema Source of Truth)
-├── App.tsx                                 # 應用程式進入點（Providers 注入、全域主題與導航路由切換）
-├── index.ts                                # Expo 原生進入點 (registerRootComponent)
-├── app.json                                # Expo 專案設定檔（App 名稱、版本、原生外掛設定）
-├── babel.config.js                         # Babel 編譯設定（NativeWind Babel 外掛）
-├── tailwind.config.js                      # Tailwind 樣式設定（座艙色彩代碼、自訂主題延伸）
-├── global.css                              # Tailwind CSS 全域樣式定義
-├── metro.config.js                         # Metro Bundler 打包設定（withNativeWind 封裝）
-├── tsconfig.json                           # TypeScript 編譯器設定
-└── package.json                            # 專案相依套件與執行指令腳本
+├── android/                                 # 原生 Android 專案目錄 (Gradle 建置配置)
+├── assets/                                  # 應用程式靜態圖示與 Splash Screen
+├── src/
+│   ├── components/
+│   │   ├── DoubleBezelCard.tsx              # 雙層倒角金屬風卡片容器
+│   │   └── modals/                          # 業務 CRUD 模態視窗群組
+│   │       ├── AddVehicleModal.tsx          # 新增車輛
+│   │       ├── EditVehicleModal.tsx         # 編輯車輛（校正 initial_mileage）
+│   │       ├── AddRefuelModal.tsx           # 新增加油日誌
+│   │       ├── EditRefuelModal.tsx          # 編輯加油日誌
+│   │       ├── AddMaintenanceModal.tsx      # 新增保養維修（可勾選下次提醒）
+│   │       ├── EditMaintenanceModal.tsx     # 編輯保養維修
+│   │       ├── AddReminderModal.tsx         # 新增保養雷達提醒
+│   │       ├── AddModificationModal.tsx     # 登錄改裝套件
+│   │       ├── EditModificationModal.tsx    # 編輯改裝套件
+│   │       └── AddSettingSetModal.tsx       # 新增調校設定組與細項參數
+│   ├── hooks/
+│   │   ├── useAuth.ts                       # 身分驗證與狀態監聽 Hook
+│   │   └── queries/                         # React Query 快取管理層
+│   │       ├── queryKeys.ts                 # 集中式 Query Key 工廠
+│   │       ├── useVehicles.ts               # 車輛 Query / Mutation
+│   │       ├── useFuel.ts                   # 加油紀錄 Query / Mutation
+│   │       ├── useMaintenance.ts            # 保修工單 Query / Mutation
+│   │       ├── useReminders.ts              # 保養提醒 Query / Mutation
+│   │       ├── useModifications.ts          # 改裝品與調校參數 Query / Mutation
+│   │       └── useTimeline.ts               # 動態時序牆 Query
+│   ├── lib/
+│   │   ├── supabase.ts                      # Supabase Client 初始化與 Session 配接器
+│   │   ├── localStore.ts                    # 本地離線持久化儲存引擎 (SecureStore)
+│   │   └── __tests__/                       # 本地儲存與里程同步邏輯單元測試
+│   ├── screens/
+│   │   ├── AuthScreen.tsx                   # 登入與註冊畫面
+│   │   ├── GarageDashboardScreen.tsx        # 車庫主座艙（車輛選擇、遙測統計、三分頁面板）
+│   │   ├── ModificationDetailScreen.tsx     # 改裝套件規格與調校版本控制畫面
+│   │   └── VehicleTimelineScreen.tsx        # 愛車動態時序牆畫面
+│   ├── services/
+│   │   ├── vehicleService.ts                # 車輛與最高里程同步服務
+│   │   ├── fuelService.ts                   # 加油 CRUD 服務
+│   │   ├── maintenanceService.ts            # 保修工單 CRUD 服務
+│   │   ├── reminderService.ts               # 保養提醒雷達服務
+│   │   ├── modificationService.ts           # 改裝品與調校設定服務
+│   │   ├── timelineService.ts               # 時序牆 View 查詢服務
+│   │   ├── storageService.ts                # 圖片 Storage 上傳服務
+│   │   └── errors/                          # 統一錯誤處理類別與單元測試
+│   ├── types/
+│   │   ├── database.ts                      # 與 PostgreSQL Schema 完全一致之型別定義
+│   │   └── index.ts                         # 全域型別匯出
+│   └── utils/
+│       └── calculators/                     # 純函式遙測計算引擎 (含單元測試)
+├── 數位車庫 (Digital Garage).sql            # 資料庫 Schema 唯一真理定義檔 (DDL + RLS + View)
+├── 數位車庫_DigitalGarage.apk               # 最新打包完成之 Release APK 安裝檔
+├── App.tsx                                  # 應用程式進入點與基礎路由狀態
+├── app.json                                 # Expo 專案設定檔
+├── jest.config.js                           # Jest 測試設定檔
+└── package.json                             # 專案相依套件與 Script 定義
 ```
 
 ---
 
-## 6. 資料庫模型與關聯架構
+## 6. 資料庫與模型定義 (Database & Schema)
 
-資料庫結構定義於 `數位車庫 (Digital Garage).sql`，由 8 個關聯資料表與 1 個動態 View 組成：
+資料庫以 PostgreSQL 為基底，定義於專案根目錄的 `數位車庫 (Digital Garage).sql`，包含 **8 個實體資料表**與 **1 個動態時序 View**：
 
-```mermaid
-erDiagram
-    Vehicles ||--o{ VehiclePhotos : "擁有照片"
-    Vehicles ||--o{ Refuels : "擁有加油紀錄"
-    Vehicles ||--o{ MaintenanceRecords : "擁有保修工單"
-    Vehicles ||--o{ Reminders : "擁有保養提醒"
-    Vehicles ||--o{ Modifications : "擁有改裝套件"
-    Modifications ||--o{ ModificationPhotos : "擁有改裝照片"
-    Modifications ||--o{ ModificationSettingSets : "擁有調校設定組"
-    ModificationSettingSets ||--o{ ModificationSettings : "包含細項參數"
-    Vehicles ||--o{ vehicle_timeline : "匯聚時序動態"
+### 6.1 資料表清單
+1. **`Vehicles`**：車輛主表（包含 `initial_mileage` 不可變基準與 `current_mileage` 當前里程）。
+2. **`VehiclePhotos`**：車輛照片關聯表（含封面標記 `is_cover`，透過唯一索引確保每車僅有一張封面）。
+3. **`Refuels`**：加油紀錄表（油品種類、容量、單價、總花費、里程）。
+4. **`MaintenanceRecords`**：保養維修工單（類別：定期保養 `maintenance` 或故障維修 `repair`、費用、店家、備註）。
+5. **`MaintenancePhotos`**：保養維修施工照片關聯表。
+6. **`Reminders`**：保養提醒雷達（支援 `interval_km` 與 `interval_months` 雙軌週期設定）。
+7. **`Modifications`**：改裝配件表（10 大類別、套件價格、工資、安裝里程）。
+8. **`ModificationPhotos`**：改裝套件照片關聯表。
+9. **`ModificationSettingSets`**：改裝調校設定組（版本控制主表，同改裝品以唯一索引限制 `is_current = true` 僅能有一組）。
+10. **`ModificationSettings`**：調校細項參數鍵值表（參數名稱、數值、單位）。
 
-    Vehicles {
-        bigint id PK
-        uuid user_id FK
-        text brand "廠牌"
-        text model "車型"
-        int year "出廠年份"
-        int current_mileage "當前總里程"
-        date purchase_date "購入日期"
-    }
+### 6.2 動態聚合 View (`vehicle_timeline`)
+透過 `security_invoker = true` 定義，使用 `UNION ALL` 將 `Refuels`、`MaintenanceRecords`、`Modifications` 整合為單一時間軸事件流，包含 `event_type`、`event_date`、`mileage`、`cost`、`title`、`description`。
 
-    Modifications {
-        bigint id PK
-        bigint vehicle_id FK
-        text category "改裝類別"
-        text item_name "套件品名"
-        text brand "改裝廠牌"
-        text model "型號"
-        numeric purchase_price "套件價格"
-        numeric install_price "安裝工資"
-        int install_mileage "安裝里程"
-    }
-
-    ModificationSettingSets {
-        bigint id PK
-        bigint modification_id FK
-        text set_name "設定組名稱"
-        boolean is_current "是否為生效版本"
-        date recorded_date "記錄日期"
-    }
-
-    ModificationSettings {
-        bigint id PK
-        bigint setting_set_id FK
-        text setting_key "參數名稱 (如: 伸側阻尼)"
-        text setting_value "參數值 (如: 9)"
-        text unit "單位 (如: 段)"
-    }
-```
-
-### 關鍵安全與級聯約束：
-* **`ON DELETE CASCADE`**：刪除車輛時，底下的照片、加油、保修、提醒與改裝紀錄全數安全級聯清空，不留孤兒數據。
-* **`vehicle_timeline` (SQL View)**：使用 `UNION ALL` 將加油、定期保養、維修排除與改裝升級依時間軸與里程聚合，UI 端只需一次查詢即可獲得完整混合時序流。
-* **RLS (Row Level Security)**：所有資料表皆啟用行級安全性，限制 `auth.uid() = user_id`，確保車主隱私資料絕對隔離。
+### 6.3 級聯刪除與資料完整性
+所有子資料表外鍵皆具備 `ON DELETE CASCADE` 約束；刪除車輛將自動乾淨清除所有附屬紀錄，不留殘存孤兒數據。
 
 ---
 
-## 7. 純函式計算管線 (Pure Calculators)
+## 7. 身分驗證與安全性 (Authentication & Security)
 
-為追求極致的遙測精確度，所有數學計算皆抽離至 `src/utils/calculators/`，採純函式 (Pure Function) 設計：
-
-| 計算模組 | 函式名稱 | 說明 |
-| :--- | :--- | :--- |
-| **費用計算** (`costCalculator.ts`) | `calculateVehicleTotalCost` | 精確累計「改裝品（套件+工資）+ 保修工單 + 加油花費」之總開銷與分類占比。 |
-| | `calculateAverageCostPerKm` | 以總行駛里程攤提總支出：$\text{Cost per KM} = \frac{\text{總支出}}{\text{目前里程} - \text{起算里程}}$。 |
-| **油耗計算** (`fuelCalculator.ts`) | `calculateFuelEconomy` | 以相鄰兩筆加油紀錄計算實際公升/百公里 ($\text{L}/100\text{km}$) 與 每公升公里數 ($\text{km}/\text{L}$)。 |
-| | `calculateAverageFuelCostPerKm` | 計算歷史平均每公里油資成本。 |
-| **雷達判定** (`reminderCalculator.ts`) | `evaluateReminderStatus` | 依據當前里程與當前日期，判定剩餘里程/天數，並評估健康度狀態（`OK`, `DUE_SOON`, `OVERDUE`）。 |
+* **Supabase Auth**：支援 Email 與密碼註冊與登入。
+* **安全 Session 持久化**：透過 `ExpoSecureStoreAdapter` 橋接 `expo-secure-store`，將 JWT Session 加密儲存於系統原生安全區域。
+* **Row Level Security (RLS)**：所有資料表皆強制啟用 RLS：
+  - `Vehicles`：限定 `auth.uid() = user_id`。
+  - 子關聯表：透過 `EXISTS (SELECT 1 FROM "Vehicles" WHERE ... user_id = auth.uid())` 確保使用者僅能讀寫自己車輛的關聯數據。
+* **無預設憑證**：登入畫面輸入欄位完全清空，不預填任何測試帳號。
 
 ---
 
-## 8. 環境變數與安全設定
+## 8. 環境設定與安裝 (Setup)
 
-於專案根目錄建立 `.env` 檔案，配置您的 Supabase 專案金鑰：
+### 8.1 前置環境
+* **Node.js**：`>= 18.x`
+* **npm**：`>= 9.x`
+* **JDK**（若需建置 Android 原生端）：JDK 17
+* **Android SDK**（若需建置 Android 原生端）：含 Build Tools 與 Platform 34+
 
-```env
-# Supabase API Endpoint
-EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-
-# 優先採用新版 Publishable Key (sb_pub_...)，亦支援舊版 Anon Key (JWT)
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_pub_your_publishable_key_here
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-> **安全備註**：
-> 專案透過 `ExpoSecureStoreAdapter` 搭配 Android Keystore 與 iOS Keychain 進行 Session 憑證安全持久化，禁止在非安全儲存區儲存使用者明文密碼。
-
----
-
-## 9. 本地開發與建置指南
-
-### 9.1 前置需求
-* Node.js >= 18.x
-* npm >= 9.x
-* Android Studio (搭配 Android 12+ 模擬器或實體裝置) 或 Xcode (iOS 模擬器)
-
-### 9.2 安裝相依套件
+### 8.2 安裝依賴
 ```bash
 npm install
 ```
 
-### 9.3 啟動 Metro Bundler
+### 8.3 環境變數配置
+複製環境變數範例檔並填入您的 Supabase 專案金鑰：
 ```bash
-# 啟動 Expo 開發伺服器
-npx expo start
-
-# 或直接在 Android 裝置/模擬器上執行
-npx expo start --android
-
-# 或直接在 iOS 模擬器上執行
-npx expo start --ios
+cp .env.example .env
 ```
-
-### 9.4 靜態型別檢查 (TypeScript)
-```bash
-npm run typecheck
-```
-
-### 9.5 執行自動化單元測試 (Jest)
-```bash
-npm test
+編輯 `.env` 內容：
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key_here
+# 或舊版相容
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_jwt_key_here
 ```
 
 ---
 
-## 🏁 總結與技術亮點
+## 9. 執行與建置 (Running & Building)
 
-* 🏎️ **全真機互動驗證**：已於 Android 16 (`Medium_Phone`) 實體模擬器全程實測，所有按鈕對接、彈窗呼叫與資料讀寫 100% 驗證通過。
-* ⚡ **零延遲即時響應**：透過 TanStack Query 快取失效管線，表單送出後儀表板數據、圓餅占比、時序牆動態皆於毫秒級內即時更新。
-* 🛡️ **工業級容錯防護**：雙層儲存與 `keyboardShouldPersistTaps="handled"` 確保任何操作無死角，提供流暢可靠的使用者體驗。
+### 9.1 開發模式 (Expo Go / Dev Client)
+```bash
+# 啟動 Expo 開發伺服器
+npm run start
+
+# 或指定平台執行
+npm run android
+npm run ios
+npm run web
+```
+
+### 9.2 原生 Android Standalone Release APK 打包
+專案可直接使用 Gradle 離線打包獨立運行的 Release APK：
+```bash
+# 進入 android 目錄編譯 assembleRelease
+cd android
+./gradlew assembleRelease --no-daemon
+```
+產出之 APK 位於：
+`android/app/build/outputs/apk/release/app-release.apk`
+（根目錄的 `數位車庫_DigitalGarage.apk` 即為同步更新之最新可安裝版本）。
+
+---
+
+## 10. 測試驗證 (Testing)
+
+專案具備靜態型別檢查與 Jest 單元測試套件：
+
+### 10.1 執行靜態型別檢查
+```bash
+npm run typecheck
+```
+
+### 10.2 執行自動化單元測試
+測試涵蓋費用計算、油耗計算、保養雷達狀態評估、AppError 邊界與車輛里程同步邏輯：
+```bash
+npm test
+```
+**現行測試套件清單 (5 Suites / 28 Tests 全部通過)**：
+* `src/utils/calculators/__tests__/costCalculator.test.ts`
+* `src/utils/calculators/__tests__/fuelCalculator.test.ts`
+* `src/utils/calculators/__tests__/reminderCalculator.test.ts`
+* `src/services/errors/__tests__/AppError.test.ts`
+* `src/lib/__tests__/syncVehicleMileage.test.ts`
+
+---
+
+## 11. 專案狀態與已知限制 (Project Status & Limitations)
+
+### 11.1 專案狀態
+* **目前階段**：**Beta / Feature Complete for Core Lifecycle**
+* 核心資料庫架構、商業邏輯、雙層儲存降級、全模組 CRUD、版本控制與時序動態牆皆已實作且完成真機與模擬器建置驗證。
+
+### 11.2 已知限制 (Known Limitations)
+1. **圖片選取上傳 UI 串接**：
+   - `storageService.ts` 已具備完整的 Supabase Storage 上傳邏輯（上傳至 `vehicle-media` bucket 並取得公開 URL），但新增/編輯車輛與工單之 Modal 尚未整合原生相簿選取器（如 `expo-image-picker`），目前照片主要由 Service 層介面支援，前端表單以純文字與數據輸入為主。
+2. **多語系支援**：
+   - 介面文字目前以繁體中文搭配專業賽車英文術語（如 `TELEMETRY`, `ODOMETER`）呈現，尚未拆分為獨立的 i18n 語系檔。
+3. **離線與雲端雙向衝突合併**：
+   - `localStore.ts` 可在無網路或無登入狀態下提供完整離線讀寫體驗，但當連線恢復時，尚未提供自動將本地變更雙向 Merge 回雲端 Supabase 的同步衝突比對協議。
