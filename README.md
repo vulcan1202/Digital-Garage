@@ -30,7 +30,8 @@
 * **加油日誌與油耗遙測**：支援多種油品規格，純函式計算百公里油耗與每公里行駛成本。
 * **改裝品規格與調校版本控制**：登錄改裝配件並針對特定套件建立多組細項調校參數（如阻尼段數、定位角度），以唯一約束管理當前生效版本 (`is_current`)。
 * **混合動態時序牆**：聚合加油、保修、改裝三大異質事件，以時間軸流水卡片呈現並支援即時編輯與刪除。
-* **鍵盤自適應防遮擋體驗**：適配 Android 原生 `adjustResize` 與 iOS 彈性避讓，所有 Modal 均具備順暢捲動與底部操作安全距離。
+* **雙軌自適應避讓與高亮互動**：全面落實 Android 專屬平滑動畫推昇與 iOS 原生避讓分工，車庫主畫面清楚高亮作用中車輛。
+* **健全 Email 驗證與靜態引導**：整合 Supabase 郵件驗證與 GitHub Pages 跨平台 HTTPS 靜態提示頁，支援未驗證精確攔截與一鍵重新發送驗證信。
 
 ---
 
@@ -115,6 +116,7 @@
 | **Local Storage** | Expo SecureStore | `~57.0.0` | 裝置端安全加密持久化（離線備援資料庫與 Auth Session） |
 | **Crypto & Utilities** | Expo Crypto | `~57.0.0` | UUID 生成與加解密 |
 | **UI Components** | Expo Vector Icons / Safe Area | `^15.0.3` / `~5.7.0` | 向量圖示庫與安全區域適配 |
+| **Static Web Hosting** | GitHub Pages | `/docs` | 託管 Email 驗證成功跨平台 HTTPS 靜態提示頁面 |
 | **Testing** | Jest / ts-jest | `^29.7.0` / `^29.2.5` | 單元測試與型別測試執行器 |
 | **Build & Tooling** | Android Gradle Plugin / JDK | Gradle 9.3.1 / JDK 17 | 原生 Android Release APK 編譯打包環境 |
 
@@ -262,12 +264,13 @@
 
 ## 7. 身分驗證與安全性 (Authentication & Security)
 
-* **Supabase Auth**：支援 Email 與密碼註冊與登入。
+* **Supabase Auth & Email 驗證**：支援 Email 與密碼註冊，後台強制啟用「Confirm email」，註冊時綁定 GitHub Pages 靜態提示頁面（`https://vulcan1202.github.io/Digital-Garage/verified.html`），全平台 HTTPS 零相容性障礙。
+* **精確代碼判斷與防斷點補寄**：未驗證車主登入時，前端以 `error.code === 'email_not_confirmed'` 精確捕捉，並提供「重新發送驗證信」安全機制。
 * **安全 Session 持久化**：透過 `ExpoSecureStoreAdapter` 橋接 `expo-secure-store`，將 JWT Session 加密儲存於系統原生安全區域。
 * **Row Level Security (RLS)**：所有資料表皆強制啟用 RLS：
   - `Vehicles`：限定 `auth.uid() = user_id`。
   - 子關聯表：透過 `EXISTS (SELECT 1 FROM "Vehicles" WHERE ... user_id = auth.uid())` 確保使用者僅能讀寫自己車輛的關聯數據。
-* **無預設憑證**：登入畫面輸入欄位完全清空，不預填任何測試帳號。
+* **無預設憑證與安全攔截**：底層 `requireUser()` 清理測試假資料 fallback，登入畫面完全清空，未經認證安全拋出 `AppError.authRequired`。
 
 ---
 
