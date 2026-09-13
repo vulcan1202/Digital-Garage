@@ -13,6 +13,10 @@ web-build/
 *.p12
 *.key
 *.mobileprovision
+*.apk
+android/app/build/
+android/.gradle/
+android/.cxx/
 
 # Environment variables & secrets (CRITICAL)
 .env
