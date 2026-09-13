@@ -17,8 +17,8 @@ import { DoubleBezelCard } from '../components/DoubleBezelCard';
 
 export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('test_driver@garage.com');
-  const [password, setPassword] = useState('Password@123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
