@@ -99,23 +99,60 @@
 <body>
   <div class="card-outer">
     <div class="card-inner">
-      <div class="icon-badge">
-        <svg viewBox="0 0 24 24">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
+      <div id="status-container">
+        <div class="icon-badge" id="icon-badge">
+          <svg viewBox="0 0 24 24" id="icon-svg">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+
+        <div class="tag" id="status-tag">SECURE ACCESS VERIFIED</div>
+        <h1 id="status-title">Email 驗證成功</h1>
+
+        <p id="status-desc">您的車主電子信箱已通過安全驗證！</p>
+
+        <div class="highlight-box" id="status-box">
+          請返回手機上的<strong>「數位車庫」App</strong>，<br>輸入您的帳號密碼，即可進入車庫座艙。
+        </div>
       </div>
 
-      <div class="tag">SECURE ACCESS VERIFIED</div>
-      <h1>Email 驗證成功</h1>
-
-      <p>您的車主電子信箱已通過安全驗證！</p>
-
-      <div class="highlight-box">
-        請返回手機上的<strong>「數位車庫」App</strong>，<br>輸入您的帳號密碼，即可進入車庫座艙。
-      </div>
-
-      <div class="footer-note">DIGITAL GARAGE · AUTHENTICATION COMPLETED</div>
+      <div class="footer-note">DIGITAL GARAGE · AUTHENTICATION SYSTEM</div>
     </div>
   </div>
+
+  <script>
+    (function() {
+      // 檢查 URL Hash 或 Search 是否含有 error 參數
+      var hash = window.location.hash || '';
+      var search = window.location.search || '';
+      var params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : search);
+      
+      var error = params.get('error') || params.get('error_code');
+      var errorDesc = params.get('error_description');
+
+      if (error) {
+        var badge = document.getElementById('icon-badge');
+        var svg = document.getElementById('icon-svg');
+        var tag = document.getElementById('status-tag');
+        var title = document.getElementById('status-title');
+        var desc = document.getElementById('status-desc');
+        var box = document.getElementById('status-box');
+
+        // 切換為錯誤風格 (Amber / Red)
+        badge.style.background = 'rgba(239, 68, 68, 0.15)';
+        badge.style.borderColor = '#ef4444';
+        badge.style.boxShadow = '0 0 24px rgba(239, 68, 68, 0.3)';
+        svg.style.stroke = '#ef4444';
+        svg.innerHTML = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+
+        tag.textContent = 'LINK EXPIRED OR INVALID';
+        tag.style.color = '#ef4444';
+        title.textContent = '驗證連結已失效或過期';
+        desc.textContent = errorDesc ? decodeURIComponent(errorDesc.replace(/\+/g, ' ')) : '此驗證連結無效或已過期。';
+
+        box.innerHTML = '請返回<strong>「數位車庫」App</strong>，在登入畫面點擊<br><span style="color: #ff5500; font-weight: bold;">「重新發送驗證信」</span>以獲取最新連結。';
+      }
+    })();
+  </script>
 </body>
 </html>
