@@ -91,18 +91,33 @@ func main() {
 				refuelRepo := repository.NewRefuelRepository(pool)
 				refuelHandler := handler.NewRefuelHandler(refuelRepo)
 
+				maintenanceRepo := repository.NewMaintenanceRepository(pool)
+				maintenanceHandler := handler.NewMaintenanceHandler(maintenanceRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
 					// 加油紀錄：依車輛查詢與新增
 					vr.Get("/{vehicleId}/refuels", refuelHandler.List)
 					vr.Post("/{vehicleId}/refuels", refuelHandler.Create)
+
+					// 保養維修：依車輛查詢與新增
+					vr.Get("/{vehicleId}/maintenance", maintenanceHandler.List)
+					vr.Post("/{vehicleId}/maintenance", maintenanceHandler.Create)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除
 				protected.Route("/refuels", func(rr chi.Router) {
 					rr.Patch("/{id}", refuelHandler.Update)
 					rr.Delete("/{id}", refuelHandler.Delete)
+				})
+
+				// 保養維修：依工單 ID 更新與刪除，及相片操作
+				protected.Route("/maintenance", func(mr chi.Router) {
+					mr.Patch("/{id}", maintenanceHandler.Update)
+					mr.Delete("/{id}", maintenanceHandler.Delete)
+					mr.Post("/{id}/photos", maintenanceHandler.AddPhotos)
+					mr.Delete("/photos/{photoId}", maintenanceHandler.DeletePhoto)
 				})
 			}
 		})

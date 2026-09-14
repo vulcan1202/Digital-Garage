@@ -1,14 +1,12 @@
-import { supabase, requireUser } from '../lib/supabase';
-import { localStore } from '../lib/localStore';
+import { requestApi } from './apiClient';
 import {
   MaintenanceRecordRow,
   MaintenanceRecordInsert,
   MaintenanceRecordUpdate,
   MaintenancePhotoRow,
 } from '../types/database';
-import { handleServiceCall, AppError } from './errors/AppError';
+import { handleServiceCall } from './errors/AppError';
 import { storageService } from './storageService';
-import { vehicleService } from './vehicleService';
 import { reminderService } from './reminderService';
 
 export interface MaintenanceRecordWithPhotos extends MaintenanceRecordRow {
@@ -21,184 +19,68 @@ export const maintenanceService = {
    */
   async getMaintenanceRecords(vehicleId: number): Promise<MaintenanceRecordWithPhotos[]> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data, error } = await supabase
-          .from('MaintenanceRecords')
-          .select(`
-            *,
-            photos:MaintenancePhotos(*)
-          `)
-          .eq('vehicle_id', vehicleId)
-          .order('service_date', { ascending: false })
-          .order('mileage', { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          return data.map((record) => ({
-            ...record,
-            photos: (record.photos || []) as MaintenancePhotoRow[],
-          }));
-        }
-      } catch {
-        // Fallback
-      }
-
-      const localList = await localStore.getMaintenanceRecords(vehicleId);
-      return localList.map((record) => ({
-        ...record,
-        photos: [],
-      }));
+      return await requestApi<MaintenanceRecordWithPhotos[]>(`/vehicles/${vehicleId}/maintenance`);
     });
   },
 
   /**
-   * 建立保養維修紀錄，並將已由 storageService 上傳之圖片 URL 寫入 MaintenancePhotos
-   * 職責劃分明確：storageService 負責 Storage 傳檔，maintenanceService 負責寫入 DB
+   * 建立保養維修紀錄，並將已由 storageService 上傳之圖片 URL 關聯寫入 MaintenancePhotos
+   * 職責劃分明確：storageService 負責 Storage 傳檔，Go API 負責在事務中原子寫入 DB 及更新車輛里程
    */
   async createRecordWithPhotos(
     recordData: MaintenanceRecordInsert,
     photoUrls: string[] = []
   ): Promise<MaintenanceRecordWithPhotos> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      // 1. 寫入主表 MaintenanceRecords
-      const now = new Date().toISOString();
-      try {
-        const { data: record, error: recordError } = await supabase
-          .from('MaintenanceRecords')
-          .insert({
-            ...recordData,
-            created_at: recordData.created_at ?? now,
-            updated_at: recordData.updated_at ?? now,
-          })
-          .select()
-          .single();
-
-        if (!recordError && record) {
-          // 同步最高里程
-          await vehicleService.syncVehicleMaxMileage(record.vehicle_id);
-
-          // 2. 若有照片，寫入關聯子表 MaintenancePhotos
-          const photos: MaintenancePhotoRow[] = [];
-          if (photoUrls.length > 0) {
-            const photoInserts = photoUrls.map((url, index) => ({
-              maintenance_record_id: record.id,
-              url,
-              sort_order: index,
-              created_at: now,
-            }));
-
-            const { data: photosData, error: photoError } = await supabase
-              .from('MaintenancePhotos')
-              .insert(photoInserts)
-              .select();
-
-            if (!photoError && photosData) {
-              photos.push(...photosData);
-            }
-          }
-
-          return {
-            ...record,
-            photos,
-          };
-        }
-      } catch {
-        // Fallback
-      }
-
-      const localRec = await localStore.addMaintenanceRecord(recordData);
-      await vehicleService.syncVehicleMaxMileage(recordData.vehicle_id);
-      return {
-        ...localRec,
-        photos: [],
+      const payload = {
+        ...recordData,
+        photo_urls: photoUrls,
       };
+
+      return await requestApi<MaintenanceRecordWithPhotos>(
+        `/vehicles/${recordData.vehicle_id}/maintenance`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
     });
   },
 
   /**
-   * 更新保養維修紀錄
+   * 更新保養維修紀錄 (Go 端事務自動執行 SQL GREATEST 里程防污染更新)
    */
   async updateMaintenanceRecord(
     id: number,
     updateData: MaintenanceRecordUpdate
   ): Promise<MaintenanceRecordRow> {
     return handleServiceCall(async () => {
-      await requireUser();
+      const record = await requestApi<MaintenanceRecordRow>(`/maintenance/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updateData),
+      });
 
-      const now = new Date().toISOString();
-      try {
-        const { data: record, error } = await supabase
-          .from('MaintenanceRecords')
-          .update({
-            ...updateData,
-            updated_at: updateData.updated_at ?? now,
-          })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (!error && record) {
-          await vehicleService.syncVehicleMaxMileage(record.vehicle_id);
-          await reminderService.syncReminderBaseFromMaintenance(
-            id,
-            updateData.mileage,
-            updateData.service_date
-          );
-          return record;
-        }
-      } catch {
-        // Fallback
+      // 同步更新關聯之保養提醒基準
+      if (updateData.mileage !== undefined || updateData.service_date !== undefined) {
+        await reminderService.syncReminderBaseFromMaintenance(
+          id,
+          updateData.mileage,
+          updateData.service_date
+        );
       }
 
-      const localRec = await localStore.updateMaintenanceRecord(id, updateData);
-      await vehicleService.syncVehicleMaxMileage(localRec.vehicle_id);
-      await reminderService.syncReminderBaseFromMaintenance(
-        id,
-        updateData.mileage,
-        updateData.service_date
-      );
-      return localRec;
+      return record;
     });
   },
 
   /**
-   * 刪除保養紀錄 (底層由 SQL ON DELETE CASCADE 級聯清除 MaintenancePhotos)
+   * 刪除保養紀錄 (Go 端事務自動安全回滾車輛最高里程，SQL CASCADE 自動刪除關聯相片紀錄)
    */
-  async deleteMaintenanceRecord(id: number, vehicleId?: number): Promise<void> {
+  async deleteMaintenanceRecord(id: number, _vehicleId?: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      let targetVehicleId = vehicleId;
-      if (!targetVehicleId) {
-        try {
-          const { data } = await supabase
-            .from('MaintenanceRecords')
-            .select('vehicle_id')
-            .eq('id', id)
-            .single();
-          if (data) targetVehicleId = data.vehicle_id;
-        } catch {
-          // ignore
-        }
-      }
-
-      try {
-        await supabase
-          .from('MaintenanceRecords')
-          .delete()
-          .eq('id', id);
-      } catch {
-        // Fallback
-      }
-
-      await localStore.deleteMaintenanceRecord(id);
-
-      if (targetVehicleId) {
-        await vehicleService.syncVehicleMaxMileage(targetVehicleId);
-      }
+      await requestApi<void>(`/maintenance/${id}`, {
+        method: 'DELETE',
+      });
     });
   },
 
@@ -210,26 +92,12 @@ export const maintenanceService = {
     photoUrls: string[]
   ): Promise<MaintenancePhotoRow[]> {
     return handleServiceCall(async () => {
-      await requireUser();
       if (!photoUrls.length) return [];
 
-      const inserts = photoUrls.map((url, idx) => ({
-        maintenance_record_id: maintenanceRecordId,
-        url,
-        sort_order: idx,
-        created_at: new Date().toISOString(),
-      }));
-
-      const { data, error } = await supabase
-        .from('MaintenancePhotos')
-        .insert(inserts)
-        .select();
-
-      if (error || !data) {
-        throw AppError.database('追加保養照片失敗', error);
-      }
-
-      return data;
+      return await requestApi<MaintenancePhotoRow[]>(`/maintenance/${maintenanceRecordId}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({ photo_urls: photoUrls }),
+      });
     });
   },
 
@@ -238,27 +106,12 @@ export const maintenanceService = {
    */
   async deleteMaintenancePhoto(photoId: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
+      const res = await requestApi<{ photo_url: string }>(`/maintenance/photos/${photoId}`, {
+        method: 'DELETE',
+      });
 
-      let photoUrl: string | null = null;
-      try {
-        const { data } = await supabase
-          .from('MaintenancePhotos')
-          .select('url')
-          .eq('id', photoId)
-          .single();
-        if (data) photoUrl = data.url;
-
-        await supabase
-          .from('MaintenancePhotos')
-          .delete()
-          .eq('id', photoId);
-      } catch (err) {
-        console.warn('刪除 MaintenancePhotos 記錄失敗:', err);
-      }
-
-      if (photoUrl) {
-        storageService.deleteVehicleMedia(photoUrl).catch((err) => {
+      if (res?.photo_url) {
+        storageService.deleteVehicleMedia(res.photo_url).catch((err) => {
           console.warn('非同步清除保養照片 Storage 實體失敗:', err);
         });
       }
