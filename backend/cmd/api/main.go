@@ -1,0 +1,111 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"digital-garage-backend/internal/config"
+	"digital-garage-backend/internal/database"
+	"digital-garage-backend/internal/response"
+
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func main() {
+	cfg := config.Load()
+
+	log.Printf("[數位車庫後端] 正在啟動，監聽端口: %s", cfg.Port)
+
+	// 資料庫連線池初始化
+	var pool *pgxpool.Pool
+	if cfg.DatabaseURL != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var err error
+		pool, err = database.NewPool(ctx, cfg.DatabaseURL)
+		if err != nil {
+			log.Printf("[警告] 資料庫連線失敗: %v。請確認 DATABASE_URL 設定。", err)
+		} else {
+			defer pool.Close()
+			log.Println("[資料庫] PostgreSQL 連線池初始化成功！")
+		}
+	} else {
+		log.Println("[提示] 未設定 DATABASE_URL，資料庫模組將在設定後生效。")
+	}
+
+	r := chi.NewRouter()
+
+	// 基礎中間件
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+
+	// CORS 設定
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
+
+	// API 路由
+	r.Route("/api/v1", func(api chi.Router) {
+		// 健康檢查
+		api.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			dbStatus := "disconnected"
+			if pool != nil {
+				if err := pool.Ping(r.Context()); err == nil {
+					dbStatus = "connected"
+				}
+			}
+			response.JSON(w, http.StatusOK, map[string]any{
+				"status":    "ok",
+				"database":  dbStatus,
+				"timestamp": time.Now().Format(time.RFC3339),
+			})
+		})
+	})
+
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// 優雅關機監聽
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("[伺服器] API 服務已就緒，網址: http://localhost:%s", cfg.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("[致命錯誤] 伺服器啟動異常: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("[伺服器] 收到關機信號，正在優雅關閉...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("[錯誤] 優雅關閉伺服器異常: %v", err)
+	}
+
+	log.Println("[伺服器] 已安全關閉。")
+}
