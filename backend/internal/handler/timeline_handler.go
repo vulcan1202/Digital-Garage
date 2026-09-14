@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"errors"
@@ -54,7 +54,7 @@ func (h *TimelineHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 

@@ -90,18 +90,26 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
 
   // 遙測統計計算 (純函式 Calculators)
   const costStats = useMemo(() => {
-    return calculateVehicleTotalCost(refuels, maintenanceRecords, modifications);
-  }, [refuels, maintenanceRecords, modifications]);
+    return calculateVehicleTotalCost(
+      refuels,
+      maintenanceRecords,
+      modifications,
+      activeVehicle?.purchase_price
+    );
+  }, [refuels, maintenanceRecords, modifications, activeVehicle]);
 
-  const minMileage = useMemo(() => {
-    if (!refuels.length) return 0;
-    return Math.min(...refuels.map((r) => r.mileage));
-  }, [refuels]);
+  // 累計行駛里程基準：以 activeVehicle.initial_mileage 為唯一起算原點
+  const baseMileage = activeVehicle ? activeVehicle.initial_mileage : 0;
 
   const averageCostPerKm = useMemo(() => {
     if (!activeVehicle) return null;
-    return calculateAverageCostPerKm(costStats.totalCost, minMileage, activeVehicle.current_mileage);
-  }, [costStats.totalCost, minMileage, activeVehicle]);
+    return calculateAverageCostPerKm(costStats.operationalCost, baseMileage, activeVehicle.current_mileage);
+  }, [costStats.operationalCost, baseMileage, activeVehicle]);
+
+  const ownershipCostPerKm = useMemo(() => {
+    if (!activeVehicle || costStats.totalOwnershipCost === null) return null;
+    return calculateAverageCostPerKm(costStats.totalOwnershipCost, baseMileage, activeVehicle.current_mileage);
+  }, [costStats.totalOwnershipCost, baseMileage, activeVehicle]);
 
   const fuelStats = useMemo(() => {
     const avgCostKm = calculateAverageFuelCostPerKm(refuels);
@@ -438,11 +446,40 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
         <View className="px-5 mt-6">
           <View className="flex-row items-center justify-between mb-3">
             <View>
-              <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
-                VEHICLE TELEMETRY
-              </Text>
+              <View className="flex-row items-center gap-1.5 mb-1">
+                <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
+                  VEHICLE TELEMETRY
+                </Text>
+                {/* 車型 Badge */}
+                <View className="bg-zinc-800 border border-white/10 px-2 py-0.5 rounded flex-row items-center gap-1">
+                  <Ionicons
+                    name={
+                      activeVehicle.vehicle_type === 'motorcycle'
+                        ? 'bicycle'
+                        : activeVehicle.vehicle_type === 'other'
+                        ? 'grid'
+                        : 'car-sport'
+                    }
+                    size={11}
+                    color="#ff4d00"
+                  />
+                  <Text className="text-[9px] font-mono font-bold text-racing-orange uppercase">
+                    {activeVehicle.vehicle_type || 'car'}
+                  </Text>
+                </View>
+                {/* 車牌 Badge */}
+                {activeVehicle.license_plate && (
+                  <View className="bg-white/10 border border-white/20 px-2 py-0.5 rounded">
+                    <Text className="text-[10px] font-mono font-bold text-white tracking-wider">
+                      {activeVehicle.license_plate}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text className="text-[11px] font-mono text-metal-500">
-                ID: DG-{String(activeVehicle.id).padStart(4, '0')} · {activeVehicle.brand} {activeVehicle.model}
+                {activeVehicle.brand} {activeVehicle.model}
+                {activeVehicle.engine_displacement_cc ? ` · ${activeVehicle.engine_displacement_cc} c.c.` : ''}
+                {activeVehicle.fuel_type ? ` · ${activeVehicle.fuel_type}` : ''}
               </Text>
             </View>
 
@@ -473,26 +510,26 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             </View>
           </View>
 
-
-
           {/* 4 核心數據儀表 (2x2 Grid) */}
           <View className="flex-row flex-wrap gap-2.5">
-            {/* 總花費 */}
+            {/* 總花費 / 總擁有成本 */}
             <View className="flex-1 min-w-[45%]">
               <DoubleBezelCard innerClassName="p-3.5">
                 <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
-                  TOTAL EXPENSE
+                  TOTAL RECORDED COST
                 </Text>
                 <Text className="text-xl font-bold text-white font-mono mt-1">
-                  ${costStats.totalCost.toLocaleString()}
+                  ${costStats.operationalCost.toLocaleString()}
                 </Text>
-                <Text className="text-[10px] text-metal-500 mt-1">
-                  改裝 + 保修 + 加油總計
+                <Text className="text-[10px] text-metal-500 mt-1" numberOfLines={1}>
+                  {costStats.totalOwnershipCost !== null
+                    ? `含車價總持有: $${costStats.totalOwnershipCost.toLocaleString()}`
+                    : '未設定購車價格'}
                 </Text>
               </DoubleBezelCard>
             </View>
 
-            {/* 每公里成本 */}
+            {/* 每公里運作成本 */}
             <View className="flex-1 min-w-[45%]">
               <DoubleBezelCard innerClassName="p-3.5">
                 <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
@@ -501,8 +538,10 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 <Text className="text-xl font-bold text-racing-orange font-mono mt-1">
                   {averageCostPerKm !== null ? `$${averageCostPerKm}` : '--'}
                 </Text>
-                <Text className="text-[10px] text-metal-500 mt-1">
-                  全車公里攤提
+                <Text className="text-[10px] text-metal-500 mt-1" numberOfLines={1}>
+                  {ownershipCostPerKm !== null
+                    ? `含車價: $${ownershipCostPerKm}/km`
+                    : '運作公里攤提 (距基準)'}
                 </Text>
               </DoubleBezelCard>
             </View>

@@ -45,7 +45,7 @@ func (h *VehicleHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	vehicles, err := h.repo.ListVehicles(r.Context(), userID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -72,11 +72,25 @@ func (h *VehicleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, vehicle)
+}
+
+func isValidVehicleType(vt string) bool {
+	return vt == "car" || vt == "motorcycle" || vt == "other"
+}
+
+func isValidFuelType(ft string) bool {
+	switch ft {
+	case "gasoline_92", "gasoline_95", "gasoline_98", "diesel",
+		"premium_diesel", "electric", "hybrid", "other":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -99,9 +113,79 @@ func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.VehicleType = strings.TrimSpace(req.VehicleType)
+	if req.VehicleType == "" || !isValidVehicleType(req.VehicleType) {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "車輛類型 (vehicle_type) 為必填且僅能為 car, motorcycle 或 other")
+		return
+	}
+
+	initMileage := 0
+	if req.InitialMileage != nil {
+		initMileage = *req.InitialMileage
+	} else if req.CurrentMileage != nil {
+		initMileage = *req.CurrentMileage
+	}
+
+	if initMileage < 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "初始里程 (initial_mileage) 不得為負數")
+		return
+	}
+
+	curMileage := initMileage
+	if req.CurrentMileage != nil {
+		curMileage = *req.CurrentMileage
+	}
+
+	if curMileage < 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "當前里程 (current_mileage) 不得為負數")
+		return
+	}
+
+	if curMileage < initMileage {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "當前里程 (current_mileage) 不得小於初始里程 (initial_mileage)")
+		return
+	}
+
+	if req.Year != nil && (*req.Year < 1886 || *req.Year > 2100) {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "年份 (year) 必須介於 1886 至 2100 之間")
+		return
+	}
+
+	if req.PurchasePrice != nil && *req.PurchasePrice < 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "購車價格 (purchase_price) 不得為負數")
+		return
+	}
+
+	if req.EngineDisplacementCC != nil && *req.EngineDisplacementCC <= 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "排氣量 (engine_displacement_cc) 必須大於 0")
+		return
+	}
+
+	if req.FuelType != nil {
+		ft := strings.TrimSpace(*req.FuelType)
+		if ft != "" && !isValidFuelType(ft) {
+			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "動力油品型態 (fuel_type) 非合法選項")
+			return
+		}
+		if ft == "" {
+			req.FuelType = nil
+		} else {
+			req.FuelType = &ft
+		}
+	}
+
+	if req.LicensePlate != nil {
+		lp := strings.TrimSpace(*req.LicensePlate)
+		if lp == "" {
+			req.LicensePlate = nil
+		} else {
+			req.LicensePlate = &lp
+		}
+	}
+
 	vehicle, err := h.repo.CreateVehicle(r.Context(), userID, &req)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -128,13 +212,74 @@ func (h *VehicleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 規則：initial_mileage 建立後不可修改，若收到欄位直接回傳 400 VALIDATION_ERROR
+	if req.InitialMileage != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "初始基準里程 (initial_mileage) 建立後永久不可修改")
+		return
+	}
+
+	if req.Brand != nil && strings.TrimSpace(*req.Brand) == "" {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "品牌 (brand) 不得為空")
+		return
+	}
+	if req.Model != nil && strings.TrimSpace(*req.Model) == "" {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "型號 (model) 不得為空")
+		return
+	}
+
+	if req.VehicleType != nil {
+		vt := strings.TrimSpace(*req.VehicleType)
+		if !isValidVehicleType(vt) {
+			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "車輛類型 (vehicle_type) 必須為 car, motorcycle 或 other")
+			return
+		}
+		req.VehicleType = &vt
+	}
+
+	if req.CurrentMileage != nil && *req.CurrentMileage < 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "當前里程 (current_mileage) 不得為負數")
+		return
+	}
+	if req.Year != nil && (*req.Year < 1886 || *req.Year > 2100) {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "年份 (year) 必須介於 1886 至 2100 之間")
+		return
+	}
+	if req.PurchasePrice != nil && *req.PurchasePrice < 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "購車價格 (purchase_price) 不得為負數")
+		return
+	}
+	if req.EngineDisplacementCC != nil && *req.EngineDisplacementCC <= 0 {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "排氣量 (engine_displacement_cc) 必須大於 0")
+		return
+	}
+	if req.FuelType != nil {
+		ft := strings.TrimSpace(*req.FuelType)
+		if ft != "" && !isValidFuelType(ft) {
+			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "動力油品型態 (fuel_type) 非合法選項")
+			return
+		}
+		if ft == "" {
+			req.FuelType = nil
+		} else {
+			req.FuelType = &ft
+		}
+	}
+	if req.LicensePlate != nil {
+		lp := strings.TrimSpace(*req.LicensePlate)
+		if lp == "" {
+			req.LicensePlate = nil
+		} else {
+			req.LicensePlate = &lp
+		}
+	}
+
 	vehicle, err := h.repo.UpdateVehicle(r.Context(), userID, id, &req)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -161,7 +306,7 @@ func (h *VehicleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -200,7 +345,7 @@ func (h *VehicleHandler) AddPhoto(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -234,7 +379,7 @@ func (h *VehicleHandler) SetCoverPhoto(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或照片")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -268,7 +413,7 @@ func (h *VehicleHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或照片")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -295,7 +440,7 @@ func (h *VehicleHandler) ListPhotos(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -318,7 +463,7 @@ func (h *VehicleHandler) SyncMileage(w http.ResponseWriter, r *http.Request) {
 
 	err = h.repo.SyncVehicleMaxMileage(r.Context(), userID, vehicleID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 

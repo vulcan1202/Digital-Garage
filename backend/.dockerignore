@@ -1,4 +1,8 @@
 .git
 .env
+.env.*
 bin/
 tmp/
+*.log
+.DS_Store
+Thumbs.db

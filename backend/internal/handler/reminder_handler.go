@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -43,7 +43,7 @@ func (h *ReminderHandler) List(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *ReminderHandler) Create(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -145,7 +145,7 @@ func (h *ReminderHandler) Update(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此提醒或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *ReminderHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此提醒或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -214,7 +214,7 @@ func (h *ReminderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此提醒或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -240,7 +240,7 @@ func (h *ReminderHandler) SyncBase(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此工單或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 

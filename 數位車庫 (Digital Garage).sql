@@ -30,12 +30,18 @@ CREATE TABLE "Vehicles" (
   "user_id" uuid NOT NULL REFERENCES auth.users("id") ON DELETE CASCADE,
   "brand" varchar NOT NULL,
   "model" varchar NOT NULL,
+  "vehicle_type" varchar NOT NULL CHECK ("vehicle_type" IN ('car', 'motorcycle', 'other')),
   "year" integer,
   "purchase_date" date,
+  "purchase_price" decimal(12,2) CHECK ("purchase_price" IS NULL OR "purchase_price" >= 0),
+  "fuel_type" fuel_type,
+  "engine_displacement_cc" integer CHECK ("engine_displacement_cc" IS NULL OR "engine_displacement_cc" > 0),
+  "license_plate" varchar,
   "initial_mileage" integer NOT NULL DEFAULT 0 CHECK ("initial_mileage" >= 0),
   "current_mileage" integer NOT NULL DEFAULT 0 CHECK ("current_mileage" >= 0),
   "created_at" timestamptz NOT NULL DEFAULT now(),
-  "updated_at" timestamptz NOT NULL DEFAULT now()
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_vehicles_mileage_consistency CHECK ("current_mileage" >= "initial_mileage")
 );
 
 -- 車輛照片
@@ -361,7 +367,23 @@ AS
     item_name AS title,
     note AS description,
     created_at
-  FROM "Modifications";
+  FROM "Modifications"
+
+  UNION ALL
+
+  -- 4. 車輛購入入庫事件 (僅當 purchase_date IS NOT NULL 時產生，禁止使用 created_at 假造)
+  SELECT 
+    id AS vehicle_id,
+    'purchase' AS event_type,
+    id AS event_id,
+    purchase_date AS event_date,
+    initial_mileage AS mileage,
+    COALESCE(purchase_price, 0) AS cost,
+    (brand || ' ' || model || ' 購入入庫') AS title,
+    ('入庫基準里程: ' || initial_mileage || ' KM') AS description,
+    created_at
+  FROM "Vehicles"
+  WHERE purchase_date IS NOT NULL;
 
 
 -- ==========================================
@@ -428,4 +450,30 @@ SET "initial_mileage" = COALESCE(
   ),
   v."current_mileage",
   0
-);
+);
+
+-- ==========================================
+-- 9. MIGRATION: P1 車輛生命週期紀錄 (Vehicle Lifecycle)
+-- ==========================================
+-- 為既有資料庫擴充車輛詳細欄位
+ALTER TABLE "Vehicles"
+  ADD COLUMN IF NOT EXISTS "vehicle_type" varchar NOT NULL DEFAULT 'car' CHECK ("vehicle_type" IN ('car', 'motorcycle', 'other')),
+  ADD COLUMN IF NOT EXISTS "purchase_price" decimal(12,2) CHECK ("purchase_price" IS NULL OR "purchase_price" >= 0),
+  ADD COLUMN IF NOT EXISTS "fuel_type" fuel_type,
+  ADD COLUMN IF NOT EXISTS "engine_displacement_cc" integer CHECK ("engine_displacement_cc" IS NULL OR "engine_displacement_cc" > 0),
+  ADD COLUMN IF NOT EXISTS "license_plate" varchar;
+
+-- 移除 migration default，確保後續新增必須明確指定 vehicle_type
+ALTER TABLE "Vehicles" ALTER COLUMN "vehicle_type" DROP DEFAULT;
+
+-- 增加里程一致性約束
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_vehicles_mileage_consistency'
+  ) THEN
+    ALTER TABLE "Vehicles"
+      ADD CONSTRAINT chk_vehicles_mileage_consistency CHECK (current_mileage >= initial_mileage);
+  END IF;
+END $$;
+

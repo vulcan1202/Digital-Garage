@@ -30,7 +30,9 @@ func (r *VehicleRepository) ListVehicles(ctx context.Context, userID string) ([]
 		SELECT 
 			v.id, v.user_id, v.brand, v.model, v.year, 
 			to_char(v.purchase_date, 'YYYY-MM-DD') AS purchase_date,
-			v.initial_mileage, v.current_mileage, v.created_at, v.updated_at,
+			v.initial_mileage, v.current_mileage,
+			v.vehicle_type, v.purchase_price, v.fuel_type, v.engine_displacement_cc, v.license_plate,
+			v.created_at, v.updated_at,
 			(
 				SELECT vp.url FROM "VehiclePhotos" vp 
 				WHERE vp.vehicle_id = v.id 
@@ -54,6 +56,7 @@ func (r *VehicleRepository) ListVehicles(ctx context.Context, userID string) ([]
 		err := rows.Scan(
 			&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
 			&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+			&v.VehicleType, &v.PurchasePrice, &v.FuelType, &v.EngineDisplacementCC, &v.LicensePlate,
 			&v.CreatedAt, &v.UpdatedAt, &v.CoverURL,
 		)
 		if err != nil {
@@ -74,7 +77,9 @@ func (r *VehicleRepository) GetVehicleByID(ctx context.Context, userID string, v
 		SELECT 
 			id, user_id, brand, model, year, 
 			to_char(purchase_date, 'YYYY-MM-DD') AS purchase_date,
-			initial_mileage, current_mileage, created_at, updated_at
+			initial_mileage, current_mileage,
+			vehicle_type, purchase_price, fuel_type, engine_displacement_cc, license_plate,
+			created_at, updated_at
 		FROM "Vehicles"
 		WHERE id = $1 AND user_id = $2;
 	`
@@ -83,6 +88,7 @@ func (r *VehicleRepository) GetVehicleByID(ctx context.Context, userID string, v
 	err := r.pool.QueryRow(ctx, vehicleQuery, vehicleID, userID).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
 		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.VehicleType, &v.PurchasePrice, &v.FuelType, &v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,
 	)
 	if err != nil {
@@ -139,17 +145,23 @@ func (r *VehicleRepository) CreateVehicle(ctx context.Context, userID string, re
 
 	query := `
 		INSERT INTO "Vehicles" (
-			user_id, brand, model, year, purchase_date, initial_mileage, current_mileage
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'), initial_mileage, current_mileage, created_at, updated_at;
+			user_id, brand, model, vehicle_type, year, purchase_date, purchase_price,
+			fuel_type, engine_displacement_cc, license_plate, initial_mileage, current_mileage
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'),
+			initial_mileage, current_mileage, vehicle_type, purchase_price, fuel_type,
+			engine_displacement_cc, license_plate, created_at, updated_at;
 	`
 
 	var v model.Vehicle
 	err := r.pool.QueryRow(ctx, query,
-		userID, req.Brand, req.Model, req.Year, req.PurchaseDate, initMileage, curMileage,
+		userID, req.Brand, req.Model, req.VehicleType, req.Year, req.PurchaseDate, req.PurchasePrice,
+		req.FuelType, req.EngineDisplacementCC, req.LicensePlate, initMileage, curMileage,
 	).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
 		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.VehicleType, &v.PurchasePrice, &v.FuelType,
+		&v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,
 	)
 	if err != nil {
@@ -159,20 +171,26 @@ func (r *VehicleRepository) CreateVehicle(ctx context.Context, userID string, re
 	return &v, nil
 }
 
-// UpdateVehicle 更新車輛資訊
+// UpdateVehicle 更新車輛資訊 (禁止修改 initial_mileage)
 func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, vehicleID int, req *model.UpdateVehicleRequest) (*model.Vehicle, error) {
 	query := `
 		UPDATE "Vehicles"
 		SET 
 			brand = COALESCE($3, brand),
 			model = COALESCE($4, model),
-			year = CASE WHEN $5::boolean THEN $6::integer ELSE year END,
-			purchase_date = CASE WHEN $7::boolean THEN $8::date ELSE purchase_date END,
-			initial_mileage = COALESCE($9, initial_mileage),
-			current_mileage = COALESCE($10, current_mileage),
+			vehicle_type = COALESCE($5, vehicle_type),
+			year = CASE WHEN $6::boolean THEN $7::integer ELSE year END,
+			purchase_date = CASE WHEN $8::boolean THEN $9::date ELSE purchase_date END,
+			purchase_price = CASE WHEN $10::boolean THEN $11::numeric ELSE purchase_price END,
+			fuel_type = CASE WHEN $12::boolean THEN $13::fuel_type ELSE fuel_type END,
+			engine_displacement_cc = CASE WHEN $14::boolean THEN $15::integer ELSE engine_displacement_cc END,
+			license_plate = CASE WHEN $16::boolean THEN $17::varchar ELSE license_plate END,
+			current_mileage = COALESCE($18, current_mileage),
 			updated_at = now()
 		WHERE id = $1 AND user_id = $2
-		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'), initial_mileage, current_mileage, created_at, updated_at;
+		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'),
+			initial_mileage, current_mileage, vehicle_type, purchase_price, fuel_type,
+			engine_displacement_cc, license_plate, created_at, updated_at;
 	`
 
 	hasYear := req.Year != nil
@@ -187,16 +205,46 @@ func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, ve
 		dateVal = req.PurchaseDate
 	}
 
+	hasPrice := req.PurchasePrice != nil
+	var priceVal *float64
+	if hasPrice {
+		priceVal = req.PurchasePrice
+	}
+
+	hasFuelType := req.FuelType != nil
+	var fuelVal *string
+	if hasFuelType {
+		fuelVal = req.FuelType
+	}
+
+	hasCC := req.EngineDisplacementCC != nil
+	var ccVal *int
+	if hasCC {
+		ccVal = req.EngineDisplacementCC
+	}
+
+	hasPlate := req.LicensePlate != nil
+	var plateVal *string
+	if hasPlate {
+		plateVal = req.LicensePlate
+	}
+
 	var v model.Vehicle
 	err := r.pool.QueryRow(ctx, query,
 		vehicleID, userID,
-		req.Brand, req.Model,
+		req.Brand, req.Model, req.VehicleType,
 		hasYear, yearVal,
 		hasDate, dateVal,
-		req.InitialMileage, req.CurrentMileage,
+		hasPrice, priceVal,
+		hasFuelType, fuelVal,
+		hasCC, ccVal,
+		hasPlate, plateVal,
+		req.CurrentMileage,
 	).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
 		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.VehicleType, &v.PurchasePrice, &v.FuelType,
+		&v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,
 	)
 	if err != nil {

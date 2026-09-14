@@ -19,8 +19,32 @@ describe('costCalculator', () => {
         maintenanceCost: 4300,
         modificationPurchaseCost: 37000,
         modificationInstallCost: 4500,
+        operationalCost: 48500,
+        purchasePrice: null,
+        totalOwnershipCost: null,
         totalCost: 48500,
       });
+    });
+
+    it('sets totalOwnershipCost to null when purchasePrice is undefined or null', () => {
+      const result = calculateVehicleTotalCost([{ total_cost: 1000 }], [], [], null);
+      expect(result.purchasePrice).toBeNull();
+      expect(result.totalOwnershipCost).toBeNull();
+      expect(result.operationalCost).toBe(1000);
+    });
+
+    it('correctly calculates totalOwnershipCost when purchasePrice is 0 (gift or free)', () => {
+      const result = calculateVehicleTotalCost([{ total_cost: 1000 }], [], [], 0);
+      expect(result.purchasePrice).toBe(0);
+      expect(result.totalOwnershipCost).toBe(1000);
+      expect(result.operationalCost).toBe(1000);
+    });
+
+    it('correctly calculates totalOwnershipCost when purchasePrice is positive', () => {
+      const result = calculateVehicleTotalCost([{ total_cost: 2000 }], [], [], 500000);
+      expect(result.purchasePrice).toBe(500000);
+      expect(result.operationalCost).toBe(2000);
+      expect(result.totalOwnershipCost).toBe(502000);
     });
 
     it('safely tolerates null, undefined or empty arrays', () => {
@@ -34,6 +58,9 @@ describe('costCalculator', () => {
         maintenanceCost: 0,
         modificationPurchaseCost: 0,
         modificationInstallCost: 0,
+        operationalCost: 1000,
+        purchasePrice: null,
+        totalOwnershipCost: null,
         totalCost: 1000,
       });
     });
@@ -50,7 +77,12 @@ describe('costCalculator', () => {
       expect(calculateAverageCostPerKm(10000, 15000, 10000)).toBeNull();
     });
 
-    it('returns null for non-finite or negative totalCost values', () => {
+    it('returns null if cost is null or undefined', () => {
+      expect(calculateAverageCostPerKm(null, 0, 1000)).toBeNull();
+      expect(calculateAverageCostPerKm(undefined, 0, 1000)).toBeNull();
+    });
+
+    it('returns null for non-finite or negative cost values', () => {
       expect(calculateAverageCostPerKm(-500, 0, 1000)).toBeNull();
       expect(calculateAverageCostPerKm(NaN, 0, 1000)).toBeNull();
     });

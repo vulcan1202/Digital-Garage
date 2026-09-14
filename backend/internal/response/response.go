@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -31,6 +32,12 @@ func Error(w http.ResponseWriter, status int, code string, message string) {
 		Error:   code,
 		Message: message,
 	})
+}
+
+// DatabaseError 記錄內部真實錯誤並輸出脫敏後的 500 DATABASE_ERROR
+func DatabaseError(w http.ResponseWriter, err error) {
+	log.Printf("[DATABASE_ERROR] %v", err)
+	Error(w, http.StatusInternalServerError, "DATABASE_ERROR", "資料庫操作異常，請稍後再試")
 }
 
 // NoContent 輸出 204 No Content

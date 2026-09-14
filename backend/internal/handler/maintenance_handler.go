@@ -43,7 +43,7 @@ func (h *MaintenanceHandler) List(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *MaintenanceHandler) Create(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *MaintenanceHandler) Update(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此工單或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *MaintenanceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此工單或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func (h *MaintenanceHandler) AddPhotos(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此工單或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -244,7 +244,7 @@ func (h *MaintenanceHandler) DeletePhoto(w http.ResponseWriter, r *http.Request)
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此照片或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 

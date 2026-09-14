@@ -42,14 +42,21 @@ export type ReminderStatus =
 // 採用 type 定義以完美相容 Supabase GenericTable & PostgREST
 // ==========================================
 
+export type VehicleType = 'car' | 'motorcycle' | 'other';
+
 // 車輛表 (Vehicles)
 export type VehicleRow = {
   id: number;
   user_id: string; // uuid
   brand: string;
   model: string;
+  vehicle_type: VehicleType;
   year: number | null;
   purchase_date: string | null; // date
+  purchase_price: number | null;
+  fuel_type: FuelType | null;
+  engine_displacement_cc: number | null;
+  license_plate: string | null;
   initial_mileage: number; // CHECK >= 0
   current_mileage: number; // CHECK >= 0
   created_at: string; // timestamptz
@@ -61,8 +68,13 @@ export type VehicleInsert = {
   user_id: string;
   brand: string;
   model: string;
+  vehicle_type: VehicleType; // 必填，不可預設
   year?: number | null;
   purchase_date?: string | null;
+  purchase_price?: number | null;
+  fuel_type?: FuelType | null;
+  engine_displacement_cc?: number | null;
+  license_plate?: string | null;
   initial_mileage?: number;
   current_mileage?: number;
   created_at?: string;
@@ -74,9 +86,14 @@ export type VehicleUpdate = {
   user_id?: string;
   brand?: string;
   model?: string;
+  vehicle_type?: VehicleType;
   year?: number | null;
   purchase_date?: string | null;
-  initial_mileage?: number;
+  purchase_price?: number | null;
+  fuel_type?: FuelType | null;
+  engine_displacement_cc?: number | null;
+  license_plate?: string | null;
+  // 規則：initial_mileage 建立後不可修改
   current_mileage?: number;
   created_at?: string;
   updated_at?: string;
@@ -422,7 +439,7 @@ export type ModificationSettingUpdate = {
 // 3. VIEWS (vehicle_timeline)
 // ==========================================
 
-export type TimelineEventType = 'refuel' | 'maintenance' | 'repair' | 'modification';
+export type TimelineEventType = 'refuel' | 'maintenance' | 'repair' | 'modification' | 'purchase';
 
 export type VehicleTimelineRow = {
   vehicle_id: number;

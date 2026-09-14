@@ -110,10 +110,23 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           label: '深度改裝',
           border: 'none' as const,
         };
+      case 'purchase':
+        return {
+          icon: <Ionicons name="key-outline" size={16} color="#10b981" />,
+          color: 'text-emerald-400',
+          bg: 'bg-emerald-500/10 border-emerald-500/30',
+          label: '購入入庫',
+          border: 'none' as const,
+        };
     }
   };
 
   const handleDeleteEvent = (item: VehicleTimelineRow) => {
+    if (item.event_type === 'purchase') {
+      Alert.alert('提示', '購入入庫為愛車基本資料，請至車輛管理介面編輯。');
+      return;
+    }
+
     let typeName = '紀錄';
     if (item.event_type === 'refuel') typeName = '加油紀錄';
     else if (item.event_type === 'maintenance' || item.event_type === 'repair') typeName = '保修工單';

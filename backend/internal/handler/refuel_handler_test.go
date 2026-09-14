@@ -77,3 +77,35 @@ func TestRefuelHandler_Validation(t *testing.T) {
 		}
 	})
 }
+
+func TestRefuelHandler_Unauthorized(t *testing.T) {
+	h := NewRefuelHandler(nil)
+
+	reqList := httptest.NewRequest(http.MethodGet, "/vehicles/1/refuels", nil)
+	wList := httptest.NewRecorder()
+	h.List(wList, reqList)
+	if wList.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wList.Code)
+	}
+
+	reqPost := httptest.NewRequest(http.MethodPost, "/vehicles/1/refuels", nil)
+	wPost := httptest.NewRecorder()
+	h.Create(wPost, reqPost)
+	if wPost.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wPost.Code)
+	}
+
+	reqPatch := httptest.NewRequest(http.MethodPatch, "/refuels/1", nil)
+	wPatch := httptest.NewRecorder()
+	h.Update(wPatch, reqPatch)
+	if wPatch.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wPatch.Code)
+	}
+
+	reqDel := httptest.NewRequest(http.MethodDelete, "/refuels/1", nil)
+	wDel := httptest.NewRecorder()
+	h.Delete(wDel, reqDel)
+	if wDel.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wDel.Code)
+	}
+}

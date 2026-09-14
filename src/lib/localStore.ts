@@ -186,8 +186,13 @@ export const localStore = {
       user_id: data.user_id,
       brand: data.brand,
       model: data.model,
+      vehicle_type: data.vehicle_type || 'car',
       year: data.year ?? null,
       purchase_date: data.purchase_date ?? null,
+      purchase_price: data.purchase_price ?? null,
+      fuel_type: data.fuel_type ?? null,
+      engine_displacement_cc: data.engine_displacement_cc ?? null,
+      license_plate: data.license_plate ?? null,
       initial_mileage: initMileage,
       current_mileage: data.current_mileage ?? initMileage,
       created_at: data.created_at ?? now,
@@ -210,8 +215,9 @@ export const localStore = {
     };
     inMemoryDB.vehicles[index] = updated;
     await saveToStorage();
-    if (data.initial_mileage !== undefined || data.current_mileage !== undefined) {
-      await this.syncVehicleMaxMileage(id);
+    if (data.current_mileage !== undefined) {
+      // 若手動更新當前里程，確保至少不低於加油/保養等紀錄與初始里程
+      await this.syncVehicleMaxMileage(id, data.current_mileage);
     }
     return updated;
   },
@@ -226,7 +232,7 @@ export const localStore = {
     await saveToStorage();
   },
 
-  async syncVehicleMaxMileage(vehicleId: number): Promise<void> {
+  async syncVehicleMaxMileage(vehicleId: number, manualCandidate?: number): Promise<void> {
     await loadFromStorage();
     const v = inMemoryDB.vehicles.find((veh) => veh.id === vehicleId);
     if (!v) return;
@@ -242,8 +248,11 @@ export const localStore = {
       .filter((mo) => mo.vehicle_id === vehicleId && typeof mo.install_mileage === 'number')
       .map((mo) => mo.install_mileage as number);
 
-    const allMileages = [initialMileage, ...refuelMileages, ...maintMileages, ...modMileages];
-    const maxMileage = Math.max(...allMileages, 0);
+    const candidates = [initialMileage, ...refuelMileages, ...maintMileages, ...modMileages];
+    if (manualCandidate !== undefined) {
+      candidates.push(manualCandidate);
+    }
+    const maxMileage = Math.max(...candidates, 0);
 
     if (v.current_mileage !== maxMileage) {
       v.current_mileage = maxMileage;

@@ -53,6 +53,8 @@ describe('vehicleService (Go REST API decoupled)', () => {
     const newVehicleInput = {
       brand: 'Toyota',
       model: 'GR Yaris',
+      vehicle_type: 'car' as const,
+      license_plate: 'RAC-1234',
       initial_mileage: 500,
     };
     const createdVehicle = { id: 2, ...newVehicleInput, current_mileage: 500 };

@@ -14,6 +14,7 @@ describe('Vehicle Photos & Cover Transfer Logic', () => {
       user_id: testUserId,
       brand: 'Porsche',
       model: '911 GT3',
+      vehicle_type: 'car',
       initial_mileage: 1000,
     });
 

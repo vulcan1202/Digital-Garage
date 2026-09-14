@@ -14,6 +14,7 @@ describe('syncVehicleMaxMileage & initial_mileage logic', () => {
       user_id: TEST_USER_ID,
       brand: 'Toyota',
       model: 'GR Yaris',
+      vehicle_type: 'car',
       year: 2023,
       initial_mileage: 10000,
       current_mileage: 10000,
@@ -68,7 +69,7 @@ describe('syncVehicleMaxMileage & initial_mileage logic', () => {
     expect(updatedVehicle.initial_mileage).toBe(10000);
   });
 
-  it('updating vehicle initial_mileage correctly recalibrates current_mileage', async () => {
+  it('recalibrates current_mileage when records are added or deleted while initial_mileage remains immutable', async () => {
     const vehicles = await localStore.getVehicles(TEST_USER_ID);
     const vehicle = vehicles[0];
 
@@ -82,22 +83,17 @@ describe('syncVehicleMaxMileage & initial_mileage logic', () => {
       fuel_type: 'gasoline_98',
     });
 
-    // 編輯車輛里程：將 initial_mileage 校正為 18000
-    await localStore.updateVehicle(vehicle.id, {
-      initial_mileage: 18000,
-    });
-
     let updatedVehicle = (await localStore.getVehicles(TEST_USER_ID)).find((v) => v.id === vehicle.id)!;
-    expect(updatedVehicle.initial_mileage).toBe(18000);
-    expect(updatedVehicle.current_mileage).toBe(18000); // 18000 > 15000，取最大者
+    expect(updatedVehicle.initial_mileage).toBe(10000); // 基準里程維持不變
+    expect(updatedVehicle.current_mileage).toBe(15000); // 由加油自動推進至 15000
 
-    // 再次將 initial_mileage 下修為 8000
+    // 更新車輛當前里程：手動校正為 18000
     await localStore.updateVehicle(vehicle.id, {
-      initial_mileage: 8000,
+      current_mileage: 18000,
     });
 
     updatedVehicle = (await localStore.getVehicles(TEST_USER_ID)).find((v) => v.id === vehicle.id)!;
-    expect(updatedVehicle.initial_mileage).toBe(8000);
-    expect(updatedVehicle.current_mileage).toBe(15000); // 現存加油紀錄 15000 > 8000，取最大值 15000
+    expect(updatedVehicle.initial_mileage).toBe(10000);
+    expect(updatedVehicle.current_mileage).toBe(18000);
   });
 });

@@ -37,3 +37,4 @@ Thumbs.db
 
 # Go backend builds
 backend/bin/
+*.exe

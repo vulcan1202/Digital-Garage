@@ -77,3 +77,35 @@ func TestMaintenanceHandler_Validation(t *testing.T) {
 		}
 	})
 }
+
+func TestMaintenanceHandler_Unauthorized(t *testing.T) {
+	h := NewMaintenanceHandler(nil)
+
+	reqList := httptest.NewRequest(http.MethodGet, "/vehicles/1/maintenance", nil)
+	wList := httptest.NewRecorder()
+	h.List(wList, reqList)
+	if wList.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wList.Code)
+	}
+
+	reqPost := httptest.NewRequest(http.MethodPost, "/vehicles/1/maintenance", nil)
+	wPost := httptest.NewRecorder()
+	h.Create(wPost, reqPost)
+	if wPost.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wPost.Code)
+	}
+
+	reqPatch := httptest.NewRequest(http.MethodPatch, "/maintenance/1", nil)
+	wPatch := httptest.NewRecorder()
+	h.Update(wPatch, reqPatch)
+	if wPatch.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wPatch.Code)
+	}
+
+	reqDel := httptest.NewRequest(http.MethodDelete, "/maintenance/1", nil)
+	wDel := httptest.NewRecorder()
+	h.Delete(wDel, reqDel)
+	if wDel.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized, got %d", wDel.Code)
+	}
+}

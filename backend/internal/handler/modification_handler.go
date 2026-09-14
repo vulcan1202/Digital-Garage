@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -43,7 +43,7 @@ func (h *ModificationHandler) List(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *ModificationHandler) GetDetails(w http.ResponseWriter, r *http.Request)
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此改裝品或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *ModificationHandler) Create(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此車輛或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *ModificationHandler) Update(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此改裝品或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *ModificationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此改裝品或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -239,7 +239,7 @@ func (h *ModificationHandler) AddPhotos(w http.ResponseWriter, r *http.Request) 
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此改裝品或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -266,7 +266,7 @@ func (h *ModificationHandler) DeletePhoto(w http.ResponseWriter, r *http.Request
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此照片或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -308,7 +308,7 @@ func (h *ModificationHandler) CreateSettingSet(w http.ResponseWriter, r *http.Re
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此改裝品或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
@@ -342,7 +342,7 @@ func (h *ModificationHandler) SetCurrentSettingSet(w http.ResponseWriter, r *htt
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此設定組或無存取權限")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		response.DatabaseError(w, err)
 		return
 	}
 
