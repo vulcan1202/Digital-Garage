@@ -100,6 +100,9 @@ func main() {
 				modificationRepo := repository.NewModificationRepository(pool)
 				modificationHandler := handler.NewModificationHandler(modificationRepo)
 
+				timelineRepo := repository.NewTimelineRepository(pool)
+				timelineHandler := handler.NewTimelineHandler(timelineRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
@@ -118,6 +121,9 @@ func main() {
 					// 改裝品：依車輛查詢與新增
 					vr.Get("/{vehicleId}/modifications", modificationHandler.List)
 					vr.Post("/{vehicleId}/modifications", modificationHandler.Create)
+
+					// 愛車時間軸視圖：動態串流查詢
+					vr.Get("/{vehicleId}/timeline", timelineHandler.GetTimeline)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除
