@@ -31,6 +31,7 @@ import { AddModificationModal } from '../components/modals/AddModificationModal'
 import { EditModificationModal } from '../components/modals/EditModificationModal';
 import { VehiclePhotoGalleryModal } from '../components/modals/VehiclePhotoGalleryModal';
 import { ImageViewerModal } from '../components/modals/ImageViewerModal';
+import { CostAnalyticsCard } from '../components/analytics/CostAnalyticsCard';
 
 interface GarageDashboardScreenProps {
   onNavigateToTimeline: (vehicleId: number) => void;
@@ -577,6 +578,11 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 </Text>
               </DoubleBezelCard>
             </View>
+          </View>
+
+          {/* 車輛多維度成本分析卡片 (P1-2 Cost Analytics Card - 非破壞性掛載) */}
+          <View className="mt-4">
+            <CostAnalyticsCard vehicleId={activeVehicle.id} />
           </View>
 
           {/* 保養提醒警示條 (Reminders Telemetry Bar) */}

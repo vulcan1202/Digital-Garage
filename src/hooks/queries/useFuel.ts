@@ -33,6 +33,9 @@ export function useAddRefuel() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newRefuel.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', newRefuel.vehicle_id],
+      });
     },
   });
 }
@@ -56,6 +59,9 @@ export function useUpdateRefuel() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(updated.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', updated.vehicle_id],
+      });
     },
   });
 }
@@ -78,6 +84,9 @@ export function useDeleteRefuel() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', vehicleId],
       });
     },
   });

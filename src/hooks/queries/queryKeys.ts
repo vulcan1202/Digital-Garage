@@ -8,4 +8,5 @@ export const queryKeys = {
   modifications: (vehicleId: number) => ['modifications', vehicleId] as const,
   modificationDetail: (id: number) => ['modifications', 'detail', id] as const,
   timeline: (vehicleId: number) => ['timeline', vehicleId] as const,
+  costAnalytics: (vehicleId: number, months?: number) => ['costAnalytics', vehicleId, months ?? 12] as const,
 };

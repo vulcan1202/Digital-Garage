@@ -103,6 +103,9 @@ func main() {
 				timelineRepo := repository.NewTimelineRepository(pool)
 				timelineHandler := handler.NewTimelineHandler(timelineRepo)
 
+				analyticsRepo := repository.NewAnalyticsRepository(pool)
+				analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
@@ -124,6 +127,9 @@ func main() {
 
 					// 愛車時間軸視圖：動態串流查詢
 					vr.Get("/{vehicleId}/timeline", timelineHandler.GetTimeline)
+
+					// 車輛持有與營運成本多維度分析 (P1-2 Cost Analytics)
+					vr.Get("/{vehicleId}/analytics/cost", analyticsHandler.GetCostAnalytics)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除

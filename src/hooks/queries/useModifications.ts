@@ -49,6 +49,9 @@ export function useAddModification() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newMod.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', newMod.vehicle_id],
+      });
     },
   });
 }
@@ -113,6 +116,9 @@ export function useDeleteModification() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', vehicleId],
+      });
     },
   });
 }
@@ -138,6 +144,9 @@ export function useUpdateModification() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(updatedMod.vehicle_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', updatedMod.vehicle_id],
       });
     },
   });

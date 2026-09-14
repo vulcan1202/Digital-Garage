@@ -42,6 +42,9 @@ export function useCreateMaintenanceRecord() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(newRecord.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', newRecord.vehicle_id],
+      });
     },
   });
 }
@@ -68,6 +71,9 @@ export function useUpdateMaintenanceRecord() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(updated.vehicle_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', updated.vehicle_id],
+      });
     },
   });
 }
@@ -93,6 +99,9 @@ export function useDeleteMaintenanceRecord() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(vehicleId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['costAnalytics', vehicleId],
       });
     },
   });
