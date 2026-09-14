@@ -8,11 +8,13 @@ import (
 
 // Config 儲存後端伺服器運行所需之設定參數
 type Config struct {
-	Port              string
-	DatabaseURL       string
-	SupabaseURL       string
-	SupabaseJWTSecret string
-	JWKSEndpoint      string
+	Port                   string
+	DatabaseURL            string
+	SupabaseURL            string
+	SupabasePublishableKey string
+	SupabaseSecretKey      string
+	SupabaseJWTSecret      string
+	JWKSEndpoint           string
 }
 
 // Load 載入設定，優先使用系統環境變數，並向下尋訪 .env 檔案作為預設值
@@ -22,16 +24,20 @@ func Load() *Config {
 
 	port := getEnv("PORT", "8080")
 	dbURL := getEnv("DATABASE_URL", "")
-	supabaseURL := getEnv("EXPO_PUBLIC_SUPABASE_URL", "https://hjuoactikekprjplrfgx.supabase.co")
+	supabaseURL := getEnv("SUPABASE_URL", getEnv("EXPO_PUBLIC_SUPABASE_URL", "https://hjuoactikekprjplrfgx.supabase.co"))
+	publishableKey := getEnv("SUPABASE_PUBLISHABLE_KEY", getEnv("EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY", ""))
+	secretKey := getEnv("SUPABASE_SECRET_KEY", "")
 	jwtSecret := getEnv("SUPABASE_JWT_SECRET", "")
 	jwksURL := getEnv("SUPABASE_JWKS_URL", strings.TrimRight(supabaseURL, "/")+"/auth/v1/.well-known/jwks.json")
 
 	return &Config{
-		Port:              port,
-		DatabaseURL:       dbURL,
-		SupabaseURL:       supabaseURL,
-		SupabaseJWTSecret: jwtSecret,
-		JWKSEndpoint:      jwksURL,
+		Port:                   port,
+		DatabaseURL:            dbURL,
+		SupabaseURL:            supabaseURL,
+		SupabasePublishableKey: publishableKey,
+		SupabaseSecretKey:      secretKey,
+		SupabaseJWTSecret:      jwtSecret,
+		JWKSEndpoint:           jwksURL,
 	}
 }
 
