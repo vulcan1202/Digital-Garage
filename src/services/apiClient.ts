@@ -1,7 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { AppError, AppErrorCode } from './errors/AppError';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  'https://digital-garage-api-997244262524.asia-east1.run.app/api/v1';
 
 /**
  * 數位車庫共用 API 請求客戶端

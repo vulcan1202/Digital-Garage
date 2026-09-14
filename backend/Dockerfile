@@ -10,8 +10,7 @@ WORKDIR /app
 
 # 快取依賴層 (利用 Docker Layer Cache 機制加速後續建置)
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN go mod download
 
 # 複製其餘原始碼
 COPY . .
@@ -21,9 +20,7 @@ COPY . .
 # - GOOS=linux: 目標系統為 Linux
 # - -trimpath: 移除二進位檔中的本地檔案系統路徑
 # - -ldflags="-w -s": 去除除錯資訊與符號表，顯著縮減二進位體積
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
     -ldflags="-w -s" \
     -o /app/server ./cmd/api
