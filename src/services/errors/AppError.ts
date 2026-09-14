@@ -113,8 +113,26 @@ export class AppError extends Error {
       return AppError.storage(`檔案儲存失敗: ${message}`, err);
     }
 
-    // 6. 其他 Database / PostgREST 錯誤
-    return AppError.database(message, err);
+    // 6. 其他 Database / PostgREST 錯誤：過濾資料庫原生技術性錯誤，提供統一友善訊息
+    let friendlyMessage = message;
+    if (
+      message.includes('violates not-null constraint') ||
+      message.includes('violates check constraint') ||
+      message.includes('null value in column')
+    ) {
+      if (message.includes('vehicle_type')) {
+        friendlyMessage = '請選擇車輛類型（汽車、機車或其他）';
+      } else {
+        friendlyMessage = '請確認必填欄位皆已完整填寫且符合格式要求';
+      }
+      return AppError.validation(friendlyMessage, err);
+    }
+
+    if (message.startsWith('failed to') || message.includes('SQLSTATE') || message.includes('syntax error')) {
+      friendlyMessage = '系統處理資料時發生異常，請稍後再試';
+    }
+
+    return AppError.database(friendlyMessage, err);
   }
 }
 

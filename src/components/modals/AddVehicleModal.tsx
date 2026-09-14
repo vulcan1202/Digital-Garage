@@ -169,7 +169,12 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
         onCreated(created.id);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '車輛新增失敗';
+      let message = err instanceof Error ? err.message : '車輛新增失敗';
+      if (message.includes('vehicle_type') || message.includes('not-null') || message.includes('not null')) {
+        message = '請選擇車輛類型（汽車、機車或其他）';
+      } else if (message.includes('failed to') || message.includes('SQLSTATE') || message.includes('ERROR:')) {
+        message = '系統處理資料時發生異常，請稍後再試';
+      }
       Alert.alert('新增失敗', message);
     } finally {
       setIsUploadingPhotos(false);
