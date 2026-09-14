@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -460,16 +460,17 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
 
       {/* 車輛主資訊區塊 */}
       {activeVehicle && (
-        <View className="px-5 mt-6">
+        <View className="px-5 mt-5">
           {/* 車輛抬頭識別列 (Vehicle Header Bar) */}
-          <View className="flex-row items-center justify-between mb-4">
-            <View>
-              <View className="flex-row items-center gap-1.5 mb-1">
-                <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
+          <View className="flex-row items-center justify-between gap-3 mb-3.5">
+            {/* 左側：ACTIVE COCKPIT、車種/車牌 Badges、車輛型號 */}
+            <View className="flex-1 pr-2">
+              <View className="flex-row flex-wrap items-center gap-1.5 mb-1">
+                <Text className="text-[11px] font-mono tracking-wider text-metal-400 uppercase font-semibold">
                   ACTIVE COCKPIT
                 </Text>
                 {/* 車型 Badge */}
-                <View className="bg-zinc-800 border border-white/10 px-2 py-0.5 rounded flex-row items-center gap-1">
+                <View className="bg-zinc-800/90 border border-white/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
                   <Ionicons
                     name={
                       activeVehicle.vehicle_type === 'motorcycle'
@@ -487,95 +488,103 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 </View>
                 {/* 車牌 Badge */}
                 {activeVehicle.license_plate && (
-                  <View className="bg-white/10 border border-white/20 px-2 py-0.5 rounded">
+                  <View className="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">
                     <Text className="text-[10px] font-mono font-bold text-white tracking-wider">
                       {activeVehicle.license_plate}
                     </Text>
                   </View>
                 )}
               </View>
-              <Text className="text-[11px] font-mono text-metal-500">
+              <Text className="text-[11px] font-mono text-metal-400" numberOfLines={1}>
                 {activeVehicle.brand} {activeVehicle.model}
                 {activeVehicle.engine_displacement_cc ? ` · ${activeVehicle.engine_displacement_cc} c.c.` : ''}
                 {activeVehicle.fuel_type ? ` · ${activeVehicle.fuel_type}` : ''}
               </Text>
             </View>
 
-            <View className="flex-row items-center gap-2">
+            {/* 右側：動作按鈕群組 (flex-shrink-0 確保按鈕絕不被擠壓或重疊) */}
+            <View className="flex-row items-center gap-1.5 flex-shrink-0">
               <TouchableOpacity
                 onPress={() => setIsEditVehicleOpen(true)}
-                className="flex-row items-center bg-white/10 px-2.5 py-1 rounded-full border border-white/20"
+                className="flex-row items-center bg-white/10 px-2.5 py-1.5 rounded-full border border-white/20"
+                activeOpacity={0.7}
               >
-                <Ionicons name="pencil-outline" size={12} color="#fff" />
+                <Ionicons name="pencil-outline" size={11} color="#fff" />
                 <Text className="text-[10px] font-mono text-white ml-1">編輯愛車</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleDeleteVehicle}
-                className="flex-row items-center bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20"
+                className="flex-row items-center bg-red-500/10 px-2.5 py-1.5 rounded-full border border-red-500/20"
+                activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                <Ionicons name="trash-outline" size={11} color="#ef4444" />
                 <Text className="text-[10px] font-mono text-racing-red ml-1">刪除愛車</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 全域常駐快捷發送列 (Quick Action Deck) */}
-          <View className="mb-5 bg-zinc-900/60 p-3 rounded-2xl border border-white/10">
-            <View className="flex-row gap-2">
+          {/* 全域常駐快捷發送列 (Quick Action Deck - Visual Density 6) */}
+          <View className="mb-4 bg-zinc-900/70 p-2 rounded-xl border border-white/10">
+            <View className="flex-row gap-1.5">
               <TouchableOpacity
                 onPress={() => setIsAddRefuelOpen(true)}
-                className="flex-1 bg-racing-blue/15 border border-racing-blue/30 py-2 rounded-xl items-center"
+                className="flex-1 bg-racing-blue/15 border border-racing-blue/30 py-1.5 rounded-lg items-center"
+                activeOpacity={0.75}
               >
-                <Ionicons name="water" size={15} color="#007aff" />
-                <Text className="text-white font-mono font-bold text-[11px] mt-0.5">+加油</Text>
+                <Ionicons name="water" size={14} color="#007aff" />
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+加油</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => handleOpenAddMaintenance('maintenance')}
-                className="flex-1 bg-racing-orange/15 border border-racing-orange/30 py-2 rounded-xl items-center"
+                className="flex-1 bg-racing-orange/15 border border-racing-orange/30 py-1.5 rounded-lg items-center"
+                activeOpacity={0.75}
               >
-                <Ionicons name="construct" size={15} color="#ff6b00" />
-                <Text className="text-white font-mono font-bold text-[11px] mt-0.5">+保養</Text>
+                <Ionicons name="construct" size={14} color="#ff6b00" />
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+保養</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => handleOpenAddMaintenance('repair')}
-                className="flex-1 bg-racing-red/15 border border-racing-red/30 py-2 rounded-xl items-center"
+                className="flex-1 bg-racing-red/15 border border-racing-red/30 py-1.5 rounded-lg items-center"
+                activeOpacity={0.75}
               >
-                <Ionicons name="build" size={15} color="#ef4444" />
-                <Text className="text-white font-mono font-bold text-[11px] mt-0.5">+維修</Text>
+                <Ionicons name="build" size={14} color="#ef4444" />
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+維修</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setIsAddModOpen(true)}
-                className="flex-1 bg-purple-500/15 border border-purple-500/30 py-2 rounded-xl items-center"
+                className="flex-1 bg-purple-500/15 border border-purple-500/30 py-1.5 rounded-lg items-center"
+                activeOpacity={0.75}
               >
-                <MaterialCommunityIcons name="car-wrench" size={15} color="#c084fc" />
-                <Text className="text-white font-mono font-bold text-[11px] mt-0.5">+改裝</Text>
+                <MaterialCommunityIcons name="car-wrench" size={14} color="#c084fc" />
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+改裝</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setIsAddReminderOpen(true)}
-                className="flex-1 bg-racing-amber/15 border border-racing-amber/30 py-2 rounded-xl items-center"
+                className="flex-1 bg-racing-amber/15 border border-racing-amber/30 py-1.5 rounded-lg items-center"
+                activeOpacity={0.75}
               >
-                <Ionicons name="pulse" size={15} color="#f59e0b" />
-                <Text className="text-white font-mono font-bold text-[11px] mt-0.5">+提醒</Text>
+                <Ionicons name="pulse" size={14} color="#f59e0b" />
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+提醒</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 車輛座艙 6 大分頁導航 (Vehicle Hub Tabs) */}
-          <View className="flex-row bg-zinc-950 p-1 rounded-2xl border border-white/10 mb-5">
+          {/* 車輛座艙 6 大分頁導航 (Vehicle Hub Tabs - Visual Density 6) */}
+          <View className="flex-row bg-zinc-950 p-1 rounded-xl border border-white/10 mb-4">
             {/* Tab 1: 總覽 Overview */}
             <TouchableOpacity
               onPress={() => setActiveTab('overview')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'overview' ? 'bg-racing-orange/20 border border-racing-orange/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'overview' ? 'text-racing-orange' : 'text-metal-400'
                 }`}
               >
@@ -586,12 +595,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 2: 歷程 Records */}
             <TouchableOpacity
               onPress={() => setActiveTab('records')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'records' ? 'bg-racing-blue/20 border border-racing-blue/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'records' ? 'text-racing-blue' : 'text-metal-400'
                 }`}
               >
@@ -602,12 +611,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 3: 改裝 Modifications */}
             <TouchableOpacity
               onPress={() => setActiveTab('modifications')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'modifications' ? 'bg-purple-500/20 border border-purple-500/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'modifications' ? 'text-purple-300' : 'text-metal-400'
                 }`}
               >
@@ -618,12 +627,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 4: 媒體 Photos */}
             <TouchableOpacity
               onPress={() => setActiveTab('photos')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'photos' ? 'bg-amber-500/20 border border-amber-500/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'photos' ? 'text-amber-300' : 'text-metal-400'
                 }`}
               >
@@ -634,12 +643,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 5: 分析 Analytics */}
             <TouchableOpacity
               onPress={() => setActiveTab('analytics')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'analytics' ? 'bg-emerald-500/20 border border-emerald-500/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'analytics' ? 'text-emerald-400' : 'text-metal-400'
                 }`}
               >
@@ -650,12 +659,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 6: 提醒 Reminders */}
             <TouchableOpacity
               onPress={() => setActiveTab('reminders')}
-              className={`flex-1 py-2 rounded-xl items-center justify-center ${
+              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'reminders' ? 'bg-racing-amber/20 border border-racing-amber/40' : ''
               }`}
             >
               <Text
-                className={`text-xs font-mono font-bold ${
+                className={`text-[11px] font-mono font-bold ${
                   activeTab === 'reminders' ? 'text-racing-amber' : 'text-metal-400'
                 }`}
               >
