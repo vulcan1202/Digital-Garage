@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -23,6 +23,7 @@ interface AddMaintenanceModalProps {
   visible: boolean;
   vehicleId: number;
   currentVehicleMileage?: number;
+  initialRecordType?: MaintenanceRecordType;
   onClose: () => void;
 }
 
@@ -30,10 +31,11 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   visible,
   vehicleId,
   currentVehicleMileage,
+  initialRecordType,
   onClose,
 }) => {
   const today = new Date().toISOString().split('T')[0];
-  const [recordType, setRecordType] = useState<MaintenanceRecordType>('maintenance');
+  const [recordType, setRecordType] = useState<MaintenanceRecordType>(initialRecordType || 'maintenance');
   const [itemName, setItemName] = useState('');
   const [serviceDate, setServiceDate] = useState(today);
   const [mileage, setMileage] = useState(currentVehicleMileage ? String(currentVehicleMileage) : '');
@@ -50,12 +52,20 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
+  const prevVisibleRef = useRef(visible);
+  useEffect(() => {
+    if (visible && !prevVisibleRef.current) {
+      setRecordType(initialRecordType || 'maintenance');
+    }
+    prevVisibleRef.current = visible;
+  }, [visible, initialRecordType]);
+
   const createMaintenanceMutation = useCreateMaintenanceRecord();
   const rawKeyboardInset = useKeyboardBottomInset();
   const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
 
   const resetForm = () => {
-    setRecordType('maintenance');
+    setRecordType(initialRecordType || 'maintenance');
     setItemName('');
     setServiceDate(today);
     setMileage(currentVehicleMileage ? String(currentVehicleMileage) : '');
