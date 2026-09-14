@@ -1,5 +1,4 @@
-import { supabase, requireUser } from '../lib/supabase';
-import { localStore } from '../lib/localStore';
+import { requestApi } from './apiClient';
 import { ReminderRow, ReminderInsert, ReminderUpdate } from '../types/database';
 import { handleServiceCall, AppError } from './errors/AppError';
 
@@ -9,21 +8,7 @@ export const reminderService = {
    */
   async getReminders(vehicleId: number): Promise<ReminderRow[]> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data, error } = await supabase
-          .from('Reminders')
-          .select('*')
-          .eq('vehicle_id', vehicleId)
-          .order('created_at', { ascending: true });
-
-        if (!error && data && data.length > 0) return data;
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.getReminders(vehicleId);
+      return await requestApi<ReminderRow[]>(`/vehicles/${vehicleId}/reminders`);
     });
   },
 
@@ -33,8 +18,6 @@ export const reminderService = {
    */
   async addReminder(reminderData: ReminderInsert): Promise<ReminderRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
       const hasValidKm = typeof reminderData.interval_km === 'number' && reminderData.interval_km > 0;
       const hasValidMonths = typeof reminderData.interval_months === 'number' && reminderData.interval_months > 0;
 
@@ -42,24 +25,10 @@ export const reminderService = {
         throw AppError.validation('保養週期必須至少指定「公里數」或「月份」其中一項為正整數');
       }
 
-      const now = new Date().toISOString();
-      try {
-        const { data, error } = await supabase
-          .from('Reminders')
-          .insert({
-            ...reminderData,
-            created_at: reminderData.created_at ?? now,
-            updated_at: reminderData.updated_at ?? now,
-          })
-          .select()
-          .single();
-
-        if (!error && data) return data;
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.addReminder(reminderData);
+      return await requestApi<ReminderRow>(`/vehicles/${reminderData.vehicle_id}/reminders`, {
+        method: 'POST',
+        body: JSON.stringify(reminderData),
+      });
     });
   },
 
@@ -68,8 +37,6 @@ export const reminderService = {
    */
   async updateReminder(id: number, reminderData: ReminderUpdate): Promise<ReminderRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
       if (
         (reminderData.interval_km !== undefined || reminderData.interval_months !== undefined) &&
         reminderData.interval_km !== undefined &&
@@ -82,23 +49,10 @@ export const reminderService = {
         }
       }
 
-      try {
-        const { data, error } = await supabase
-          .from('Reminders')
-          .update({
-            ...reminderData,
-            updated_at: reminderData.updated_at ?? new Date().toISOString(),
-          })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (!error && data) return data;
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.updateReminder(id, reminderData);
+      return await requestApi<ReminderRow>(`/reminders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(reminderData),
+      });
     });
   },
 
@@ -113,29 +67,14 @@ export const reminderService = {
     maintenanceRecordId?: number
   ): Promise<ReminderRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      const updatePayload: ReminderUpdate = {
-        last_completed_mileage: completedMileage,
-        last_completed_date: completedDate,
-        last_maintenance_record_id: maintenanceRecordId ?? null,
-        updated_at: new Date().toISOString(),
-      };
-
-      try {
-        const { data, error } = await supabase
-          .from('Reminders')
-          .update(updatePayload)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (!error && data) return data;
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.updateReminder(id, updatePayload);
+      return await requestApi<ReminderRow>(`/reminders/${id}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          completed_mileage: completedMileage,
+          completed_date: completedDate,
+          maintenance_record_id: maintenanceRecordId ?? null,
+        }),
+      });
     });
   },
 
@@ -144,18 +83,9 @@ export const reminderService = {
    */
   async deleteReminder(id: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        await supabase
-          .from('Reminders')
-          .delete()
-          .eq('id', id);
-      } catch {
-        // Fallback
-      }
-
-      await localStore.deleteReminder(id);
+      await requestApi<void>(`/reminders/${id}`, {
+        method: 'DELETE',
+      });
     });
   },
 
@@ -200,20 +130,15 @@ export const reminderService = {
     date?: string
   ): Promise<void> {
     return handleServiceCall(async () => {
-      const updatePayload: Partial<ReminderUpdate> = {
-        updated_at: new Date().toISOString(),
-      };
-      if (typeof mileage === 'number') updatePayload.base_mileage = mileage;
-      if (date) updatePayload.base_date = date;
-
-      try {
-        await supabase
-          .from('Reminders')
-          .update(updatePayload)
-          .eq('last_maintenance_record_id', maintenanceRecordId);
-      } catch {
-        // Fallback
-      }
+      await requestApi<void>('/reminders/sync-base', {
+        method: 'POST',
+        body: JSON.stringify({
+          maintenance_record_id: maintenanceRecordId,
+          mileage: mileage ?? null,
+          date: date ?? null,
+        }),
+      });
     });
   },
 };
+

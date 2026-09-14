@@ -94,6 +94,9 @@ func main() {
 				maintenanceRepo := repository.NewMaintenanceRepository(pool)
 				maintenanceHandler := handler.NewMaintenanceHandler(maintenanceRepo)
 
+				reminderRepo := repository.NewReminderRepository(pool)
+				reminderHandler := handler.NewReminderHandler(reminderRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
@@ -104,6 +107,10 @@ func main() {
 					// 保養維修：依車輛查詢與新增
 					vr.Get("/{vehicleId}/maintenance", maintenanceHandler.List)
 					vr.Post("/{vehicleId}/maintenance", maintenanceHandler.Create)
+
+					// 保養提醒：依車輛查詢與新增
+					vr.Get("/{vehicleId}/reminders", reminderHandler.List)
+					vr.Post("/{vehicleId}/reminders", reminderHandler.Create)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除
@@ -118,6 +125,14 @@ func main() {
 					mr.Delete("/{id}", maintenanceHandler.Delete)
 					mr.Post("/{id}/photos", maintenanceHandler.AddPhotos)
 					mr.Delete("/photos/{photoId}", maintenanceHandler.DeletePhoto)
+				})
+
+				// 保養提醒：依提醒 ID 更新、刪除、完成(基準前移)，及工單基準同步
+				protected.Route("/reminders", func(rer chi.Router) {
+					rer.Patch("/{id}", reminderHandler.Update)
+					rer.Delete("/{id}", reminderHandler.Delete)
+					rer.Post("/{id}/complete", reminderHandler.Complete)
+					rer.Post("/sync-base", reminderHandler.SyncBase)
 				})
 			}
 		})
