@@ -11,6 +11,9 @@ import (
 
 	"digital-garage-backend/internal/config"
 	"digital-garage-backend/internal/database"
+	"digital-garage-backend/internal/handler"
+	"digital-garage-backend/internal/middleware"
+	"digital-garage-backend/internal/repository"
 	"digital-garage-backend/internal/response"
 
 	"github.com/go-chi/chi/v5"
@@ -62,7 +65,7 @@ func main() {
 
 	// API 路由
 	r.Route("/api/v1", func(api chi.Router) {
-		// 健康檢查
+		// 健康檢查 (免認證)
 		api.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			dbStatus := "disconnected"
 			if pool != nil {
@@ -75,6 +78,20 @@ func main() {
 				"database":  dbStatus,
 				"timestamp": time.Now().Format(time.RFC3339),
 			})
+		})
+
+		// 受保護業務 API (強制 JWT 鑑權)
+		api.Group(func(protected chi.Router) {
+			protected.Use(middleware.AuthMiddleware(cfg))
+
+			if pool != nil {
+				vehicleRepo := repository.NewVehicleRepository(pool)
+				vehicleHandler := handler.NewVehicleHandler(vehicleRepo)
+
+				protected.Route("/vehicles", func(vr chi.Router) {
+					vehicleHandler.RegisterRoutes(vr)
+				})
+			}
 		})
 	})
 
