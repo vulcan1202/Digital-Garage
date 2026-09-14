@@ -88,8 +88,21 @@ func main() {
 				vehicleRepo := repository.NewVehicleRepository(pool)
 				vehicleHandler := handler.NewVehicleHandler(vehicleRepo)
 
+				refuelRepo := repository.NewRefuelRepository(pool)
+				refuelHandler := handler.NewRefuelHandler(refuelRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
+
+					// 加油紀錄：依車輛查詢與新增
+					vr.Get("/{vehicleId}/refuels", refuelHandler.List)
+					vr.Post("/{vehicleId}/refuels", refuelHandler.Create)
+				})
+
+				// 加油紀錄：依紀錄 ID 更新與刪除
+				protected.Route("/refuels", func(rr chi.Router) {
+					rr.Patch("/{id}", refuelHandler.Update)
+					rr.Delete("/{id}", refuelHandler.Delete)
 				})
 			}
 		})
