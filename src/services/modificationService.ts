@@ -1,5 +1,4 @@
-import { supabase, requireUser } from '../lib/supabase';
-import { localStore } from '../lib/localStore';
+import { requestApi } from './apiClient';
 import {
   ModificationRow,
   ModificationInsert,
@@ -11,9 +10,8 @@ import {
   ModificationSettingRow,
   ModificationSettingInsert,
 } from '../types/database';
-import { handleServiceCall, AppError } from './errors/AppError';
+import { handleServiceCall } from './errors/AppError';
 import { storageService } from './storageService';
-import { vehicleService } from './vehicleService';
 
 export const modificationService = {
   /**
@@ -21,22 +19,7 @@ export const modificationService = {
    */
   async getModifications(vehicleId: number): Promise<ModificationRow[]> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data, error } = await supabase
-          .from('Modifications')
-          .select('*')
-          .eq('vehicle_id', vehicleId)
-          .order('install_date', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false });
-
-        if (!error && data && data.length > 0) return data;
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.getModifications(vehicleId);
+      return await requestApi<ModificationRow[]>(`/vehicles/${vehicleId}/modifications`);
     });
   },
 
@@ -45,120 +28,36 @@ export const modificationService = {
    */
   async getModificationDetails(modId: number): Promise<ModificationWithDetails> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data: mod, error: modError } = await supabase
-          .from('Modifications')
-          .select('*')
-          .eq('id', modId)
-          .single();
-
-        if (!modError && mod) {
-          const { data: photos } = await supabase
-            .from('ModificationPhotos')
-            .select('*')
-            .eq('modification_id', modId)
-            .order('sort_order', { ascending: true });
-
-          const { data: settingSets } = await supabase
-            .from('ModificationSettingSets')
-            .select(`
-              *,
-              settings:ModificationSettings(*)
-            `)
-            .eq('modification_id', modId)
-            .order('recorded_date', { ascending: false })
-            .order('created_at', { ascending: false });
-
-          const formattedSets = (settingSets || []).map((set) => ({
-            ...set,
-            settings: (set.settings || []) as ModificationSettingRow[],
-          }));
-
-          return {
-            ...mod,
-            photos: (photos || []) as ModificationPhotoRow[],
-            setting_sets: formattedSets,
-          };
-        }
-      } catch {
-        // Fallback
-      }
-
-      const localDetail = await localStore.getModificationDetails(modId);
-      if (!localDetail) throw AppError.notFound('查無此改裝品資料');
-      return localDetail;
+      return await requestApi<ModificationWithDetails>(`/modifications/${modId}`);
     });
   },
 
   /**
-   * 新增改裝品紀錄
+   * 新增改裝品紀錄 (Go 端事務自動執行 SQL GREATEST 里程防污染更新)
    */
   async addModification(modData: ModificationInsert): Promise<ModificationRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      const now = new Date().toISOString();
-      try {
-        const { data, error } = await supabase
-          .from('Modifications')
-          .insert({
-            ...modData,
-            created_at: modData.created_at ?? now,
-            updated_at: modData.updated_at ?? now,
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
-          return data;
-        }
-      } catch {
-        // Fallback
-      }
-
-      const localRec = await localStore.addModification(modData);
-      await vehicleService.syncVehicleMaxMileage(modData.vehicle_id);
-      return localRec;
+      return await requestApi<ModificationRow>(`/vehicles/${modData.vehicle_id}/modifications`, {
+        method: 'POST',
+        body: JSON.stringify(modData),
+      });
     });
   },
 
   /**
-   * 更新改裝品本體資訊
+   * 更新改裝品本體資訊 (Go 端事務自動執行 SQL GREATEST 里程防污染更新)
    */
   async updateModification(id: number, modData: ModificationUpdate): Promise<ModificationRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data, error } = await supabase
-          .from('Modifications')
-          .update({
-            ...modData,
-            updated_at: modData.updated_at ?? new Date().toISOString(),
-          })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (!error && data) {
-          await vehicleService.syncVehicleMaxMileage(data.vehicle_id);
-          return data;
-        }
-      } catch {
-        // Fallback
-      }
-
-      const localRec = await localStore.updateModification(id, modData);
-      await vehicleService.syncVehicleMaxMileage(localRec.vehicle_id);
-      return localRec;
+      return await requestApi<ModificationRow>(`/modifications/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(modData),
+      });
     });
   },
 
   /**
-   * 寫入改裝品照片至 ModificationPhotos 資料表
+   * 寫入改裝品照片至 ModificationPhotos 資料表 (支援單張)
    */
   async addModificationPhoto(
     modificationId: number,
@@ -167,28 +66,9 @@ export const modificationService = {
     photoType: string | null = null
   ): Promise<ModificationPhotoRow> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      try {
-        const { data, error } = await supabase
-          .from('ModificationPhotos')
-          .insert({
-            modification_id: modificationId,
-            url,
-            sort_order: sortOrder,
-            photo_type: photoType,
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (!error && data) return data;
-      } catch {
-        // Fallback
-      }
-
-      return {
-        id: Math.floor(Math.random() * 10000),
+      const photos = await this.addModificationPhotos(modificationId, [{ url, photo_type: photoType ?? undefined }]);
+      return photos[0] || {
+        id: 0,
         modification_id: modificationId,
         url,
         sort_order: sortOrder,
@@ -200,6 +80,7 @@ export const modificationService = {
 
   /**
    * 建立一組新的調校設定組 (ModificationSettingSet) 與其對應之細項通用參數
+   * Go 端事務處理：若 is_current = true 自動將其他設定組重設為 false
    */
   async createSettingSet(
     modificationId: number,
@@ -207,133 +88,51 @@ export const modificationService = {
     settings: Omit<ModificationSettingInsert, 'setting_set_id'>[] = []
   ): Promise<ModificationSettingSetRow & { settings: ModificationSettingRow[] }> {
     return handleServiceCall(async () => {
-      await requireUser();
+      const payload = {
+        name: setData.name,
+        recorded_date: setData.recorded_date,
+        mileage: setData.mileage ?? null,
+        note: setData.note ?? null,
+        is_current: !!setData.is_current,
+        settings: settings.map((s) => ({
+          setting_name: s.setting_name,
+          setting_value: s.setting_value,
+          unit: s.unit ?? null,
+        })),
+      };
 
-      const now = new Date().toISOString();
-
-      try {
-        if (setData.is_current) {
-          await supabase
-            .from('ModificationSettingSets')
-            .update({ is_current: false, updated_at: now })
-            .eq('modification_id', modificationId)
-            .eq('is_current', true);
-        }
-
-        const { data: setRecord, error: setError } = await supabase
-          .from('ModificationSettingSets')
-          .insert({
-            ...setData,
-            modification_id: modificationId,
-            created_at: setData.created_at ?? now,
-            updated_at: setData.updated_at ?? now,
-          })
-          .select()
-          .single();
-
-        if (!setError && setRecord) {
-          const createdSettings: ModificationSettingRow[] = [];
-          if (settings.length > 0) {
-            const settingsToInsert = settings.map((s) => ({
-              setting_set_id: setRecord.id,
-              setting_name: s.setting_name,
-              setting_value: s.setting_value,
-              unit: s.unit ?? null,
-              created_at: now,
-              updated_at: now,
-            }));
-
-            const { data: insertedSettings } = await supabase
-              .from('ModificationSettings')
-              .insert(settingsToInsert)
-              .select();
-
-            if (insertedSettings) createdSettings.push(...insertedSettings);
-          }
-
-          return {
-            ...setRecord,
-            settings: createdSettings,
-          };
-        }
-      } catch {
-        // Fallback
-      }
-
-      return await localStore.createSettingSet(
+      return await requestApi<ModificationSettingSetRow & { settings: ModificationSettingRow[] }>(
+        `/modifications/${modificationId}/setting-sets`,
         {
-          ...setData,
-          modification_id: modificationId,
-        },
-        settings
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
       );
     });
   },
 
   /**
-   * 切換目前使用中的調校設定組 (is_current = true)
+   * 切換目前使用中的調校設定組 (is_current = true，Go 端以互斥事務保證唯一性)
    */
   async setCurrentSettingSet(modificationId: number, setId: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      const now = new Date().toISOString();
-
-      try {
-        await supabase
-          .from('ModificationSettingSets')
-          .update({ is_current: false, updated_at: now })
-          .eq('modification_id', modificationId)
-          .eq('is_current', true);
-
-        await supabase
-          .from('ModificationSettingSets')
-          .update({ is_current: true, updated_at: now })
-          .eq('id', setId)
-          .eq('modification_id', modificationId);
-      } catch {
-        // Fallback
-      }
-
-      await localStore.setCurrentSettingSet(modificationId, setId);
+      await requestApi<{ status: string }>(
+        `/modifications/${modificationId}/setting-sets/${setId}/current`,
+        {
+          method: 'PUT',
+        }
+      );
     });
   },
 
   /**
-   * 刪除改裝品
+   * 刪除改裝品 (Go 端事務自動安全回滾最高里程，SQL CASCADE 自動刪除照片與設定組)
    */
-  async deleteModification(id: number, vehicleId?: number): Promise<void> {
+  async deleteModification(id: number, _vehicleId?: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
-
-      let targetVehicleId = vehicleId;
-      if (!targetVehicleId) {
-        try {
-          const { data } = await supabase
-            .from('Modifications')
-            .select('vehicle_id')
-            .eq('id', id)
-            .single();
-          if (data) targetVehicleId = data.vehicle_id;
-        } catch {
-          // ignore
-        }
-      }
-
-      try {
-        await supabase
-          .from('Modifications')
-          .delete()
-          .eq('id', id);
-      } catch {
-        // Fallback
-      }
-
-      await localStore.deleteModification(id);
-
-      if (targetVehicleId) {
-        await vehicleService.syncVehicleMaxMileage(targetVehicleId);
-      }
+      await requestApi<void>(`/modifications/${id}`, {
+        method: 'DELETE',
+      });
     });
   },
 
@@ -345,27 +144,12 @@ export const modificationService = {
     photos: Array<{ url: string; photo_type?: string }>
   ): Promise<ModificationPhotoRow[]> {
     return handleServiceCall(async () => {
-      await requireUser();
       if (!photos.length) return [];
 
-      const inserts = photos.map((p, idx) => ({
-        modification_id: modificationId,
-        url: p.url,
-        photo_type: p.photo_type || null,
-        sort_order: idx,
-        created_at: new Date().toISOString(),
-      }));
-
-      const { data, error } = await supabase
-        .from('ModificationPhotos')
-        .insert(inserts)
-        .select();
-
-      if (error || !data) {
-        throw AppError.database('追加改裝照片失敗', error);
-      }
-
-      return data;
+      return await requestApi<ModificationPhotoRow[]>(`/modifications/${modificationId}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({ photos }),
+      });
     });
   },
 
@@ -374,30 +158,16 @@ export const modificationService = {
    */
   async deleteModificationPhoto(photoId: number): Promise<void> {
     return handleServiceCall(async () => {
-      await requireUser();
+      const res = await requestApi<{ photo_url: string }>(`/modifications/photos/${photoId}`, {
+        method: 'DELETE',
+      });
 
-      let photoUrl: string | null = null;
-      try {
-        const { data } = await supabase
-          .from('ModificationPhotos')
-          .select('url')
-          .eq('id', photoId)
-          .single();
-        if (data) photoUrl = data.url;
-
-        await supabase
-          .from('ModificationPhotos')
-          .delete()
-          .eq('id', photoId);
-      } catch (err) {
-        console.warn('刪除 ModificationPhotos 記錄失敗:', err);
-      }
-
-      if (photoUrl) {
-        storageService.deleteVehicleMedia(photoUrl).catch((err) => {
+      if (res?.photo_url) {
+        storageService.deleteVehicleMedia(res.photo_url).catch((err) => {
           console.warn('非同步清除改裝照片 Storage 實體失敗:', err);
         });
       }
     });
   },
 };
+

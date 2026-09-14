@@ -97,6 +97,9 @@ func main() {
 				reminderRepo := repository.NewReminderRepository(pool)
 				reminderHandler := handler.NewReminderHandler(reminderRepo)
 
+				modificationRepo := repository.NewModificationRepository(pool)
+				modificationHandler := handler.NewModificationHandler(modificationRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
@@ -111,6 +114,10 @@ func main() {
 					// 保養提醒：依車輛查詢與新增
 					vr.Get("/{vehicleId}/reminders", reminderHandler.List)
 					vr.Post("/{vehicleId}/reminders", reminderHandler.Create)
+
+					// 改裝品：依車輛查詢與新增
+					vr.Get("/{vehicleId}/modifications", modificationHandler.List)
+					vr.Post("/{vehicleId}/modifications", modificationHandler.Create)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除
@@ -133,6 +140,17 @@ func main() {
 					rer.Delete("/{id}", reminderHandler.Delete)
 					rer.Post("/{id}/complete", reminderHandler.Complete)
 					rer.Post("/sync-base", reminderHandler.SyncBase)
+				})
+
+				// 改裝品：完整資訊查詢、更新、刪除、相片、設定組
+				protected.Route("/modifications", func(mor chi.Router) {
+					mor.Get("/{id}", modificationHandler.GetDetails)
+					mor.Patch("/{id}", modificationHandler.Update)
+					mor.Delete("/{id}", modificationHandler.Delete)
+					mor.Post("/{id}/photos", modificationHandler.AddPhotos)
+					mor.Delete("/photos/{photoId}", modificationHandler.DeletePhoto)
+					mor.Post("/{id}/setting-sets", modificationHandler.CreateSettingSet)
+					mor.Put("/{id}/setting-sets/{setId}/current", modificationHandler.SetCurrentSettingSet)
 				})
 			}
 		})
