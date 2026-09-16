@@ -1,4 +1,4 @@
-﻿package model
+package model
 
 import "time"
 
@@ -119,4 +119,18 @@ type PhotoItemRequest struct {
 // AddModificationPhotosRequest 追加照片請求 Payload
 type AddModificationPhotosRequest struct {
 	Photos []PhotoItemRequest `json:"photos"`
+}
+
+// UpdateSettingSetRequest 更新設定組請求 Payload
+type UpdateSettingSetRequest struct {
+	Name         string               `json:"name"`
+	RecordedDate string               `json:"recorded_date"` // YYYY-MM-DD
+	Mileage      *int                 `json:"mileage"`
+	Note         *string              `json:"note"`
+	Settings     []SettingItemRequest `json:"settings"`
+}
+
+// CloneSettingSetRequest 複製設定組請求 Payload
+type CloneSettingSetRequest struct {
+	Name *string `json:"name"`
 }

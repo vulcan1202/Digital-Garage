@@ -1,4 +1,4 @@
-﻿package repository
+package repository
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func (r *TimelineRepository) GetVehicleTimeline(ctx context.Context, userID stri
 			mileage, cost, title, description, created_at
 		FROM vehicle_timeline
 		WHERE vehicle_id = $1
-		ORDER BY event_date DESC, created_at DESC
+		ORDER BY event_date DESC, mileage DESC NULLS LAST, created_at DESC, event_id DESC
 		LIMIT $2 OFFSET $3;
 	`
 	rows, err := r.pool.Query(ctx, query, vehicleID, limit, offset)

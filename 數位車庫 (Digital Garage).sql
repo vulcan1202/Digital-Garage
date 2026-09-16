@@ -362,7 +362,7 @@ AS
     'modification' AS event_type, 
     id AS event_id, 
     COALESCE(install_date, purchase_date, created_at::date) AS event_date, 
-    COALESCE(install_mileage, 0) AS mileage, 
+    install_mileage AS mileage, 
     (COALESCE(purchase_price, 0) + COALESCE(install_price, 0)) AS cost,
     item_name AS title,
     note AS description,

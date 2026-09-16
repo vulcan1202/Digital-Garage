@@ -348,3 +348,120 @@ func (h *ModificationHandler) SetCurrentSettingSet(w http.ResponseWriter, r *htt
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
+
+func (h *ModificationHandler) UpdateSettingSet(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "AUTH_REQUIRED", "未認證的使用者")
+		return
+	}
+
+	modID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的改裝品識別碼")
+		return
+	}
+
+	setID, err := strconv.Atoi(chi.URLParam(r, "setId"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的設定組識別碼")
+		return
+	}
+
+	var req model.UpdateSettingSetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "請求資料格式錯誤")
+		return
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "請填寫設定組名稱")
+		return
+	}
+	if strings.TrimSpace(req.RecordedDate) == "" {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "請填寫設定組紀錄日期")
+		return
+	}
+
+	updatedSet, err := h.repo.UpdateSettingSet(r.Context(), userID, modID, setID, &req)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此設定組或無存取權限")
+			return
+		}
+		response.DatabaseError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, updatedSet)
+}
+
+func (h *ModificationHandler) DeleteSettingSet(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "AUTH_REQUIRED", "未認證的使用者")
+		return
+	}
+
+	modID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的改裝品識別碼")
+		return
+	}
+
+	setID, err := strconv.Atoi(chi.URLParam(r, "setId"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的設定組識別碼")
+		return
+	}
+
+	err = h.repo.DeleteSettingSet(r.Context(), userID, modID, setID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此設定組或無存取權限")
+			return
+		}
+		response.DatabaseError(w, err)
+		return
+	}
+
+	response.NoContent(w)
+}
+
+func (h *ModificationHandler) CloneSettingSet(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "AUTH_REQUIRED", "未認證的使用者")
+		return
+	}
+
+	modID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的改裝品識別碼")
+		return
+	}
+
+	setID, err := strconv.Atoi(chi.URLParam(r, "setId"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "無效的設定組識別碼")
+		return
+	}
+
+	var req model.CloneSettingSetRequest
+	if r.Body != nil && r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	clonedSet, err := h.repo.CloneSettingSet(r.Context(), userID, modID, setID, req.Name)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "NOT_FOUND", "查無此設定組或無存取權限")
+			return
+		}
+		response.DatabaseError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, clonedSet)
+}
+

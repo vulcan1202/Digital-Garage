@@ -1,545 +1,453 @@
-﻿# 數位車庫 Digital Garage (Full-Stack Cloud & Mobile Platform)
+# Digital Garage｜數位車庫
 
-> **車輛完整生命週期歷程、多維度成本分析、工單相片管理、動態時序動態牆與改裝調校版本控制雲端全端系統**  
-> 專為性能車主、機車騎士與車隊愛好者打造，採用「React Native 前端 + Golang 高併發後端 (Google Cloud Run) + Supabase 雲端 PostgreSQL / Auth / Storage」之現代前後端分離架構。
-
----
-
-## 📑 目錄 (Table of Contents)
-
-1. [專案概述 (Project Overview)](#1-專案概述-project-overview)
-2. [系統架構與雲端拓撲 (Architecture)](#2-系統架構與雲端拓撲-architecture)
-3. [核心功能模組與資訊架構 (Core Features & Information Architecture)](#3-核心功能模組與資訊架構-core-features--information-architecture)
-4. [技術棧與環境 (Technology Stack)](#4-技術棧與環境-technology-stack)
-5. [專案目錄結構 (Project Structure)](#5-專案目錄結構-project-structure)
-6. [後端 RESTful API 規格 (API Endpoints)](#6-後端-restful-api-規格-api-endpoints)
-7. [API 錯誤代碼與合約 (Error Handling & Contract)](#7-api-錯誤代碼與合約-error-handling--contract)
-8. [資料庫與模型設計 (Database & Schema)](#8-資料庫與模型設計-database--schema)
-9. [身分驗證與資安機制 (Authentication & Security)](#9-身分驗證與資安機制-authentication--security)
-10. [環境設定與安裝 (Setup & Configuration)](#10-環境設定與安裝-setup--configuration)
-11. [建置與部署 (Building & Deployment)](#11-建置與部署-building--deployment)
-12. [測試與驗收 (Testing & Verification)](#12-測試與驗收-testing--verification)
-13. [專案狀態與未來規劃 (Status & Roadmap)](#13-專案狀態與未來規劃-status--roadmap)
+> 一支手機就是一座數位車庫。
 
 ---
 
-## 1. 專案概述 (Project Overview)
+## 1. 專案概述 (Overview)
 
-「數位車庫 (Digital Garage)」的核心定位是：**以一台車為核心，持續累積並管理其完整的使用、保養、維修、加油、改裝、調校、動態時間軸歷程與多維度持有成本**。系統全面解決車主在愛車履歷管理上的分散與斷裂痛點：
+「數位車庫（Digital Garage）」是一套以**車輛生命週期管理與愛車履歷紀錄**為核心的 Android 行動應用系統。
 
-* **車輛完整生命週期管理 (Vehicle Lifecycle)**：以車輛為核心長期紀錄主體，支援汽車 (`car`)、機車 (`motorcycle`) 與其他 (`other`) 類型；具備不可變入庫基準里程 (`initial_mileage`)、車牌、排氣量、動力能源及購車金額記錄。
-* **雲端微服務高併發**：Golang (Chi + pgx) 後端正式部署於 **Google Cloud Run (台灣彰化機房 asia-east1)**，具備無伺服器自動彈性擴展與 Distroless 容器極致效能。
-* **車輛座艙資訊架構現代化 (P1-3 Information Architecture Hub)**：
-  - 重構原先垂直堆疊長頁面，引進車輛座艙 6 大高內聚分頁：**總覽 (Overview)**、**歷程 (Records)**、**改裝 (Modifications)**、**媒體 (Photos)**、**分析 (Analytics)**、**提醒 (Reminders)**。
-  - 常駐車隊水平切換、車輛抬頭識別徽章與全域快捷發送列（+加油、+保養、+維修、+改裝、+提醒）。
-  - 維持獨立全螢幕動態時序牆 (`VehicleTimelineScreen`) 與改裝調校管理頁 (`ModificationDetailScreen`)，落實「零功能刪減、零核心業務破壞、零原生體驗退化」。
-* **多維度成本分析 (P1-2 Cost Analytics)**：
-  - **後端聚合 API**：高效率 SQL 連續時間序列查詢 (`generate_series`)，嚴防零記錄斷點。
-  - **改裝花費精準月度分拆**：購買價格依 `purchase_date` 攤提，安裝工資依 `install_date` 獨立歸戶；無購買日且無安裝日者絕不任意污染月度走勢。
-  - **總營運花費 (Total Operational Cost)**：加油 + 保養 + 維修 + 改裝，即時計算。
-  - **總擁有成本 (Total Ownership Cost / TCO)**：購車金額 + 營運持有花費；若購車價格未設定 (`purchase_price IS NULL`) 則回傳 `null`（顯示未設定），絕不以 0 誤導。
-  - **每公里攤提成本**：嚴防除以零與負數里程跨度，若行駛里程 $\le 0$ 時自動呈現為 `null`，絕不產生 `NaN` 或 `Infinity`。
-* **多車庫與里程連動防污染**：集中管理多輛愛車，里程同步機制自動以各項業務紀錄與建檔初始里程之最大值為準；若手誤輸入超大里程，刪除該紀錄後自動安全回滾至剩餘最大值，且資料庫以實體約束確保 `current_mileage >= initial_mileage`。
-* **相片完整生命週期管理 (Photos Hub)**：涵蓋車輛相簿、保修工單實拍照與改裝套件實拍，前端聚合呈現並保留實體歸屬感；支援系統相機拍照、相簿多選、客戶端高效等比壓縮、自動封面移轉與全螢幕手勢大圖預覽。
-* **工單履歷完整追蹤**：細分「定期保養 (Maintenance)」與「故障維修 (Repair)」，表單支援外部預設值帶入並嚴格保護手動切換狀態不被父層重新渲染覆寫；登錄保養時可自選設定下次週期提醒，工單更新時自動同步前移提醒基準。
-* **加油日誌與油耗遙測**：支援 8 大油品規格（92/95/98無鉛、柴油、超級柴油、電力、油電、其他），純函式精準計算每百公里油耗 ($\text{L}/100\text{km}$ 與 $\text{km}/\text{L}$) 及歷史每公里平均油資支出。
-* **改裝品規格與調校版本控制**：登錄 10 大類改裝配件，針對特定套件建立多組細項調校參數（如阻尼段數、定位角度），以資料庫互斥事務確保同時間僅有一組生效版本 (`is_current = true`)。
-* **動態時序牆 (Vehicle Timeline)**：向資料庫聚合 View 發起高效率分頁串流查詢，將購車入庫、加油、保修、改裝四大異質事件匯聚於時間軸流水卡片。
-* **原生雙軌鍵盤避讓**：Android `useKeyboardBottomInset` 結合 `contentContainerStyle` 動畫推昇，iOS 原生 `KeyboardAvoidingView`，10 大核心業務 Modal 完全保留原貌與避讓體驗。
-* **健全 Email 驗證機制**：整合 Supabase 郵件驗證與 GitHub Pages 跨平台 HTTPS 靜態提示頁，支援未驗證狀態精確攔截與一鍵重新發送。
+### 核心痛點與設計理念
+傳統的油耗計算 App 往往只關注單次油耗，保養記帳工具則多半分散於零碎的記事本或試算表中；改裝與底盤設定數據更是經常丟失於通訊軟體對話紀錄中。  
+「數位車庫」以**單一車輛**為核心資料主體，持續收攏與連結其行駛歷程中的各項事件：
+
+```text
+Vehicle
+├── Fuel / Refuel
+├── Maintenance
+├── Repair
+├── Reminder
+├── Modification
+│   └── Setting Set / Version Comparison
+├── Photos
+├── Timeline
+└── Cost Analytics
+```
+
+系統解決了車輛使用數據割裂的痛點，整合加油、保養、維修、週期提醒、改裝調校版本控制、多維度持有成本分析與生命週期動態時序牆，為愛車建立完整、嚴謹且具備可追溯性的數位履歷。
 
 ---
 
-## 2. 系統架構與雲端拓撲 (Architecture)
+## 2. 核心功能模組 (Core Features)
 
-本專案落實前後端分層解耦架構，行動客戶端透過標準 RESTful API 與 Golang 後端通訊，並具備本地 SecureStore 離線韌性快取：
+### 車輛管理 (Vehicle Management)
+* **車輛建檔與基本資料**：支援汽車（`car`）、機車（`motorcycle`）與其他（`other`）三種車輛類型。
+* **核心規格屬性**：記錄品牌、型號、年份、車牌號碼、排氣量（cc）、動力燃料種類、購入日期（`purchase_date`）與購入金額（`purchase_price`）。
+* **里程基線保護**：建置入庫「初始里程（`initial_mileage`）」與「當前里程（`current_mileage`）」，資料庫層級強制約束 `current_mileage >= initial_mileage`。
+* **車輛首圖與多圖管理**：支援多張車輛外觀相片上傳與封面設定，具備封面刪除自動遞補機制。
+
+### 加油日誌與油耗分析 (Fuel Management)
+* **紀錄欄位**：加油日期、當前累計里程（公里）、加油量（公升）、單價（元/公升）、總金額與燃油規格（92/95/98無鉛、柴油、超柴、電力、油電、其他）。
+* **純運算指標 (`fuelCalculator.ts`)**：精準計算每百公里公升數（$\text{L}/100\text{km}$）與每公升行駛公里數（$\text{km}/\text{L}$），具備零里程增量與極值除以零保護。
+
+### 保養與維修履歷 (Maintenance & Repair)
+* **雙軌分類**：明確拆分為「定期保養（`maintenance`）」與「故障維修（`repair`）」，報表與時序牆獨立分類呈現。
+* **工單詳細內容**：項目名稱、施作日期、施作里程、費用、施作店家與詳細備註。
+* **現場工單實拍**：各工單支援獨立上傳多張現場單據或施工相片。
+* **自動連動提醒**：新增保養工單時可勾選同步設定下次週期提醒。
+
+### 保養提醒系統 (Reminders)
+* **雙向週期追蹤**：支援里程週期（`interval_km`）與時間月份週期（`interval_months`）。
+* **狀態即時判定 (`reminderCalculator.ts`)**：依車輛最新里程與當前日期動態推算剩餘天數與里程，劃分為：
+  * **逾期（Overdue）**
+  * **即將到期（Due Soon）**
+  * **正常（Good）**
+* **彈性控制**：支援「啟用中（`active`）」與「暫停（`paused`）」狀態切換；標記完成時自動將基準里程與基準日期前移至最新作業點。
+
+### 改裝品管理 (Modifications)
+* **改裝品檔案**：記錄品牌、品名、型號、改裝品類別（懸吊、煞車、引擎、排氣、進氣、輪框輪胎、外觀、內裝、電系、其他）。
+* **雙重成本拆分**：明確區分「購買價格（`purchase_price`）」與「安裝工資（`install_price`）」，以及購買日、安裝日與安裝里程。
+* **改裝照片**：支援上傳改裝品安裝實照。
+
+### 改裝調校版本控制 (Modification Setting Set)
+* **多版本管理**：單一改裝品可建立多組調校設定（如「賽道設定」、「山路跑山」、「日常通勤」）。
+* **生效版本保護**：每組改裝品同一時間僅有一組設定標記為使用中（`is_current = true`），由資料庫 Partial Unique Index 嚴格防護。
+* **版本複製 (Clone)**：在後端單一原子交易內，完整深拷貝指定版本及其所有參數細項，生成獨立 Snapshot。
+* **智慧遞補**：當使用中的設定組遭刪除時，系統自動將生效狀態轉移至剩餘之最新版本。
+* **跨版本參數差異比對 (`settingComparator.ts`)**：提供視覺化比較工具，以 Map-based union 差異演算法精確標示各項參數之：
+  * **新增 (Added)**
+  * **移除 (Removed)**
+  * **數值變更 (Changed)**
+  * **完全相同 (Unchanged)**
+
+### 車輛動態時序牆 (Vehicle Lifecycle Timeline)
+* **全生命週期整合**：自資料庫專屬 View 整合購車、加油、保養、維修與改裝事件。
+* **四層確定性排序 (4-Tier Deterministic Ordering)**：
+  1. `event_date DESC`
+  2. `mileage DESC NULLS LAST`
+  3. `created_at DESC`
+  4. `event_id DESC`
+* **購車入庫事件嚴謹原則**：僅當車輛明確填寫 `purchase_date` 時產生 Purchase Event，**嚴格禁止以 `created_at` 假造購入日期**。
+* **多元篩選**：支援全部、加油、保養、維修、改裝等類別切換檢視。
+
+### 多維度持有成本分析 (Cost Analytics)
+* **時間區間**：提供 6 個月、12 個月、24 個月歷程切換。
+* **月份填零保護 (Monthly Zero-Filling)**：無支出月份完整填入 0，防止趨勢圖座標軸斷裂。
+* **改裝費用精確歸屬**：購買金額依 `purchase_date` 歸屬月份，安裝工資依 `install_date` 歸屬月份；無日期紀錄者不隨意污染月度統計。
+* **指標計算與資料語意**：
+  * **總運作成本 (Total Operational Cost)**：加油 + 保養 + 維修 + 改裝購買與安裝。
+  * **總擁有成本 (Total Ownership Cost / TCO)**：購入金額 + 總運作成本。若未填寫購入金額則為 `null`，不以 0 元誤導。
+  * **每公里平均成本與每公里油資**：
+    $$\text{deltaMileage} = \text{current\_mileage} - \text{initial\_mileage}$$
+    $$\text{deltaMileage} \le 0 \implies \text{cost\_per\_km} = \text{null},\ \text{fuel\_cost\_per\_km} = \text{null}$$
+    回傳 `null` 明確表達「尚無足夠里程資料以利計算」，防止除以零產生 `NaN` 或誤植為 0 元。
+
+---
+
+## 3. 系統架構 (System Architecture)
+
+專案落實職責分離的分層架構，行動端透過標準 RESTful API 與 Go 後端溝通，雲端基底採用 Supabase 提供認證、PostgreSQL 與物件儲存：
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                 React Native (Expo SDK 57)                  │
-│  - NativeWind v4 (Tailwind CSS) 暗黑金屬儀表介面             │
-│  - TanStack React Query v5 狀態與快取自動失效機制            │
-│  - Vehicle Hub 6-Tab 模組化座艙資訊架構                      │
-│  - Expo SecureStore 離線韌性回退層 (localStore)             │
+│                 Mobile App (React Native / Expo)            │
+│  - TypeScript 嚴格型別定義                                   │
+│  - TanStack React Query 狀態管理與 onlineManager 連線同步   │
+│  - networkMonitor: AppState 前景喚醒 + 事件驅動連線感知     │
+│  - syncQueue: FIFO 永續突變佇列 (PENDING / SYNC / FAILED)   │
+│  - cacheStorage: expo-secure-store 分項輕量持久化快照        │
 └──────────────────────────────┬──────────────────────────────┘
                                │
-                               │ HTTPS (Bearer Supabase JWT)
+                               │ HTTPS / Bearer Supabase JWT
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│             Google Cloud Run (Golang 1.23+ API)             │
-│             Region: asia-east1 (台灣彰化機房)                │
-│  URL: https://digital-garage-api-997244262524.asia-east1... │
-│  - Chi v5 輕量高效路由器                                    │
-│  - Go 中介層：JWKS 非對稱公鑰驗簽 (RS256)                   │
-│  - 結構化驗證：400 VALIDATION_ERROR 嚴格對齊合約            │
-│  - 高效 SQL 聚合：多維度月度連續成本分析 (P1-2 Cost API)    │
-│  - 原子事務：里程防污染 (Lock Update) / 調校版本互斥鎖      │
-│  - 映像檔：Google Distroless Static Debian 12 (Non-root)     │
+│                 Go Backend (Cloud Run)                      │
+│  - Chi v5 路由器與中介層                                     │
+│  - JWT Bearer 鑑權與 Context 使用者注入                     │
+│  - 400 VALIDATION_ERROR 結構化輸入驗證                      │
+│  - 里程唯一權威運算 (GREATEST Atomic Query)                 │
+│  - 多維度成本聚合 API (SQL Monthly Aggregation)             │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                │ PostgreSQL (Session Pooler: 5432)
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│               Supabase Cloud Platform (AWS-0)               │
-│  - PostgreSQL 15+ (含 10 大業務資料表、動態時序 View、RLS)  │
-│  - Supabase Auth (JWT 簽發與信箱驗證)                       │
-│  - Supabase Storage (車輛、工單、改裝品實體相片儲存空間)     │
+│                 Supabase Cloud Platform                     │
+│  - PostgreSQL 15 (10 大業務資料表、時序 View、Check 限制)   │
+│  - Row Level Security (RLS 1-tier ~ 3-tier 擁有權隔離)      │
+│  - Supabase Auth (使用者註冊、登入與 JWT 簽發)              │
+│  - Supabase Storage (車輛、工單、改裝實體照片儲存空間)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. 核心功能模組與資訊架構 (Core Features & Information Architecture)
+## 4. 技術棧 (Technology Stack)
 
-### 3.1 車輛座艙 6 大分頁資訊架構 (Vehicle Hub Tabs)
-```text
-                  數位車庫座艙 (Active Cockpit)
-                            │
-               ┌────────────┴────────────┐
-               │                         │
-        頂部車隊切換與識別         常駐快捷發送列 (Quick Action Deck)
-       (車型/車牌/規格/編輯)       (+加油 / +保養 / +維修 / +改裝 / +提醒)
-               │
-               ▼
-      車輛座艙 6 大分頁導航 (Vehicle Hub Tabs)
-      ├── 1. 總覽 (OverviewTab)
-      │      ├── 核心遙測指標 (2x2 Grid: 里程/總花費/油耗/改裝額)
-      │      ├── 成本分析中樞導引卡片 ──[點擊切換]──> 跳轉 Analytics 分頁
-      │      ├── 保養提醒雷達摘要 (Maintenance Radar) ──[完成保養前移 / 快速新增]
-      │      └── 最近動態時序預覽 ──[進入愛車動態時間軸牆]──> 跳轉 VehicleTimelineScreen (獨立全螢幕)
-      │
-      ├── 2. 歷程 (RecordsTab)
-      │      ├── 次級分類篩選：[全部 ALL] / [加油 FUEL] / [定期保養 MAINTENANCE] / [故障維修 REPAIR]
-      │      ├── 專屬動作按鈕：[+新增加油]、[+定期保養] (預設 maintenance)、[+故障維修] (預設 repair)
-      │      └── 完整工單列表（工單標籤、費用、里程、相片縮圖、ImageViewerModal、編輯與刪除）
-      │
-      ├── 3. 改裝 (ModificationsTab)
-      │      ├── 改裝品分類清單、套件價格與安裝工資分項
-      │      ├── [+新增改裝] 快捷入口
-      │      └── 改裝卡片（編輯、刪除、點擊「調校設定」進入 ModificationDetailScreen）
-      │
-      ├── 4. 媒體 (PhotosHubTab)
-      │      ├── 車輛寫真與相簿 ──[瀏覽封面 / 點擊「管理相簿」開啟 VehiclePhotoGalleryModal]
-      │      ├── 保修工單相片 ──[自 maintenanceRecords 聚合，標註日期與工單，點擊大圖檢視]
-      │      └── 改裝套件實拍 ──[列出改裝配件，導覽至個別改裝調校詳情頁]
-      │
-      ├── 5. 分析 (AnalyticsTab)
-      │      ├── 完整載入 CostAnalyticsCard (P1-2 多維度成本分析卡片)
-      │      ├── 6M / 12M / 24M 趨勢走勢圖切換
-      │      └── 費用類別佔比與每公里成本攤提分析
-      │
-      └── 6. 提醒 (RemindersTab)
-             ├── 完整保養雷達監測清單
-             ├── 逾期 (OVERDUE)、即將到期 (DUE SOON)、健康狀態標記
-             ├── [+新增提醒] 快捷按鈕
-             └── 標記完成保養 (基準里程前移) 與刪除操作
-```
+### 行動端 (Mobile)
+* **框架與執行環境**：React Native `0.86.3` / Expo SDK 57 (`~57.0.22`)
+* **開發語言**：TypeScript (`~6.0.3`)，全專案 `strict: true`
+* **狀態與非同步管理**：TanStack React Query (`^5.66.11`)
+* **樣式系統**：NativeWind (`^4.1.23`) / Tailwind CSS (`^3.4.17`)
+* **本機安全快取**：Expo SecureStore (`~57.0.0`)
+* **影像處理**：Expo ImagePicker (`~57.0.17`) / Expo ImageManipulator (`~57.0.17`)
 
-### 3.2 車輛生命週期歷程與相簿 (Vehicle Lifecycle & Gallery)
-* **車輛資料庫**：
-  - **車輛類型 (`vehicle_type`)**：必填且嚴格限定為 `car` (汽車)、`motorcycle` (機車) 或 `other` (其他)，建立後允許修改但仍需符合 enum。
-  - **核心規格**：廠牌 (`brand`)、車型 (`model`)、年份 (`year`)、車牌號碼 (`license_plate`)、引擎排氣量 (`engine_displacement_cc`)、動力能源 (`fuel_type`)。
-  - **購車與持有成本**：購車日期 (`purchase_date`)、購車價格 (`purchase_price`)。
-  - **里程物理保護**：不可變建檔初始里程 (`initial_mileage`) 與當前里程 (`current_mileage`)，資料庫層物理限制 `current_mileage >= initial_mileage`；API 若收到修改 `initial_mileage` 之更新請求直接回應 `400 VALIDATION_ERROR`。
-* **相簿與封面管理**：
-  - **相簿 Modal (`VehiclePhotoGalleryModal`)**：網格檢視車輛所有相片，標記當前封面徽章 (COVER)。
-  - **自動封面機制**：手動設為封面；若刪除當前封面照片，後端自動將下一張設為新封面或重設為空。
-  - **全螢幕高清預覽 (`ImageViewerModal`)**：支援相簿點擊全螢幕預覽與前後頁切換。
-* **原子里程防污染架構**：
-  - 加油、保養、改裝紀錄在新增或刪除時，自動觸發最高里程計算，保證 `current_mileage` 永遠等於現存紀錄與 `initial_mileage` 之最大值。
+### 後端 (Backend)
+* **開發語言**：Go (`1.25.0`)
+* **Web 框架 / 路由**：`github.com/go-chi/chi/v5` (`v5.3.2`)
+* **CORS 中介軟體**：`github.com/go-chi/cors` (`v1.2.2`)
+* **資料庫連線驅動**：`github.com/jackc/pgx/v5` (`v5.11.0`)
+* **JWT 解析與驗證**：`github.com/golang-jwt/jwt/v5` (`v5.3.1`)
 
-### 3.3 加油日誌與油耗分析 (Refuels & Telemetry)
-* **加油登錄**：支援 `gasoline_92`、`gasoline_95`、`gasoline_98`、`diesel`、`premium_diesel`、`electric`、`hybrid`、`other` 等 8 大能源規格，自動記錄公升數、單價與總金額。
-* **遙測計算 (`fuelCalculator.ts`)**：計算相鄰兩次加油間隔之平均油耗（$\text{L}/100\text{km}$ 與 $\text{km}/\text{L}$）及歷史每公里平均油資支出。
-
-### 3.4 保養維修工單與施工相片 (Maintenance & Repairs)
-* **工單細分**：區分「定期保養 (Maintenance)」與「故障維修 (Repair)」，詳細記錄施作日期、施工里程、費用、施作店家與技師備註。
-* **初始化預設保護**：`AddMaintenanceModal` 支援外部傳入預設類型，並使用 `useEffect` 僅在開啟瞬間初始化，保障表單內手動切換不受父層重新渲染覆寫。
-* **單據相片管理**：每筆工單皆可附掛多張維修明細相片，支援行內新增與刪除。
-* **下次提醒連動**：保養完成時可直接勾選設定下次週期提醒。
-
-### 3.5 保養提醒雷達 (Maintenance Reminders)
-* **雙軌週期監控**：支援「公里數間隔 (`interval_km`)」與「時間月份間隔 (`interval_months`)」雙軌或單軌追蹤。
-* **雷達狀態評估 (`reminderCalculator.ts`)**：即時換算剩餘里程與剩餘天數，醒目標示 `NORMAL`、`DUE_SOON`（即將到期）或 `OVERDUE`（已逾期）。
-* **週期基準前移**：標記完成提醒時，基準里程自動前移至當前車輛里程，展開下一階段監控。
-
-### 3.6 改裝升級與調校設定組版本控制 (Modifications & Tuning Sets)
-* **配件規格登錄**：支援 10 大硬體分類（避震、煞車、引擎、排氣、進氣、輪圈輪胎、外觀、內裝、電系、其他），記錄套件售價與安裝工資。
-* **調校版本控制 (Setting Sets)**：單一改裝品可建立多組調校設定檔（例如「賽道模式」、「日常代步」）。
-* **生效版本互斥事務**：後端資料庫以交易事務確保同時間僅有一組設定組處於使用中 (`is_current = true`)，啟用新版本時舊版本自動降為停用。
-* **細項參數管理**：每個設定組內可儲存多筆自訂鍵值與單位（例如「前避震阻尼伸側: 12 段」）。
-
-### 3.7 多維度成本分析 (Cost Analytics)
-* **後端高效率 SQL 聚合**：`/vehicles/{vehicleId}/analytics/cost?months={6|12|24}`，無伺服器即時運算。
-* **月度連續支出圖表**：以 PostgreSQL `generate_series` 保證時間軸連續無斷點。
-* **改裝費用精確歸戶**：購買價格依 `purchase_date` 攤提，工資依 `install_date` 獨立攤提。
-* **持有與營運指標**：總營運費用、含車價總持有成本、每公里行駛成本攤提（零除安全防護）。
-
-### 3.8 愛車動態時序牆 (Vehicle Timeline)
-* **多源事件聚合**：呼叫後端時間軸端點，無縫串流呈現購車入庫 (`purchase`)、加油 (`refuel`)、保修工單 (`maintenance`/`repair`)、改裝升級 (`modification`) 等異質事件。
-* **購車事件真實性**：僅當車輛建檔時明確指定 `purchase_date` 時產生購車入庫事件，絕不以建檔時間 `created_at` 假造。
-* **即時分類篩選**：支援「全部動態」、「加油紀錄」、「保修工單」、「改裝升級」膠囊切換與分頁加載。
-* **行內操作維護**：卡片內直接提供「編輯」與「刪除」功能，操作完成後即時重新計算愛車最高里程（購車事件作為車輛基準保護，不支援手動刪除）。
+### 雲端基礎設施 (Cloud Services)
+* **運算平台**：Google Cloud Run（部署區域：`asia-east1` 台灣彰化）
+* **資料庫**：Supabase PostgreSQL 15
+* **使用者身分驗證**：Supabase Auth
+* **物件儲存**：Supabase Storage Bucket
 
 ---
 
-## 4. 技術棧與環境 (Technology Stack)
+## 5. 資料模型 (Data Model)
 
-| 領域 | 核心技術 / 工具 | 版本 / 規格 | 角色說明 |
-| :--- | :--- | :--- | :--- |
-| **Mobile Runtime** | React Native / Expo | Expo SDK 57 (RN 0.86.3) | 行動端跨平台核心應用程式框架 |
-| **Mobile Language** | TypeScript | `~6.0.3` | 前端嚴格型別定義與靜態檢查 |
-| **Mobile UI / Styling** | NativeWind / Tailwind CSS | `v4.1.23` / `v3.4.17` | 原子化樣式與暗黑賽車風格設計系統 |
-| **State & Cache** | TanStack React Query | `^5.66.11` | 異步伺服端狀態管理與快取精準失效機制 |
-| **Backend Runtime** | Golang | `1.23+` (Alpine Builder) | 高效能後端 API 伺服器 |
-| **Backend Framework** | Go Chi (`go-chi/chi/v5`) | `v5.2.1` | 輕量、零額外記憶體分配之 HTTP 路由器 |
-| **Database Driver** | pgx (`jackc/pgx/v5`) | `v5.7.2` | 高效能 PostgreSQL 連線池與二進位協議驅動 |
-| **Cloud Hosting** | Google Cloud Run | Serverless (asia-east1) | 後端容器全託管無伺服器運行環境 |
-| **Container Base** | Google Distroless | `debian12:nonroot` | 超輕量無 Shell 生產安全容器 |
-| **Database & Auth** | Supabase Platform | PostgreSQL 15+ / GoTrue | 雲端資料庫、Session Pooler、JWKS Auth |
-| **Object Storage** | Supabase Storage | S3-compatible | 車輛相簿、工單相片、改裝品照片儲存空間 |
-| **Media Optimizer** | Expo Image Manipulator | `~57.0.17` | 客戶端圖片尺寸縮放與 JPEG 0.8 壓縮 |
-| **Testing Engine** | Jest & ts-jest | `^29.7.0` | 前端單元測試與整合驗證 (16 Suites / 83 Tests) |
-| **Backend Testing** | Go Testing | Built-in | 後端單元、中介層與驗證測試 (100% PASS) |
-
----
-
-## 5. 專案目錄結構 (Project Structure)
+系統由 10 張關聯資料表與 1 個唯讀視圖（View）構成，完整對應車輛生命週期各實體：
 
 ```text
-數位車庫 (Digital Garage)/
-├── backend/                                 # Golang 後端微服務專案
-│   ├── cmd/api/main.go                      # 後端伺服器進入點 (路由配置、連線池初始化)
-│   ├── internal/
-│   │   ├── config/config.go                 # 環境變數載入 (支援標準 SUPABASE_* 規範)
-│   │   ├── database/db.go                   # PostgreSQL (pgxpool) 連線池建立
-│   │   ├── handler/                         # 各業務控制器 (Vehicle, Refuel, Maint, Analytics, etc.)
-│   │   ├── middleware/auth.go               # Supabase JWT 鑑權中間件 (JWKS 非對稱驗簽)
-│   │   ├── model/                           # Go 資料模型結構體 (與 PostgreSQL 映射)
-│   │   ├── repository/                      # 資料庫倉儲層 (CRUD、聚合查詢與資料庫交易事務)
-│   │   └── response/response.go             # 統一 HTTP JSON 響應封裝
-│   ├── Dockerfile                           # 多階段建置 Dockerfile (Distroless 容器)
-│   └── go.mod / go.sum                      # Go 依賴模組定義
-├── src/                                     # React Native 前端專案
-│   ├── components/
-│   │   ├── DoubleBezelCard.tsx              # 雙層倒角金屬卡片容器
-│   │   ├── PhotoPickerSection.tsx           # 相片選取器 (拍照/相簿多選/壓縮預覽)
-│   │   ├── analytics/                       # 多維度成本分析卡片 (CostAnalyticsCard.tsx)
-│   │   ├── garage/                          # 車輛座艙 6 大分頁模組 (Overview, Records, Mods, Photos, Analytics, Reminders)
-│   │   └── modals/                          # 10 大業務模態視窗群組
-│   ├── hooks/
-│   │   ├── useAuth.ts                       # 身分驗證狀態監聽 Hook
-│   │   ├── useKeyboardBottomInset.ts        # Android 鍵盤避讓平滑動畫 Hook
-│   │   └── queries/                         # TanStack React Query 快取管理層
-│   ├── lib/
-│   │   ├── supabase.ts                      # Supabase 客戶端 (Auth 與 Storage)
-│   │   └── localStore.ts                    # 裝置端離線持久化儲存引擎 (SecureStore)
-│   ├── screens/
-│   │   ├── AuthScreen.tsx                   # 登入與註冊介面 (繁中結構化錯誤指引)
-│   │   ├── GarageDashboardScreen.tsx        # 車庫主座艙 (6-Tab Hub、車隊選單、快捷發送列)
-│   │   ├── ModificationDetailScreen.tsx     # 改裝套件規格與調校版本控制介面
-│   │   └── VehicleTimelineScreen.tsx        # 愛車動態時序牆介面
-│   ├── services/
-│   │   ├── apiClient.ts                     # Axios/Fetch 統一 HTTP 客戶端 (帶 Bearer JWT)
-│   │   ├── vehicleService.ts                # 車輛與相簿 API 呼叫服務
-│   │   ├── fuelService.ts                   # 加油日誌 API 呼叫服務
-│   │   ├── maintenanceService.ts            # 保修工單 API 呼叫服務
-│   │   ├── reminderService.ts               # 保養提醒 API 呼叫服務
-│   │   ├── modificationService.ts           # 改裝規格與調校版本 API 呼叫服務
-│   │   ├── timelineService.ts               # 動態時序牆 API 呼叫服務
-│   │   ├── analyticsService.ts              # 多維度成本分析 API 呼叫服務
-│   │   └── storageService.ts                # Supabase Storage 圖片上傳與刪除
-│   ├── types/database.ts                    # 與資料庫一致之 TypeScript 介面定義
-│   └── utils/calculators/                   # 純函式遙測計算引擎 (費用、油耗、提醒評估)
-├── android/                                 # 原生 Android 專案目錄 (Gradle 建置配置)
-├── docs/verified.html                       # GitHub Pages Email 驗證成功跨平台導向頁
-├── 數位車庫 (Digital Garage).sql            # 資料庫 DDL、RLS 策略與時序 View 定義檔
-├── 數位車庫_DigitalGarage.apk               # 最新打包之 Release APK 安裝檔
-├── App.tsx                                  # 應用程式進入點與基礎導航
-├── app.json                                 # Expo 專案設定檔
-└── package.json                             # 前端相依套件與 NPM Scripts
+auth.users
+    │
+    ▼
+ Vehicles
+    ├── VehiclePhotos
+    ├── Refuels
+    ├── MaintenanceRecords
+    │       └── MaintenancePhotos
+    ├── Reminders
+    └── Modifications
+            ├── ModificationPhotos
+            └── ModificationSettingSets
+                    └── ModificationSettings
 ```
 
----
+### 資料表清單
 
-## 6. 後端 RESTful API 規格 (API Endpoints)
-
-全域 API 基底路徑：`/api/v1`  
-受保護端點一律要求 HTTP Header: `Authorization: Bearer <Supabase_JWT>`
-
-| 模組 | HTTP 方法 | API 端點 | 說明 | 認證要求 |
-| :--- | :---: | :--- | :--- | :---: |
-| **系統健康** | `GET` | `/health` | 伺服器與資料庫連線探測 | 免認證 |
-| **車輛管理** | `GET` | `/vehicles` | 取得當前使用者所有愛車清單 (含封面與統計) | JWT |
-| | `POST` | `/vehicles` | 新增車輛入庫 (`vehicle_type` 必填，不可變初始里程建檔) | JWT |
-| | `GET` | `/vehicles/{id}` | 查詢單一車輛詳情與所有相片 | JWT |
-| | `PATCH` | `/vehicles/{id}` | 編輯車輛資料 (禁止修改 `initial_mileage`，否則 400) | JWT |
-| | `DELETE`| `/vehicles/{id}` | 刪除車輛 (級聯清除所有附屬相片、工單、改裝、加油) | JWT |
-| | `POST` | `/vehicles/{id}/sync-mileage` | 手動校準車輛里程至紀錄最大值 | JWT |
-| **車輛相簿** | `GET` | `/vehicles/{id}/photos` | 查詢指定車輛所有照片清單 | JWT |
-| | `POST` | `/vehicles/{id}/photos` | 為車輛新增相片 (支援設為封面) | JWT |
-| | `PATCH` | `/vehicles/{id}/photos/{photoId}/cover` | 將指定相片設為車輛首圖封面 | JWT |
-| | `DELETE`| `/vehicles/{id}/photos/{photoId}` | 刪除指定照片 (封面自動平滑移轉) | JWT |
-| **加油紀錄** | `GET` | `/vehicles/{vehicleId}/refuels` | 取得指定車輛加油紀錄列表 | JWT |
-| | `POST` | `/vehicles/{vehicleId}/refuels` | 新增加油紀錄 (觸發**原子里程防污染推進**) | JWT |
-| | `PATCH` | `/refuels/{id}` | 編輯加油紀錄 (更新後重算最高里程) | JWT |
-| | `DELETE`| `/refuels/{id}` | 刪除加油紀錄 (自動回滾里程至剩餘最大值) | JWT |
-| **保養維修** | `GET` | `/vehicles/{vehicleId}/maintenance` | 取得指定車輛保修工單列表 | JWT |
-| | `POST` | `/vehicles/{vehicleId}/maintenance` | 新增保修工單 (觸發**里程同步推進**) | JWT |
-| | `PATCH` | `/maintenance/{id}` | 編輯保修工單資料與金額 | JWT |
-| | `DELETE`| `/maintenance/{id}` | 刪除工單 (級聯清除施工相片並回滾里程) | JWT |
-| | `POST` | `/maintenance/{id}/photos` | 追加工單施工相片 | JWT |
-| | `DELETE`| `/maintenance/photos/{photoId}` | 刪除工單指定相片 | JWT |
-| **保養提醒** | `GET` | `/vehicles/{vehicleId}/reminders` | 取得指定車輛提醒雷達清單 | JWT |
-| | `POST` | `/vehicles/{vehicleId}/reminders` | 新增保養週期提醒 | JWT |
-| | `PATCH` | `/reminders/{id}` | 更新提醒週期或名稱 | JWT |
-| | `DELETE`| `/reminders/{id}` | 刪除提醒 | JWT |
-| | `POST` | `/reminders/{id}/complete` | **完成保養提醒** (將基準里程推進至當前里程) | JWT |
-| | `POST` | `/reminders/sync-base` | 工單變更時同步關聯提醒基準里程 | JWT |
-| **改裝與調校** | `GET` | `/vehicles/{vehicleId}/modifications`| 取得指定車輛改裝套件清單 | JWT |
-| | `POST` | `/vehicles/{vehicleId}/modifications`| 新增改裝套件登錄 | JWT |
-| | `GET` | `/modifications/{id}` | 查詢改裝品完整資訊 (含相片與所有調校組) | JWT |
-| | `PATCH` | `/modifications/{id}` | 編輯改裝品規格與價格 | JWT |
-| | `DELETE`| `/modifications/{id}` | 刪除改裝套件與所有調校記錄 | JWT |
-| | `POST` | `/modifications/{id}/photos` | 追加改裝套件照片 | JWT |
-| | `DELETE`| `/modifications/photos/{photoId}`| 刪除改裝相片 | JWT |
-| | `POST` | `/modifications/{id}/setting-sets` | **建立調校設定組** (含細項參數與互斥生效) | JWT |
-| | `PUT` | `/modifications/{id}/setting-sets/{setId}/current` | **切換生效調校版本** (事務鎖切換) | JWT |
-| **成本分析** | `GET` | `/vehicles/{vehicleId}/analytics/cost?months={6\|12\|24}` | **多維度月度連續成本分析** (無斷點時間軸、工單佔比與 TCO) | JWT |
-| **動態時序牆**| `GET` | `/vehicles/{vehicleId}/timeline` | 分頁聚合查詢購車、加油、保修、改裝動態時間軸 | JWT |
+| 資料表名稱 | 說明 | 關鍵限制與外部鍵約束 |
+| :--- | :--- | :--- |
+| `Vehicles` | 車輛主表 | `user_id -> auth.users`, `current_mileage >= initial_mileage` |
+| `VehiclePhotos` | 車輛照片表 | `vehicle_id -> Vehicles (CASCADE)`, 單一封面唯一約束 |
+| `Refuels` | 加油紀錄表 | `vehicle_id -> Vehicles (CASCADE)`, `volume > 0`, `total_cost >= 0` |
+| `MaintenanceRecords` | 保養與維修表 | `vehicle_id -> Vehicles (CASCADE)`, `record_type IN ('maintenance', 'repair')` |
+| `MaintenancePhotos` | 保養維修照片表 | `maintenance_record_id -> MaintenanceRecords (CASCADE)` |
+| `Reminders` | 保養週期提醒表 | `vehicle_id -> Vehicles (CASCADE)`, `last_record_id -> SET NULL` |
+| `Modifications` | 改裝品檔案表 | `vehicle_id -> Vehicles (CASCADE)`, `category` Enum 列舉 |
+| `ModificationPhotos` | 改裝實拍照表 | `modification_id -> Modifications (CASCADE)` |
+| `ModificationSettingSets` | 改裝調校版本表 | `modification_id -> Modifications (CASCADE)`, 單一生效版本唯一約束 |
+| `ModificationSettings` | 改裝參數細項表 | `setting_set_id -> ModificationSettingSets (CASCADE)` |
+| `vehicle_timeline` (View) | 時序動態聚合 View | `WITH (security_invoker = true)` 繼承呼叫者 RLS 權限 |
 
 ---
 
-## 7. API 錯誤代碼與合約 (Error Handling & Contract)
+## 6. 資安機制與 RLS (Security & RLS)
 
-後端與前端 `AppError` 遵循統一的錯誤回應規格，避免傳回未經處理的內部伺服器錯誤：
+系統各層級均落實基於使用者擁有權之存取控制（Ownership-based Access Control）：
 
-```json
-{
-  "error": "VALIDATION_ERROR",
-  "message": "車輛類型 (vehicle_type) 為必填且僅能為 car, motorcycle 或 other"
-}
+### 1. API 層：JWT Bearer 鑑權
+* 所有業務路由均掛載 `AuthMiddleware`。
+* 解析用戶端傳入之 Supabase Access Token，驗簽成功後將 `user_id` 注入 Request Context；無效或過期憑證立即回應 `401 AUTH_REQUIRED`。
+
+### 2. 資料庫層：PostgreSQL Row Level Security (RLS)
+* **全面啟用**：10 張資料表全面開啟 RLS（`ENABLE ROW LEVEL SECURITY`）。
+* **階層式遞迴校驗**：
+  * **根層表**（`Vehicles`）：直接驗證 `auth.uid() = user_id`。
+  * **一級子表**（`Refuels`, `MaintenanceRecords`, `Reminders`, `Modifications`, `VehiclePhotos`）：透過 `EXISTS (SELECT 1 FROM Vehicles WHERE id = ... AND user_id = auth.uid())` 確保歸屬。
+  * **二級與三級子表**（`MaintenancePhotos`, `ModificationPhotos`, `ModificationSettingSets`, `ModificationSettings`）：多層 JOIN 向上追溯至車輛主表確認擁有者。
+* **View 權限穿透**：`vehicle_timeline` 採用 `security_invoker = true`，禁止透過視圖跨租戶旁路存取。
+
+### 3. 物件儲存層：Supabase Storage Policies
+* Storage Bucket 配置擁有權檢查規則，僅車輛擁有者具備上傳、檢視與刪除相片檔案之權限。
+
+---
+
+## 7. 里程權威原則 (Mileage Integrity)
+
+車輛當前總里程（`current_mileage`）是整套車況管理的心臟，系統落實嚴格的**伺服器端唯一權威原則（Server-Authoritative Mileage）**：
+
+```text
+initial_mileage (入庫初始里程，不可變基線)
+      ├── max(Refuel mileage)
+      ├── max(Maintenance mileage)
+      └── max(Modification install_mileage)
+                  │
+                  ▼
+   current_mileage = GREATEST(...)
 ```
 
-| 錯誤碼 (`error`) | HTTP 狀態碼 | 發生時機說明 |
-| :--- | :---: | :--- |
-| `AUTH_REQUIRED` | 401 | 未提供 Authorization 標頭、Token 逾期或簽名無效 |
-| `PERMISSION_DENIED`| 403 | 試圖跨用戶存取未授權的愛車或紀錄 |
-| `NOT_FOUND` | 404 | 查詢的車輛、紀錄或改裝品不存在 |
-| `VALIDATION_ERROR` | 400 | 參數不合法：<br>1. 缺少必填之 `vehicle_type` 或其非合法值 (`car`, `motorcycle`, `other`)<br>2. 嘗試透過 PATCH 修改 `initial_mileage`（不可修改）<br>3. `current_mileage < initial_mileage`<br>4. 負數里程、負數金額或不合理的數值<br>5. 成本分析之 `months` 參數非 1~24 範圍 |
-| `CONFLICT` | 409 | 違反業務唯一性約束（如設定多組同時間為生效調校組） |
-| `DATABASE_ERROR` | 500 | 資料庫操作異常，後端脫敏處理，不暴露底層 SQL 訊息 |
+* **原子運算基準**：
+  ```sql
+  UPDATE "Vehicles"
+  SET current_mileage = GREATEST(
+      initial_mileage,
+      COALESCE((SELECT MAX(mileage) FROM "Refuels" WHERE vehicle_id = $1), 0),
+      COALESCE((SELECT MAX(mileage) FROM "MaintenanceRecords" WHERE vehicle_id = $1), 0),
+      COALESCE((SELECT MAX(install_mileage) FROM "Modifications" WHERE vehicle_id = $1), 0)
+  )
+  WHERE id = $1;
+  ```
+* **不可變初始基線**：車輛建立後的 `initial_mileage` 在後端更新介面（`PATCH /api/v1/vehicles/:id`）被嚴格鎖定，若用戶端發送修改嘗試，後端直接回傳 `400 VALIDATION_ERROR` 予以拒絕。
+* **一致性約束**：資料庫約束強制 `current_mileage >= initial_mileage`。
+* **狀態協調 (Reconciliation)**：用戶端離線或即時輸入時僅做樂觀推昇；伺服器處理完成後一律以資料庫計算結果為權威值，透過 `invalidateQueries` 覆蓋本地客戶端暫態。
 
 ---
 
-## 8. 資料庫與模型設計 (Database & Schema)
+## 8. 離線快取與同步佇列 (Offline & Sync)
 
-底層 PostgreSQL 定義於 `數位車庫 (Digital Garage).sql`，包含 **10 個實體資料表** 與 **1 個動態時序 View**：
+針對停車場地下室或山區網路不穩之現場情境，系統內建以 `expo-secure-store` 為基礎之輕量化離線與排隊同步架構：
 
-```mermaid
-erDiagram
-    Vehicles ||--o{ VehiclePhotos : "擁有相簿"
-    Vehicles ||--o{ Refuels : "加油日誌"
-    Vehicles ||--o{ MaintenanceRecords : "保修工單"
-    Vehicles ||--o{ Reminders : "保養提醒雷達"
-    Vehicles ||--o{ Modifications : "改裝配件"
-    MaintenanceRecords ||--o{ MaintenancePhotos : "施工照片"
-    Modifications ||--o{ ModificationPhotos : "改裝照片"
-    Modifications ||--o{ ModificationSettingSets : "調校版本組"
-    ModificationSettingSets ||--o{ ModificationSettings : "細項參數"
-
-    Vehicles {
-        int id PK
-        uuid user_id FK
-        string brand
-        string model
-        string vehicle_type "car | motorcycle | other"
-        int year
-        date purchase_date
-        decimal purchase_price
-        string fuel_type
-        int engine_displacement_cc
-        string license_plate
-        int initial_mileage
-        int current_mileage
-    }
-
-    Refuels {
-        int id PK
-        int vehicle_id FK
-        date refuel_date
-        int mileage
-        decimal volume
-        decimal total_cost
-        string fuel_type
-    }
-
-    MaintenanceRecords {
-        int id PK
-        int vehicle_id FK
-        string record_type "maintenance | repair"
-        string item_name
-        date service_date
-        int mileage
-        decimal cost
-    }
-
-    Modifications {
-        int id PK
-        int vehicle_id FK
-        string item_name
-        string category
-        decimal purchase_price
-        decimal install_price
-        date purchase_date
-        date install_date
-        int install_mileage
-        string brand
-        string model
-        string shop_name
-    }
-
-    ModificationSettingSets {
-        int id PK
-        int modification_id FK
-        string name
-        boolean is_current
-    }
+```text
+Network Monitor (連線感知)
+        │
+        ▼
+React Query onlineManager
+        │
+        ▼
+Persistent Sync Queue (FIFO 佇列)
+        ├── PENDING  (等待連線)
+        ├── SYNCING  (同步執行中)
+        ├── SUCCESS  (成功並覆蓋本地快取)
+        └── FAILED   (永久錯誤隔離，不阻塞隊列)
 ```
 
-* **實體約束 (`chk_vehicles_mileage_consistency`)**：`CHECK (current_mileage >= initial_mileage)`，在資料庫層確保里程數單向推進。
-* **動態時序 View (`vehicle_timeline`)**：以 `UNION ALL` 整合購車入庫 (`purchase`)、加油、保修、改裝四大表，具備 `security_invoker = true` 確保權限隔離。
-* **外鍵級聯**：所有子表外鍵一律宣告 `ON DELETE CASCADE`，刪除車輛或改裝品自動乾淨回收關聯相片與調校記錄。
+### 支援離線寫入之操作 (Offline-Supported Writes)
+* 新增加油紀錄 (`addRefuel`)
+* 新增純文字保養/維修工單 (`createMaintenanceRecord`)
+* 標記完成保養提醒 (`completeReminder`)
+* 切換改裝品當前生效調校版本 (`switchCurrentSettingSet`)
+
+### 僅限連線狀態之操作 (Online-Only Operations)
+* 相片上傳與刪除（避免本機安全儲存溢位）
+* 新增與刪除車輛
+* 刪除加油/保養/改裝歷史紀錄
+* 複製調校版本 (`cloneSettingSet`)
+
+### 錯誤分級與隔離 (No Head-of-Line Blocking)
+* **暫態錯誤（網路逾時、連線中斷）**：標回 `PENDING` 並保留於佇列，進行指數退避重試（最多 3 次）。
+* **永久錯誤（4xx 業務驗證失敗、資源已被刪除）**：立即移出活動隊列至 `failedMutations` 隔離儲存，**絕不阻礙後續健康的離線操作同步**，並提供車主手動檢視與清除選項。
 
 ---
 
-## 9. 身分驗證與資安機制 (Authentication & Security)
+## 9. 多車輛快取隔離 (Cache Isolation)
 
-1. **非對稱公鑰驗簽 (RS256 via JWKS)**：
-   - Go 後端採用 Supabase 原生 JWKS 公鑰端點 (`/auth/v1/.well-known/jwks.json`) 驗證前端傳入之 Bearer JWT。
-   - 完全不需要在後端儲存共用密鑰即可驗證簽名真實性與 Token 有效期。
-2. **多租戶數據隔離 (Multi-Tenant Isolation)**：
-   - 後端 Handler 從已通過驗簽的 JWT Claims 提取 `sub` (User UUID)，SQL 查詢強制綁定 `WHERE user_id = $1`。
-   - 即便車輛 ID 存在，非該車主發起請求將嚴格回應 `404 NOT FOUND` 或 `401 UNAUTHORIZED`，徹底杜絕水平越權 (BOLA / IDOR)。
-3. **無 Root 最小化安全容器**：
-   - Go 後端容器運行於 Google Distroless `USER nonroot:nonroot` (UID: 65532)，容器內部無 Shell、無 Package Manager，大幅降低提權與攻擊面。
+為徹底防範多台車輛切換時產生資料覆蓋或快取污染，系統於客戶端落實嚴格的車輛空間隔離：
 
----
+```text
+Vehicle A (ID: 101)
+├── QueryKey: ['refuels', 101]
+└── SecureStore: DG_CACHE_REFUELS_101
 
-## 10. 環境設定與安裝 (Setup & Configuration)
-
-### 10.1 前端環境變數 (`.env`)
-在專案根目錄建立 `.env` 檔案：
-```env
-# Supabase 專案設定
-EXPO_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_<your_key>
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<your_anon_jwt_key>
-
-# Go 後端 API 雲端伺服器 (Google Cloud Run 正式端點)
-EXPO_PUBLIC_API_URL=https://digital-garage-api-997244262524.asia-east1.run.app/api/v1
+Vehicle B (ID: 202)
+├── QueryKey: ['refuels', 202]
+└── SecureStore: DG_CACHE_REFUELS_202
 ```
 
-### 10.2 後端環境變數 (`backend/.env`)
-若在本機運行 Go 後端，建立 `backend/.env`：
-```env
-PORT=8080
-
-# Supabase PostgreSQL 連線網址 (建議使用 Session Pooler: 5432)
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
-
-# Supabase 驗證設定 (相容標準 SUPABASE_* 命名規範)
-SUPABASE_URL=https://<your-project-ref>.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_<your_key>
-SUPABASE_SECRET_KEY=sb_secret_<your_secret_key>
-SUPABASE_JWKS_URL=https://<your-project-ref>.supabase.co/auth/v1/.well-known/jwks.json
-```
+* **查詢鍵獨立**：React Query Key 嚴格包含 `vehicleId`。
+* **儲存分區**：本地持久化鍵值以功能前綴加上車輛 ID（如 `DG_CACHE_MAINT_101`），確保 A 車快取的讀寫與截斷絕不影響 B 車。
 
 ---
 
-## 11. 建置與部署 (Building & Deployment)
+## 10. 測試與品質驗證 (Testing & QA)
 
-### 11.1 前端開發模式 (Expo)
+專案具備完整之自動化測試套件與基線檢查：
+
+```text
+======================================================================
+測試項目                                    測試規模 / 結果
+======================================================================
+TypeScript Static Typecheck (tsc)          PASS (0 Errors)
+Frontend Jest Test Suites (npm test)       PASS (22 Suites / 114 Tests)
+Backend Go Test Suites (go test)           PASS (100% Passed)
+Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk)
+Cloud Run API Health Endpoint              PASS (200 OK)
+======================================================================
+```
+
+### P1-7 QA 13 大維度審查涵蓋範圍
+1. **Database Integrity**：外鍵串聯、唯一約束、檢查約束及觸發器完整性。
+2. **RLS / Multi-tenant Security**：跨用戶與跨階層資料隔離驗證。
+3. **API Contract / Validation**：400/401/403/404/409 錯誤狀態碼合約與欄位防禦。
+4. **Mileage Integrity**：`initial_mileage` 不可變性與 `GREATEST` 原子更新。
+5. **Pure Logic / Calculators**：油耗、費用分攤與改裝版本比對之純函式單元測試。
+6. **Timeline Deterministic Ordering**：4 級排序規則與購車事件日期防假造。
+7. **Cost Analytics**：月度補零、安裝工資歸屬與里程除以零安全回傳 `null`。
+8. **Offline / Sync**：離線佇列狀態機、4xx 錯誤隔離與暫態重試。
+9. **Network Monitor**：`AppState` 前景喚醒與連線狀態同步。
+10. **Photo / Storage**：封面自動轉移與刪除連動。
+11. **Android UI / Lifecycle**：虛擬鍵盤推昇與 Modal 重新渲染之狀態保護。
+12. **Multi-Vehicle Cache Isolation**：跨車輛快取與查詢鍵完全隔離。
+13. **Stress / Boundary Stability**：快照 20 筆上限截斷與記憶體保護。
+
+---
+
+## 11. 重要 QA 發現與工程防禦 (QA Findings)
+
+### ISS-01：離線同步非同步狀態機閃退救援 (Crash Recovery)
+* **問題復現**：在行動裝置環境中，若應用程式於發送網路同步時（狀態為 `SYNCING`）遭作業系統強制終止（App killed / OOM），該任務的 `SYNCING` 狀態將永久殘留在本地持久化儲存中。下次啟動時，佇列會因該任務非 `PENDING` 狀態而陷入永久死結。
+* **防禦實作**：於開機水合程序（`syncQueue.hydrate()`）加入狀態修復機制：
+  $$\text{SYNCING} \xrightarrow{\text{App killed}} \text{hydrate()} \xrightarrow{\text{重置}} \text{PENDING} \xrightarrow{\text{連線恢復}} \text{自動同步成功}$$
+
+### ISS-02：端到端多租戶到前端快取隔離驗證 (Multi-Vehicle Isolation)
+* **工程價值**：驗證系統完整的端到端資料隔離路徑：
+  $$\text{auth.uid() (DB RLS)} \longrightarrow \text{Vehicles} \longrightarrow \text{vehicle\_id (API 擁有權)} \longrightarrow \text{QueryKey / DG\_CACHE\_* (Client 隔離)}$$
+  確認無論在資料庫層、API 授權層或用戶端 SecureStore 分區儲存中，不同車輛的紀錄與快照絕不交叉洩漏或覆蓋。
+
+### ISS-03：工單表單重繪之使用者狀態保持 (Modal State Preservation)
+* **問題描述**：`AddMaintenanceModal` 在父層組件觸發背景更新或重新渲染時，容易導致表單內部狀態被預設屬性重置。
+* **防禦實作**：使用 `prevVisibleRef` 偵測 `visible` 由關閉轉為開啟的瞬間，僅在開啟時載入預設值；彈窗開啟期間的父層重繪絕不覆寫車主手動切換之「保養 / 維修（`recordType`）」選擇。
+
+---
+
+## 12. 建置與執行 (Build & Run)
+
+### 前置需求
+* Node.js `>= 18.0.0`
+* Go `>= 1.24`
+* Android Studio 與 Android SDK（用於 Android 實機/模擬器除錯）
+
+### 行動端前端 (Frontend)
 ```bash
-# 安裝前端相依套件
+# 1. 安裝相依套件
 npm install
 
-# 啟動 Expo 開發伺服器
-npm run start
+# 2. 執行 TypeScript 靜態型別檢查
+npm run typecheck
 
-# 或指定平台啟動
-npm run android
-npm run ios
-```
-
-### 11.2 原生 Android Standalone Release APK 打包
-```bash
-cd android
-./gradlew assembleRelease --no-daemon
-```
-產出 APK 位於：`android/app/build/outputs/apk/release/app-release.apk`。
-
-### 11.3 Go 後端部署至 Google Cloud Run
-本專案支援使用 Google Cloud CLI 直接透過 Cloud Build 進行雲端容器建置與部署：
-
-```bash
-# 進入後端目錄
-cd backend
-
-# 部署至 Google Cloud Run (asia-east1 彰化機房)
-gcloud run deploy digital-garage-api \
-  --source . \
-  --region asia-east1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --set-env-vars="PORT=8080,DATABASE_URL=postgresql://postgres.<project>:<pwd>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres,SUPABASE_URL=https://<project>.supabase.co,SUPABASE_PUBLISHABLE_KEY=<key>,SUPABASE_JWKS_URL=https://<project>.supabase.co/auth/v1/.well-known/jwks.json"
-```
-
----
-
-## 12. 測試與驗收 (Testing & Verification)
-
-### 12.1 後端單元與合約測試 (Go Test)
-```bash
-cd backend
-go test -v ./... -count=1
-```
-* **驗證項目 100% 通過**：
-  - `TestAnalyticsHandler_Validation`（驗證無效車輛識別碼、months 範圍邊界 [1, 24] 等）。
-  - `TestVehicleHandler_Validation`（驗證必填 `vehicle_type`、Enum 合法值、負數里程阻擋、`current_mileage >= initial_mileage` 等）。
-  - `TestVehicleHandler_Update_InitialMileage_Immutable`（驗證更新時傳入 `initial_mileage` 正確回傳 `400 VALIDATION_ERROR`）。
-  - 各控制器之 Unauthorized (401) 阻擋與資料庫約束。
-
-### 12.2 前端單元與整合測試 (Jest)
-執行完整自動化測試：
-```bash
+# 3. 執行全量 Jest 單元與整合測試
 npm test -- --watchAll=false
-```
-* **測試套件涵蓋**：16 個測試套件、83 項單元測試全數 100% 通過 (PASS)。
-  - `analyticsService.test.ts`：驗證多維度成本分析 API 呼叫、參數傳遞與合約。
-  - `costCalculator.test.ts`：驗證持有成本、購車花費、未設定時 `null` 容錯、除以零防禦。
-  - `fuelCalculator.test.ts`、`reminderCalculator.test.ts`（純函式遙測計算）。
-  - `apiClient.test.ts`、`vehicleService.test.ts`、`fuelService.test.ts`、`maintenanceService.test.ts`、`reminderService.test.ts`、`modificationService.test.ts`、`timelineService.test.ts`（RESTful API 整合）。
-  - `imageOptimizer.test.ts`、`syncVehicleMileage.test.ts`、`vehiclePhotos.test.ts`、`AppError.test.ts`、`authHelpers.test.ts`。
 
-### 12.3 端對端真實 API 驗收 (E2E)
-透過真實駕駛者帳號（取得 Supabase JWT）完成對後端 API 的全鏈路驗收：
-* ✅ `GET /health`：伺服器與 Supabase 資料庫連線池健康狀態正常 (`status: ok`)。
-* ✅ `GET /vehicles/:id/analytics/cost?months=12`：成功取得連續無斷點月度花費、工單佔比與持有成本。
-* ✅ `POST /vehicles` (缺 `vehicle_type` 或非法值)：精準攔截並回應 `400 VALIDATION_ERROR`。
-* ✅ `POST /vehicles` (合法建立)：完整寫入車輛型態、車牌、排氣量、動力能源、購車價與不可變建檔里程。
-* ✅ `PATCH /vehicles/:id` (試圖修改 `initial_mileage`)：精準攔截並回應 `400 VALIDATION_ERROR`。
-* ✅ `PATCH /vehicles/:id` (更新車牌或里程)：正常執行更新。
-* ✅ `GET /vehicles/:id/timeline`：精準聚合 `[purchase]` 購車入庫事件；未設購車日期之車輛絕不捏造購車事件。
-* ✅ `POST /vehicles/:id/refuels` & `maintenance`：紀錄寫入成功，愛車總里程**原子防污染推進**。
-* ✅ `POST /modifications/:id/setting-sets`：建立改裝品調校版本，**互斥交易事務正常生效**。
+# 4. 啟動 Expo 本地開發伺服器
+npm run start
+```
+
+### 後端 API 服務 (Backend)
+```bash
+# 1. 進入後端目錄
+cd backend
+
+# 2. 執行全量 Go 單元測試
+go test -v ./... -count=1
+
+# 3. 啟動本地 API 伺服器
+go run cmd/api/main.go
+```
 
 ---
 
-## 13. 專案狀態與未來規劃 (Status & Roadmap)
+## 13. Android Release 建置 (Android Build)
 
-* **目前階段**：**Production Ready (v1.3.0 Cockpit Hub & Cost Analytics Deployed)**
-* **後續展望**：
-  - [ ] 支援多語系 (i18n) 國際化架構。
-  - [ ] 支援離線與雲端雙向衝突自動合併演算法 (Bi-directional Conflict-Free Merging)。
-  - [ ] 整合 OBD-II 藍牙車載遙測轉接器即時讀取 ECU 數據。
+專案已完成 Android 原生專案配置，並成功產出簽署之生產環境 Release APK：
+
+* **檔案名稱**：`數位車庫_DigitalGarage.apk`
+* **檔案大小**：`82.00 MB`
+* **組件結構**：
+  * 包含已編譯之 `AndroidManifest.xml`
+  * 包含原生執行檔 `classes.dex`
+  * 包含打包之 React Native JavaScript Bundle（`assets/index.android.bundle`）
+  * 包含 64 位元原生架構函式庫（`lib/arm64-v8a`）
+
+---
+
+## 14. 雲端部署現況 (Deployment)
+
+| 元件 | 雲端服務商 / 平台 | 部署配置與端點 |
+| :--- | :--- | :--- |
+| **API 後端** | Google Cloud Run | 區域：`asia-east1` (台灣)<br>端點：`https://digital-garage-api-997244262524.asia-east1.run.app` |
+| **資料庫** | Supabase Cloud | PostgreSQL 15，含 10 大業務資料表與完整 RLS |
+| **使用者驗證** | Supabase Auth | 發行 JWT Bearer Token |
+| **媒體儲存** | Supabase Storage | 存放車輛、工單、改裝實體照片 |
+
+---
+
+## 15. 開發進度與狀態 (Project Status)
+
+目前專案已完成 P0 至 P1-7 之全部功能開發與品質驗收：
+
+| 階段代號 | 範疇定義 | 驗收狀態 |
+| :--- | :--- | :---: |
+| **P0** | Backend Stability (Go API 服務基礎與 JWT 認證) | ✅ Completed |
+| **P1-1** | Vehicle Lifecycle (車輛核心模型與入庫里程保護) | ✅ Completed |
+| **P1-2** | Cost Analytics (多維度月度成本分析與 TCO 運算) | ✅ Completed |
+| **P1-3** | UI / UX + Information Architecture (車輛座艙 6 大模組分頁架構) | ✅ Completed |
+| **P1-4** | Modification Setting Version Comparison (改裝調校版本控制與差異比較) | ✅ Completed |
+| **P1-5** | Timeline (全生命週期動態時序牆與 4 級確定性排序) | ✅ Completed |
+| **P1-6** | Offline / Sync Architecture (輕量化離線快取與 FIFO 突變佇列) | ✅ Completed |
+| **P1-7** | Stability / QA (全系統 13 大維度生產級穩定性驗收) | ✅ Completed |
+
+---
+
+## 16. 已知限制 (Known Limitations)
+
+為客觀呈現目前系統設計邊界，列出已確認之系統限制：
+
+1. **離線快取與佇列容量邊界**：
+   本地快照與待同步佇列設有單項 20 筆之快照截斷上限（`sliceSnapshot(items, 20)`）。此為保護本機 SecureStore 儲存空間與防止大量資料拖垮啟動速度之**設計邊界**，並非無上限的離線資料庫。
+2. **照片檔案不支援離線隊列暫存**：
+   考量行動裝置暫存空間與上傳穩定度，相片檔案（工單實拍、改裝照片）需在連線狀態下直接上傳至雲端 Storage，不進入離線文字佇列。
+3. **線上監控與大規模浸泡測試邊界**：
+   目前尚未整合第三方 APM / 崩潰回報 SDK（如 Firebase Crashlytics、Sentry），亦未實施生產環境大規模高併發浸泡測試（Soak Testing）。
+
+---
+
+## 17. 工程實踐原則 (Engineering Notes)
+
+* **Server-Authoritative**：以伺服器端資料庫計算作為唯一的權威依據，前端不私自維護第二套業務計算規則。
+* **DB-Level Integrity**：依賴資料庫的外鍵、Check 約束、Partial Unique Index 與觸發器防護資料一致性。
+* **Ownership Isolation**：自資料庫 RLS、後端 API 擁有權檢查至前端 CacheKey，全面落實多租戶隔離。
+* **Resilient State Machine**：在離線與非同步同步情境中，充分考量行動裝置生命週期中斷（App killed）、4xx 永久錯誤隔離防堵隊列停滯、與自動連線偵測。

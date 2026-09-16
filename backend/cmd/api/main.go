@@ -163,6 +163,9 @@ func main() {
 					mor.Delete("/photos/{photoId}", modificationHandler.DeletePhoto)
 					mor.Post("/{id}/setting-sets", modificationHandler.CreateSettingSet)
 					mor.Put("/{id}/setting-sets/{setId}/current", modificationHandler.SetCurrentSettingSet)
+					mor.Patch("/{id}/setting-sets/{setId}", modificationHandler.UpdateSettingSet)
+					mor.Delete("/{id}/setting-sets/{setId}", modificationHandler.DeleteSettingSet)
+					mor.Post("/{id}/setting-sets/{setId}/clone", modificationHandler.CloneSettingSet)
 				})
 			}
 		})

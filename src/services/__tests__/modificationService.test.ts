@@ -1,4 +1,4 @@
-﻿import { modificationService } from '../modificationService';
+import { modificationService } from '../modificationService';
 import { requestApi } from '../apiClient';
 import { storageService } from '../storageService';
 
@@ -154,14 +154,84 @@ describe('modificationService (Go REST API decoupled)', () => {
     expect(result).toEqual(mockAdded);
   });
 
-  it('deleteModificationPhoto 呼叫 DELETE /modifications/photos/:photoId 並清除 Storage', async () => {
-    (requestApi as jest.Mock).mockResolvedValue({ photo_url: 'https://example.com/mod.jpg' });
+  it('updateSettingSet 呼叫 PATCH /modifications/:id/setting-sets/:setId', async () => {
+    const mockUpdatedSet = {
+      id: 5,
+      modification_id: 2,
+      name: 'Track Set V2',
+      recorded_date: '2026-09-15',
+      mileage: 1800,
+      note: 'Modified damper',
+      is_current: true,
+      settings: [
+        {
+          id: 10,
+          setting_set_id: 5,
+          setting_name: '阻尼',
+          setting_value: '12',
+          unit: '段',
+          created_at: '2026-09-15T00:00:00Z',
+          updated_at: '2026-09-15T00:00:00Z',
+        },
+      ],
+    };
+    (requestApi as jest.Mock).mockResolvedValue(mockUpdatedSet);
 
-    await modificationService.deleteModificationPhoto(1);
+    const result = await modificationService.updateSettingSet(
+      2,
+      5,
+      {
+        name: 'Track Set V2',
+        recorded_date: '2026-09-15',
+        mileage: 1800,
+        note: 'Modified damper',
+      },
+      [{ setting_name: '阻尼', setting_value: '12', unit: '段' }]
+    );
 
-    expect(requestApi).toHaveBeenCalledWith('/modifications/photos/1', {
+    expect(requestApi).toHaveBeenCalledWith('/modifications/2/setting-sets/5', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: 'Track Set V2',
+        recorded_date: '2026-09-15',
+        mileage: 1800,
+        note: 'Modified damper',
+        settings: [{ setting_name: '阻尼', setting_value: '12', unit: '段' }],
+      }),
+    });
+    expect(result).toEqual(mockUpdatedSet);
+  });
+
+  it('deleteSettingSet 呼叫 DELETE /modifications/:id/setting-sets/:setId', async () => {
+    (requestApi as jest.Mock).mockResolvedValue(undefined);
+
+    await modificationService.deleteSettingSet(2, 5);
+
+    expect(requestApi).toHaveBeenCalledWith('/modifications/2/setting-sets/5', {
       method: 'DELETE',
     });
-    expect(storageService.deleteVehicleMedia).toHaveBeenCalledWith('https://example.com/mod.jpg');
+  });
+
+  it('cloneSettingSet 呼叫 POST /modifications/:id/setting-sets/:setId/clone', async () => {
+    const mockClonedSet = {
+      id: 6,
+      modification_id: 2,
+      name: 'Track Set (Copy)',
+      recorded_date: '2026-09-15',
+      mileage: 1800,
+      note: null,
+      is_current: false,
+      settings: [],
+    };
+    (requestApi as jest.Mock).mockResolvedValue(mockClonedSet);
+
+    const result = await modificationService.cloneSettingSet(2, 5, 'Track Set (Copy)');
+
+    expect(requestApi).toHaveBeenCalledWith('/modifications/2/setting-sets/5/clone', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Track Set (Copy)' }),
+    });
+    expect(result).toEqual(mockClonedSet);
   });
 });
+

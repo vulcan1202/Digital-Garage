@@ -585,6 +585,111 @@ export const localStore = {
     await saveToStorage();
   },
 
+  async updateSettingSet(
+    setId: number,
+    setData: { name: string; recorded_date: string; mileage?: number | null; note?: string | null },
+    settings: { setting_name: string; setting_value: string; unit?: string | null }[]
+  ) {
+    await loadFromStorage();
+    const target = inMemoryDB.modificationSettingSets.find((s) => s.id === setId);
+    if (!target) throw new Error('SettingSet not found');
+
+    const now = new Date().toISOString();
+    target.name = setData.name;
+    target.recorded_date = setData.recorded_date;
+    target.mileage = setData.mileage ?? null;
+    target.note = setData.note ?? null;
+    target.updated_at = now;
+
+    // 清除舊細項並新增新細項
+    inMemoryDB.modificationSettings = inMemoryDB.modificationSettings.filter(
+      (ms) => ms.setting_set_id !== setId
+    );
+    const newSettings: ModificationSettingRow[] = settings.map((st, idx) => ({
+      id: inMemoryDB.modificationSettings.length + idx + 1,
+      setting_set_id: setId,
+      setting_name: st.setting_name,
+      setting_value: st.setting_value,
+      unit: st.unit ?? null,
+      created_at: now,
+      updated_at: now,
+    }));
+    inMemoryDB.modificationSettings.push(...newSettings);
+
+    await saveToStorage();
+    return {
+      ...target,
+      settings: newSettings,
+    };
+  },
+
+  async deleteSettingSet(modId: number, setId: number) {
+    await loadFromStorage();
+    const target = inMemoryDB.modificationSettingSets.find((s) => s.id === setId);
+    const wasCurrent = target?.is_current;
+
+    inMemoryDB.modificationSettingSets = inMemoryDB.modificationSettingSets.filter(
+      (s) => s.id !== setId
+    );
+    inMemoryDB.modificationSettings = inMemoryDB.modificationSettings.filter(
+      (ms) => ms.setting_set_id !== setId
+    );
+
+    // 若刪除的是生效中版本，將剩餘最新版本設為 is_current
+    if (wasCurrent) {
+      const remaining = inMemoryDB.modificationSettingSets
+        .filter((s) => s.modification_id === modId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      if (remaining.length > 0) {
+        remaining[0].is_current = true;
+      }
+    }
+
+    await saveToStorage();
+  },
+
+  async cloneSettingSet(modId: number, setId: number, customName?: string) {
+    await loadFromStorage();
+    const src = inMemoryDB.modificationSettingSets.find((s) => s.id === setId);
+    if (!src) throw new Error('Source SettingSet not found');
+
+    const srcSettings = inMemoryDB.modificationSettings.filter((ms) => ms.setting_set_id === setId);
+    const newSetId = inMemoryDB.modificationSettingSets.length > 0
+      ? Math.max(...inMemoryDB.modificationSettingSets.map((s) => s.id)) + 1
+      : 1;
+    const now = new Date().toISOString();
+
+    const cloneRow: ModificationSettingSetRow = {
+      id: newSetId,
+      modification_id: modId,
+      name: customName || `${src.name} (Copy)`,
+      recorded_date: src.recorded_date,
+      mileage: src.mileage,
+      note: src.note,
+      is_current: false, // 獨立副本預設不生效
+      created_at: now,
+      updated_at: now,
+    };
+    inMemoryDB.modificationSettingSets.push(cloneRow);
+
+    const clonedSettings: ModificationSettingRow[] = srcSettings.map((st, idx) => ({
+      id: inMemoryDB.modificationSettings.length + idx + 1,
+      setting_set_id: newSetId,
+      setting_name: st.setting_name,
+      setting_value: st.setting_value,
+      unit: st.unit,
+      created_at: now,
+      updated_at: now,
+    }));
+    inMemoryDB.modificationSettings.push(...clonedSettings);
+
+    await saveToStorage();
+    return {
+      ...cloneRow,
+      settings: clonedSettings,
+    };
+  },
+
   // Timeline
   async getTimeline(vehicleId: number): Promise<VehicleTimelineRow[]> {
     await loadFromStorage();
@@ -638,6 +743,40 @@ export const localStore = {
         });
       });
 
-    return timeline.sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+    // 車輛購入入庫事件 (僅當 purchase_date 存在時衍生，禁止使用 created_at 假造)
+    const vehicle = inMemoryDB.vehicles.find((v) => v.id === vehicleId);
+    if (vehicle && vehicle.purchase_date) {
+      timeline.push({
+        vehicle_id: vehicle.id,
+        event_type: 'purchase',
+        event_id: vehicle.id,
+        event_date: vehicle.purchase_date,
+        mileage: vehicle.initial_mileage ?? 0,
+        cost: vehicle.purchase_price ?? 0,
+        title: `${vehicle.brand || ''} ${vehicle.model || ''} 購入入庫`.trim(),
+        description: `入庫基準里程: ${vehicle.initial_mileage ?? 0} KM`,
+        created_at: vehicle.created_at,
+      });
+    }
+
+    // 四級確定性排序：event_date DESC, mileage DESC NULLS LAST, created_at DESC, event_id DESC
+    return timeline.sort((a, b) => {
+      const dateA = new Date(a.event_date).getTime();
+      const dateB = new Date(b.event_date).getTime();
+      if (dateB !== dateA) {
+        return dateB - dateA;
+      }
+      const mileageA = a.mileage ?? -1;
+      const mileageB = b.mileage ?? -1;
+      if (mileageB !== mileageA) {
+        return mileageB - mileageA;
+      }
+      const createdA = new Date(a.created_at).getTime();
+      const createdB = new Date(b.created_at).getTime();
+      if (createdB !== createdA) {
+        return createdB - createdA;
+      }
+      return b.event_id - a.event_id;
+    });
   },
 };

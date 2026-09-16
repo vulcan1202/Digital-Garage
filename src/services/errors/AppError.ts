@@ -58,6 +58,13 @@ export class AppError extends Error {
   }
 
   /**
+   * 統一將任意錯誤轉換為 AppError
+   */
+  static from(error: unknown): AppError {
+    return AppError.fromSupabaseError(error);
+  }
+
+  /**
    * 統一將 Supabase / PostgREST / Storage / Network 錯誤轉換為 AppError
    * 保證 raw error 絕不直接暴露至 UI
    */

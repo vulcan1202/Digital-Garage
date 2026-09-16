@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { AppError, AppErrorCode } from './errors/AppError';
+import { networkMonitor } from './networkMonitor';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -26,7 +27,11 @@ export async function requestApi<T>(endpoint: string, options: RequestInit = {})
       ...options,
       headers,
     });
+    // 網路連線正常
+    networkMonitor.notifyOnline();
   } catch (netErr: unknown) {
+    // 網路連線中斷或伺服器不可達
+    networkMonitor.notifyOffline();
     throw AppError.network('無法連線至車庫後端伺服器，請檢查網路連線或伺服器狀態', netErr);
   }
 

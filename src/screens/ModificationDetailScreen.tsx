@@ -16,9 +16,13 @@ import {
   useDeleteModification,
   useAddModificationPhotos,
   useDeleteModificationPhoto,
+  useDeleteSettingSet,
+  useCloneSettingSet,
 } from '../hooks/queries/useModifications';
 import { AppError } from '../services/errors/AppError';
 import { AddSettingSetModal } from '../components/modals/AddSettingSetModal';
+import { EditSettingSetModal } from '../components/modals/EditSettingSetModal';
+import { CompareSettingSetsModal } from '../components/modals/CompareSettingSetsModal';
 import { ImageViewerModal } from '../components/modals/ImageViewerModal';
 import { storageService } from '../services/storageService';
 import { pickImagesFromLibrary, takePhotoWithCamera } from '../utils/imageOptimizer';
@@ -35,10 +39,14 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
   const { data: mod, isLoading, error } = useModificationDetail(modificationId);
   const setCurrentMutation = useSetCurrentMutationWrapper();
   const deleteModMutation = useDeleteModification();
+  const deleteSettingSetMutation = useDeleteSettingSet();
+  const cloneSettingSetMutation = useCloneSettingSet();
 
   // 目前選取要查看參數的設定組 ID (若未手動選取，優先顯示 is_current = true 的版本)
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
   const [isAddSetModalOpen, setIsAddSetModalOpen] = useState(false);
+  const [isEditSetModalOpen, setIsEditSetModalOpen] = useState(false);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
   // 改裝套件相片預覽與上傳狀態
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -108,6 +116,49 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
     ]);
   };
 
+
+  const handleDeleteSettingSet = (setId: number, setName: string, isCurrent: boolean) => {
+    if (!mod) return;
+    const confirmMessage = isCurrent
+      ? `版本「${setName}」為目前生效中的版本。刪除後系統將自動將剩餘最新版本設為生效中，確定刪除嗎？`
+      : `確定要刪除調校版本「${setName}」嗎？此操作無法復原。`;
+
+    Alert.alert('刪除調校版本', confirmMessage, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '確定刪除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteSettingSetMutation.mutateAsync({
+              modificationId: mod.id,
+              setId,
+            });
+            if (selectedSetId === setId) {
+              setSelectedSetId(null);
+            }
+            Alert.alert('刪除成功', `版本「${setName}」已成功移除。`);
+          } catch (err: any) {
+            Alert.alert('刪除失敗', err?.message || '刪除調校版本失敗');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCloneSettingSet = async (setId: number, setName: string) => {
+    if (!mod) return;
+    try {
+      const cloned = await cloneSettingSetMutation.mutateAsync({
+        modificationId: mod.id,
+        setId,
+      });
+      setSelectedSetId(cloned.id);
+      Alert.alert('複製成功', `已成功建立「${cloned.name}」獨立 Snapshot 副本！`);
+    } catch (err: any) {
+      Alert.alert('複製失敗', err?.message || '複製調校版本失敗');
+    }
+  };
 
   // 切換使用中版本之包裝處理 (具備 23505 唯一約束衝突提示)
   function useSetCurrentMutationWrapper() {
@@ -380,15 +431,29 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
             </View>
           </View>
 
-          <TouchableOpacity
-            onPress={() => setIsAddSetModalOpen(true)}
-            className="flex-row items-center bg-racing-orange/15 px-2.5 py-1 rounded-full border border-racing-orange/30"
-          >
-            <Ionicons name="add" size={13} color="#ff6b00" />
-            <Text className="text-[11px] font-mono text-racing-orange font-bold ml-1">
-              新增版本
-            </Text>
-          </TouchableOpacity>
+          <View className="flex-row items-center gap-2">
+            {mod.setting_sets.length >= 2 && (
+              <TouchableOpacity
+                onPress={() => setIsCompareModalOpen(true)}
+                className="flex-row items-center bg-racing-blue/15 px-2.5 py-1 rounded-full border border-racing-blue/30"
+              >
+                <Ionicons name="git-compare-outline" size={13} color="#007aff" />
+                <Text className="text-[11px] font-mono text-racing-blue font-bold ml-1">
+                  版本比較
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => setIsAddSetModalOpen(true)}
+              className="flex-row items-center bg-racing-orange/15 px-2.5 py-1 rounded-full border border-racing-orange/30"
+            >
+              <Ionicons name="add" size={13} color="#ff6b00" />
+              <Text className="text-[11px] font-mono text-racing-orange font-bold ml-1">
+                新增版本
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
 
@@ -495,9 +560,49 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
 
             {/* 通用調校參數動態條列 (Data-driven Table) */}
             <View className="mt-3">
-              <Text className="text-[10px] font-mono text-metal-500 tracking-wider uppercase mb-2">
-                PARAMETERS ({viewingSet.settings.length})
-              </Text>
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-[10px] font-mono text-metal-500 tracking-wider uppercase">
+                  PARAMETERS ({viewingSet.settings.length})
+                </Text>
+
+                {/* 版本動作按鈕群：編輯、複製、刪除 */}
+                <View className="flex-row items-center gap-1.5">
+                  <TouchableOpacity
+                    onPress={() => setIsEditSetModalOpen(true)}
+                    className="flex-row items-center bg-white/10 px-2 py-1 rounded-md border border-white/20"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="pencil-outline" size={11} color="#fff" />
+                    <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
+                      編輯
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleCloneSettingSet(viewingSet.id, viewingSet.name)}
+                    disabled={cloneSettingSetMutation.isPending}
+                    className="flex-row items-center bg-purple-500/15 px-2 py-1 rounded-md border border-purple-500/30"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="copy-outline" size={11} color="#c084fc" />
+                    <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
+                      {cloneSettingSetMutation.isPending ? '複製中...' : '複製'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleDeleteSettingSet(viewingSet.id, viewingSet.name, viewingSet.is_current)}
+                    disabled={deleteSettingSetMutation.isPending}
+                    className="flex-row items-center bg-red-500/15 px-2 py-1 rounded-md border border-red-500/30"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={11} color="#ef4444" />
+                    <Text className="text-[10px] font-mono text-racing-red ml-1 font-semibold">
+                      刪除
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               {viewingSet.settings.length === 0 ? (
                 <View className="py-6 items-center">
@@ -544,6 +649,22 @@ export const ModificationDetailScreen: React.FC<ModificationDetailScreenProps> =
         modificationId={mod.id}
         currentVehicleMileage={mod.install_mileage ?? undefined}
         onClose={() => setIsAddSetModalOpen(false)}
+      />
+
+      {/* Modal: 編輯調校版本 */}
+      <EditSettingSetModal
+        visible={isEditSetModalOpen}
+        modificationId={mod.id}
+        settingSet={viewingSet || null}
+        onClose={() => setIsEditSetModalOpen(false)}
+      />
+
+      {/* Modal: 版本設定比較 (Comparator) */}
+      <CompareSettingSetsModal
+        visible={isCompareModalOpen}
+        settingSets={mod.setting_sets}
+        initialSetAId={viewingSet?.id}
+        onClose={() => setIsCompareModalOpen(false)}
       />
 
       {/* Modal: 全螢幕改裝照片瀏覽器 */}

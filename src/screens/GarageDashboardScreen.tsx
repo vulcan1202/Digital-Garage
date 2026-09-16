@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ import { ModificationsTab } from '../components/garage/ModificationsTab';
 import { PhotosHubTab } from '../components/garage/PhotosHubTab';
 import { AnalyticsTab } from '../components/garage/AnalyticsTab';
 import { RemindersTab } from '../components/garage/RemindersTab';
+import { networkMonitor } from '../services/networkMonitor';
+import { syncQueue } from '../services/syncQueue';
 
 export type VehicleHubTab = 'overview' | 'records' | 'modifications' | 'photos' | 'analytics' | 'reminders';
 
@@ -81,6 +83,64 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
   const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
+
+  // 離線與同步狀態管理
+  const [isOnline, setIsOnline] = useState(networkMonitor.getIsOnline());
+  const [syncQueueItems, setSyncQueueItems] = useState(syncQueue.getQueue());
+  const [failedSyncItems, setFailedSyncItems] = useState(syncQueue.getFailedMutations());
+
+  useEffect(() => {
+    const unsubNet = networkMonitor.addListener((online) => {
+      setIsOnline(online);
+    });
+    const unsubQueue = syncQueue.subscribe(() => {
+      setSyncQueueItems(syncQueue.getQueue());
+      setFailedSyncItems(syncQueue.getFailedMutations());
+    });
+    return () => {
+      unsubNet();
+      unsubQueue();
+    };
+  }, []);
+
+  const handleStatusBadgePress = () => {
+    if (failedSyncItems.length > 0) {
+      const details = failedSyncItems
+        .slice(0, 5)
+        .map((item, idx) => `${idx + 1}. [${item.type}] ${item.errorMessage || '伺服器驗證未通過'}`)
+        .join('\n');
+
+      Alert.alert(
+        '離線同步異常警報',
+        `偵測到 ${failedSyncItems.length} 筆操作同步失敗（已隔離避免卡死）：\n\n${details}${
+          failedSyncItems.length > 5 ? '\n...及其他項目' : ''
+        }`,
+        [
+          {
+            text: '全部重試',
+            onPress: () => {
+              failedSyncItems.forEach((item) => syncQueue.retryFailedMutation(item.id));
+            },
+          },
+          {
+            text: '清除警報',
+            style: 'destructive',
+            onPress: () => syncQueue.clearFailedMutations(),
+          },
+          { text: '稍後處理', style: 'cancel' },
+        ]
+      );
+    } else if (!isOnline) {
+      Alert.alert(
+        '離線模式',
+        `目前處於離線狀態。\n待同步佇列：${syncQueueItems.length} 筆操作\n恢復連線後將自動於背景上傳。`
+      );
+    } else if (syncQueueItems.length > 0) {
+      Alert.alert('佇列同步中', `正在同步 ${syncQueueItems.length} 筆離線操作至車庫雲端伺服器...`);
+    } else {
+      Alert.alert('雲端連線正常', '已與數位車庫後端伺服器建立正常連線，資料即時同步中。');
+    }
+  };
 
   // 當車輛清單加載後，預設選取第一台車
   const activeVehicle = useMemo(() => {
@@ -347,10 +407,50 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
 
         {/* 狀態指示燈與登出按鈕 */}
         <View className="flex-row items-center gap-2">
-          <View className="flex-row items-center bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/10">
-            <View className="w-2 h-2 rounded-full bg-racing-green mr-1.5" />
-            <Text className="text-[11px] text-metal-300 font-mono">ONLINE</Text>
-          </View>
+          <TouchableOpacity
+            onPress={handleStatusBadgePress}
+            activeOpacity={0.7}
+            className={`flex-row items-center px-2.5 py-1 rounded-full border ${
+              failedSyncItems.length > 0
+                ? 'bg-red-500/15 border-red-500/40'
+                : syncQueueItems.length > 0
+                ? 'bg-cyan-500/15 border-cyan-500/40'
+                : isOnline
+                ? 'bg-white/[0.04] border-white/10'
+                : 'bg-amber-500/15 border-amber-500/40'
+            }`}
+          >
+            <View
+              className={`w-2 h-2 rounded-full mr-1.5 ${
+                failedSyncItems.length > 0
+                  ? 'bg-red-500'
+                  : syncQueueItems.length > 0
+                  ? 'bg-cyan-400'
+                  : isOnline
+                  ? 'bg-racing-green'
+                  : 'bg-amber-400'
+              }`}
+            />
+            <Text
+              className={`text-[11px] font-mono font-bold ${
+                failedSyncItems.length > 0
+                  ? 'text-red-400'
+                  : syncQueueItems.length > 0
+                  ? 'text-cyan-300'
+                  : isOnline
+                  ? 'text-metal-300'
+                  : 'text-amber-300'
+              }`}
+            >
+              {failedSyncItems.length > 0
+                ? `ERR (${failedSyncItems.length})`
+                : syncQueueItems.length > 0
+                ? `SYNC (${syncQueueItems.length})`
+                : isOnline
+                ? 'ONLINE'
+                : 'OFFLINE'}
+            </Text>
+          </TouchableOpacity>
 
           {onSignOut && (
             <TouchableOpacity

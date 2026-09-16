@@ -126,6 +126,70 @@ export const modificationService = {
   },
 
   /**
+   * 更新特定調校設定組 (含名稱、日期、里程、備忘與全量通用參數)
+   */
+  async updateSettingSet(
+    modificationId: number,
+    setId: number,
+    setData: { name: string; recorded_date: string; mileage?: number | null; note?: string | null },
+    settings: Omit<ModificationSettingInsert, 'setting_set_id'>[] = []
+  ): Promise<ModificationSettingSetRow & { settings: ModificationSettingRow[] }> {
+    return handleServiceCall(async () => {
+      const payload = {
+        name: setData.name,
+        recorded_date: setData.recorded_date,
+        mileage: setData.mileage ?? null,
+        note: setData.note ?? null,
+        settings: settings.map((s) => ({
+          setting_name: s.setting_name,
+          setting_value: s.setting_value,
+          unit: s.unit ?? null,
+        })),
+      };
+
+      return await requestApi<ModificationSettingSetRow & { settings: ModificationSettingRow[] }>(
+        `/modifications/${modificationId}/setting-sets/${setId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        }
+      );
+    });
+  },
+
+  /**
+   * 刪除特定調校設定組
+   * 若刪除為 is_current，Go 端事務自動將剩餘最新版本提升為 is_current，防範 invalid reference
+   */
+  async deleteSettingSet(modificationId: number, setId: number): Promise<void> {
+    return handleServiceCall(async () => {
+      await requestApi<void>(`/modifications/${modificationId}/setting-sets/${setId}`, {
+        method: 'DELETE',
+      });
+    });
+  },
+
+  /**
+   * 複製特定調校設定組 (交易完整複製主記錄與所有參數為獨立 Snapshot)
+   */
+  async cloneSettingSet(
+    modificationId: number,
+    setId: number,
+    customName?: string
+  ): Promise<ModificationSettingSetRow & { settings: ModificationSettingRow[] }> {
+    return handleServiceCall(async () => {
+      const payload = customName ? { name: customName } : {};
+      return await requestApi<ModificationSettingSetRow & { settings: ModificationSettingRow[] }>(
+        `/modifications/${modificationId}/setting-sets/${setId}/clone`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
+    });
+  },
+
+  /**
    * 刪除改裝品 (Go 端事務自動安全回滾最高里程，SQL CASCADE 自動刪除照片與設定組)
    */
   async deleteModification(id: number, _vehicleId?: number): Promise<void> {

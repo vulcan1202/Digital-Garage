@@ -38,3 +38,6 @@ Thumbs.db
 # Go backend builds
 backend/bin/
 *.exe
+
+# Scratch & temporary test scripts
+scratch/

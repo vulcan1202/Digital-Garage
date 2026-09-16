@@ -1,25 +1,51 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vehicleService } from '../../services/vehicleService';
-import { VehicleInsert, VehicleUpdate } from '../../types/database';
+import { VehicleInsert, VehicleUpdate, VehicleWithCover, VehicleRow, VehiclePhotoRow } from '../../types/database';
 import { queryKeys } from './queryKeys';
+import { cacheStorage, CACHE_KEYS } from '../../lib/cacheStorage';
 
 /**
- * 車輛清單 Query Hook (預設包含封面照片，單一查詢免手動 merge)
+ * 車輛清單 Query Hook (預設包含封面照片，單一查詢免手動 merge，支援離線快照還原)
  */
 export function useVehicles() {
   return useQuery({
     queryKey: queryKeys.vehicles,
-    queryFn: () => vehicleService.getVehicles(),
+    queryFn: async () => {
+      try {
+        const vehicles = await vehicleService.getVehicles();
+        await cacheStorage.setItem(CACHE_KEYS.VEHICLES, vehicles);
+        return vehicles;
+      } catch (err) {
+        const cached = await cacheStorage.getItem<VehicleWithCover[]>(CACHE_KEYS.VEHICLES);
+        if (cached && cached.length > 0) {
+          return cached;
+        }
+        throw err;
+      }
+    },
   });
 }
 
 /**
- * 單一車輛詳細 Query Hook (包含所有照片)
+ * 單一車輛詳細 Query Hook (包含所有照片，支援離線快照還原)
  */
 export function useVehicle(id: number) {
   return useQuery({
     queryKey: queryKeys.vehicle(id),
-    queryFn: () => vehicleService.getVehicleById(id),
+    queryFn: async () => {
+      const cacheKey = `${CACHE_KEYS.VEHICLES}_${id}`;
+      try {
+        const vehicle = await vehicleService.getVehicleById(id);
+        await cacheStorage.setItem(cacheKey, vehicle);
+        return vehicle;
+      } catch (err) {
+        const cached = await cacheStorage.getItem<VehicleRow & { photos: VehiclePhotoRow[] }>(cacheKey);
+        if (cached) {
+          return cached;
+        }
+        throw err;
+      }
+    },
     enabled: typeof id === 'number' && id > 0,
   });
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"digital-garage-backend/internal/model"
 
@@ -653,3 +654,258 @@ func (r *ModificationRepository) SetCurrentSettingSet(ctx context.Context, userI
 
 	return tx.Commit(ctx)
 }
+
+// UpdateSettingSet 更新特定調校設定組內容與細項參數
+func (r *ModificationRepository) UpdateSettingSet(ctx context.Context, userID string, modID int, setID int, req *model.UpdateSettingSetRequest) (*model.ModificationSettingSet, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. 驗證擁有權並確認該設定組屬於該改裝品
+	var isCurrent bool
+	verifyQuery := `
+		SELECT s.is_current
+		FROM "ModificationSettingSets" s
+		JOIN "Modifications" m ON m.id = s.modification_id
+		JOIN "Vehicles" v ON v.id = m.vehicle_id
+		WHERE s.id = $1 AND s.modification_id = $2 AND v.user_id = $3;
+	`
+	err = tx.QueryRow(ctx, verifyQuery, setID, modID, userID).Scan(&isCurrent)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to verify setting set ownership: %w", err)
+	}
+
+	// 2. 更新設定組主表
+	updateSetQuery := `
+		UPDATE "ModificationSettingSets"
+		SET name = $1, recorded_date = $2::date, mileage = $3, note = $4, updated_at = now()
+		WHERE id = $5 AND modification_id = $6
+		RETURNING 
+			id, modification_id, name, to_char(recorded_date, 'YYYY-MM-DD'),
+			mileage, note, is_current, created_at, updated_at;
+	`
+	var s model.ModificationSettingSet
+	err = tx.QueryRow(ctx, updateSetQuery,
+		req.Name, req.RecordedDate, req.Mileage, req.Note, setID, modID,
+	).Scan(
+		&s.ID, &s.ModificationID, &s.Name, &s.RecordedDate,
+		&s.Mileage, &s.Note, &s.IsCurrent, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update setting set: %w", err)
+	}
+
+	// 3. 刪除原有細項參數後重新插入
+	deleteItemsQuery := `DELETE FROM "ModificationSettings" WHERE setting_set_id = $1;`
+	_, err = tx.Exec(ctx, deleteItemsQuery, setID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear old setting items: %w", err)
+	}
+
+	s.Settings = make([]model.ModificationSetting, 0, len(req.Settings))
+	if len(req.Settings) > 0 {
+		insertSettingItemQuery := `
+			INSERT INTO "ModificationSettings" (setting_set_id, setting_name, setting_value, unit, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, now(), now())
+			RETURNING id, setting_set_id, setting_name, setting_value, unit, created_at, updated_at;
+		`
+		for _, item := range req.Settings {
+			var setting model.ModificationSetting
+			err = tx.QueryRow(ctx, insertSettingItemQuery, s.ID, item.SettingName, item.SettingValue, item.Unit).Scan(
+				&setting.ID, &setting.SettingSetID, &setting.SettingName, &setting.SettingValue, &setting.Unit,
+				&setting.CreatedAt, &setting.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert updated setting item: %w", err)
+			}
+			s.Settings = append(s.Settings, setting)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit setting set update: %w", err)
+	}
+
+	return &s, nil
+}
+
+// DeleteSettingSet 刪除特定調校設定組
+// 若刪除的是 is_current = true 的版本，自動將剩餘最新建立之版本設為 is_current = true，絕不留下無效 reference
+func (r *ModificationRepository) DeleteSettingSet(ctx context.Context, userID string, modID int, setID int) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. 驗證擁有權並檢查該設定組是否為 is_current
+	var isCurrent bool
+	verifyQuery := `
+		SELECT s.is_current
+		FROM "ModificationSettingSets" s
+		JOIN "Modifications" m ON m.id = s.modification_id
+		JOIN "Vehicles" v ON v.id = m.vehicle_id
+		WHERE s.id = $1 AND s.modification_id = $2 AND v.user_id = $3;
+	`
+	err = tx.QueryRow(ctx, verifyQuery, setID, modID, userID).Scan(&isCurrent)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("failed to verify setting set ownership: %w", err)
+	}
+
+	// 2. 刪除該設定組 (PostgreSQL 外鍵 CASCADE 會自動刪除對應的 ModificationSettings)
+	deleteQuery := `DELETE FROM "ModificationSettingSets" WHERE id = $1 AND modification_id = $2;`
+	_, err = tx.Exec(ctx, deleteQuery, setID, modID)
+	if err != nil {
+		return fmt.Errorf("failed to delete setting set: %w", err)
+	}
+
+	// 3. 如果刪除的是當前生效版本，尋找同改裝品下最新建立的一個版本設為 is_current
+	if isCurrent {
+		var nextSetID int
+		findLatestQuery := `
+			SELECT id FROM "ModificationSettingSets"
+			WHERE modification_id = $1
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1;
+		`
+		err = tx.QueryRow(ctx, findLatestQuery, modID).Scan(&nextSetID)
+		if err == nil {
+			updateNextQuery := `
+				UPDATE "ModificationSettingSets"
+				SET is_current = true, updated_at = now()
+				WHERE id = $1 AND modification_id = $2;
+			`
+			_, err = tx.Exec(ctx, updateNextQuery, nextSetID, modID)
+			if err != nil {
+				return fmt.Errorf("failed to promote next setting set as current: %w", err)
+			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("failed to query next latest setting set: %w", err)
+		}
+		// 若 pgx.ErrNoRows 則代表已無其他版本，合法處於 0 個版本狀態
+	}
+
+	return tx.Commit(ctx)
+}
+
+// CloneSettingSet 完整複製指定版本及其全部參數為全新獨立 Snapshot (副本預設 is_current = false)
+func (r *ModificationRepository) CloneSettingSet(ctx context.Context, userID string, modID int, setID int, customName *string) (*model.ModificationSettingSet, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. 驗證擁有權並讀取來源設定組資料
+	var src model.ModificationSettingSet
+	srcQuery := `
+		SELECT s.id, s.name, to_char(s.recorded_date, 'YYYY-MM-DD'), s.mileage, s.note
+		FROM "ModificationSettingSets" s
+		JOIN "Modifications" m ON m.id = s.modification_id
+		JOIN "Vehicles" v ON v.id = m.vehicle_id
+		WHERE s.id = $1 AND s.modification_id = $2 AND v.user_id = $3;
+	`
+	err = tx.QueryRow(ctx, srcQuery, setID, modID, userID).Scan(
+		&src.ID, &src.Name, &src.RecordedDate, &src.Mileage, &src.Note,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to fetch source setting set: %w", err)
+	}
+
+	// 2. 決定複製後的名稱
+	cloneName := src.Name + " (Copy)"
+	if customName != nil && strings.TrimSpace(*customName) != "" {
+		cloneName = strings.TrimSpace(*customName)
+	}
+
+	// 3. 插入全新設定組 (is_current 固定為 false，獨立 Snapshot)
+	insertCloneQuery := `
+		INSERT INTO "ModificationSettingSets" (
+			modification_id, name, recorded_date, mileage, note, is_current,
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3::date, $4, $5, false,
+			now(), now()
+		)
+		RETURNING 
+			id, modification_id, name, to_char(recorded_date, 'YYYY-MM-DD'),
+			mileage, note, is_current, created_at, updated_at;
+	`
+	var clone model.ModificationSettingSet
+	err = tx.QueryRow(ctx, insertCloneQuery,
+		modID, cloneName, src.RecordedDate, src.Mileage, src.Note,
+	).Scan(
+		&clone.ID, &clone.ModificationID, &clone.Name, &clone.RecordedDate,
+		&clone.Mileage, &clone.Note, &clone.IsCurrent, &clone.CreatedAt, &clone.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert cloned setting set: %w", err)
+	}
+
+	// 4. 讀取來源設定組的所有參數
+	paramsQuery := `
+		SELECT setting_name, setting_value, unit
+		FROM "ModificationSettings"
+		WHERE setting_set_id = $1
+		ORDER BY id ASC;
+	`
+	rows, err := tx.Query(ctx, paramsQuery, setID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query source settings: %w", err)
+	}
+	defer rows.Close()
+
+	type settingTuple struct {
+		name  string
+		value string
+		unit  *string
+	}
+	var srcParams []settingTuple
+	for rows.Next() {
+		var p settingTuple
+		if err := rows.Scan(&p.name, &p.value, &p.unit); err != nil {
+			return nil, fmt.Errorf("failed to scan source parameter: %w", err)
+		}
+		srcParams = append(srcParams, p)
+	}
+	rows.Close()
+
+	// 5. 批次插入至新設定組
+	clone.Settings = make([]model.ModificationSetting, 0, len(srcParams))
+	if len(srcParams) > 0 {
+		insertParamQuery := `
+			INSERT INTO "ModificationSettings" (setting_set_id, setting_name, setting_value, unit, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, now(), now())
+			RETURNING id, setting_set_id, setting_name, setting_value, unit, created_at, updated_at;
+		`
+		for _, p := range srcParams {
+			var setting model.ModificationSetting
+			err = tx.QueryRow(ctx, insertParamQuery, clone.ID, p.name, p.value, p.unit).Scan(
+				&setting.ID, &setting.SettingSetID, &setting.SettingName, &setting.SettingValue, &setting.Unit,
+				&setting.CreatedAt, &setting.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to copy setting item to clone: %w", err)
+			}
+			clone.Settings = append(clone.Settings, setting)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit clone transaction: %w", err)
+	}
+
+	return &clone, nil
+}
+

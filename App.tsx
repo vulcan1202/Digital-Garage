@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator, Text, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,6 +8,8 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { GarageDashboardScreen } from './src/screens/GarageDashboardScreen';
 import { VehicleTimelineScreen } from './src/screens/VehicleTimelineScreen';
 import { ModificationDetailScreen } from './src/screens/ModificationDetailScreen';
+import { syncQueue } from './src/services/syncQueue';
+import { networkMonitor } from './src/services/networkMonitor';
 
 import './global.css';
 
@@ -20,6 +22,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// 連結 SyncQueue 與 TanStack Query
+syncQueue.setQueryClient(queryClient);
 
 type ActiveScreen =
   | { name: 'dashboard' }
@@ -70,6 +75,9 @@ function MainNavigator() {
         <VehicleTimelineScreen
           vehicleId={currentScreen.vehicleId}
           onBack={() => setCurrentScreen({ name: 'dashboard' })}
+          onNavigateToModDetail={(modId) =>
+            setCurrentScreen({ name: 'modificationDetail', modId })
+          }
         />
       )}
 
@@ -84,6 +92,19 @@ function MainNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // 啟動時水合離線佇列並檢查後端連線
+    syncQueue.hydrate();
+    networkMonitor.checkConnectivity();
+
+    const sub = AppState.addEventListener('change', (state) => {
+      networkMonitor.handleAppStateChange(state);
+    });
+    return () => {
+      sub.remove();
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
