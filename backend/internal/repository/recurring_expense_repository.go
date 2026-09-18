@@ -306,7 +306,7 @@ func (r *RecurringExpenseRepository) GetLatestStatusSummary(ctx context.Context,
 				coverage_end_date
 			FROM "RecurringExpenses"
 			WHERE vehicle_id = $1 AND category = $2
-			ORDER BY coverage_end_date DESC, id DESC
+			ORDER BY "RecurringExpenses".coverage_end_date DESC, id DESC
 			LIMIT 1;
 		`
 
