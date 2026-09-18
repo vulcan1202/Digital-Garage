@@ -317,7 +317,11 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             onChange={setManufactureDate}
             maximumDate={new Date()}
             placeholder="YYYY-MM (點擊選取出廠年月)"
-            helperText={manufactureDate ? `已自動解析出廠年份：${manufactureDate.split('-')[0]} 年` : '選填，選擇後系統將自動解析出廠年份'}
+            helperText={
+              manufactureDate
+                ? `已自動解析出廠年份：${manufactureDate.split('-')[0]} 年（用於計算車齡與定檢頻率）`
+                : '選填，用於推算車齡與定檢頻率（未滿 5 年免檢、5~10 年每年 1 次、10 年以上每年 2 次）'
+            }
             containerClassName="mb-4"
           />
 
@@ -329,7 +333,11 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             onChange={setRegistrationDate}
             maximumDate={new Date()}
             placeholder="YYYY-MM-DD (點擊選取原發照日期)"
-            helperText="選填，定檢日期依原發照日計算，前後各一個月有效"
+            helperText={
+              registrationDate
+                ? `法定定檢基準日：每年 ${registrationDate.split('-')[1]} 月 ${registrationDate.split('-')[2]} 日（前後各 1 個月為檢驗視窗）`
+                : '選填，法定定檢基準日，定期檢驗視窗將以此日期的月日為基準（前後各 1 個月有效）'
+            }
             containerClassName="mb-4"
           />
 
