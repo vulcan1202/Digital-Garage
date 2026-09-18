@@ -18,6 +18,7 @@ import { MaintenanceRecordType } from '../../types/database';
 import { reminderService } from '../../services/reminderService';
 import { storageService } from '../../services/storageService';
 import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface AddMaintenanceModalProps {
   visible: boolean;
@@ -235,18 +236,14 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
               {/* 日期與里程 */}
               <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    工單日期 SERVICE DATE *
-                  </Text>
-                  <TextInput
-                    value={serviceDate}
-                    onChangeText={setServiceDate}
-                    placeholder="2024-03-20"
-                    placeholderTextColor="#52525b"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
+                <DatePickerInput
+                  label="工單日期 SERVICE DATE"
+                  required
+                  value={serviceDate}
+                  onChange={setServiceDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">

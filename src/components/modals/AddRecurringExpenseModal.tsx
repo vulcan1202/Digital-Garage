@@ -17,6 +17,7 @@ import { RecurringExpenseCategory } from '../../types/recurringExpense';
 import { getSmartPreFill } from '../../utils/calculators/recurringCalculator';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { VehicleWithCover } from '../../types/database';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface AddRecurringExpenseModalProps {
   visible: boolean;
@@ -230,39 +231,34 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             </View>
 
             {/* 付款/檢驗日 */}
-            <View className="mb-3.5">
-              <Text className="text-metal-400 text-xs font-mono mb-1.5">繳費 / 施作檢驗日期 (YYYY-MM-DD) *</Text>
-              <TextInput
-                value={paidDate}
-                onChangeText={setPaidDate}
-                placeholder="2026-04-15"
-                placeholderTextColor="#555"
-                className="bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-              />
-            </View>
+            <DatePickerInput
+              label="繳費 / 施作檢驗日期 (PAID DATE)"
+              required
+              value={paidDate}
+              onChange={setPaidDate}
+              maximumDate={new Date()}
+              placeholder="點擊選取繳費/檢驗日"
+              containerClassName="mb-3.5"
+            />
 
             {/* 有效起訖期間 */}
             <View className="flex-row gap-3 mb-3.5">
-              <View className="flex-1">
-                <Text className="text-metal-400 text-xs font-mono mb-1.5">生效起始日 *</Text>
-                <TextInput
-                  value={coverageStartDate}
-                  onChangeText={setCoverageStartDate}
-                  placeholder="2026-01-01"
-                  placeholderTextColor="#555"
-                  className="bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="text-metal-400 text-xs font-mono mb-1.5">到期截止日 *</Text>
-                <TextInput
-                  value={coverageEndDate}
-                  onChangeText={setCoverageEndDate}
-                  placeholder="2026-12-31"
-                  placeholderTextColor="#555"
-                  className="bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                />
-              </View>
+              <DatePickerInput
+                label="生效起始日"
+                required
+                value={coverageStartDate}
+                onChange={setCoverageStartDate}
+                placeholder="生效起始日"
+                containerClassName="flex-1"
+              />
+              <DatePickerInput
+                label="到期截止日"
+                required
+                value={coverageEndDate}
+                onChange={setCoverageEndDate}
+                placeholder="到期截止日"
+                containerClassName="flex-1"
+              />
             </View>
 
             {/* 若為定期檢驗且車輛無出廠日，顯示同步出廠日 Checkbox */}

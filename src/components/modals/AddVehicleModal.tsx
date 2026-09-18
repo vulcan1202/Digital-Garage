@@ -20,6 +20,7 @@ import { DoubleBezelCard } from '../DoubleBezelCard';
 import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
 import { storageService } from '../../services/storageService';
 import { vehicleService } from '../../services/vehicleService';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 import { VehicleType, FuelType } from '../../types/database';
 
@@ -48,7 +49,6 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
-  const [year, setYear] = useState('');
   const [manufactureDate, setManufactureDate] = useState('');
   const [currentMileage, setCurrentMileage] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
@@ -68,7 +68,6 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     setBrand('');
     setModel('');
     setVehicleType(null);
-    setYear('');
     setManufactureDate('');
     setCurrentMileage('');
     setPurchaseDate('');
@@ -96,11 +95,11 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
       return;
     }
 
-    const yearNum = year ? parseInt(year, 10) : null;
-    if (year && (isNaN(yearNum!) || yearNum! < 1886 || yearNum! > 2100)) {
-      Alert.alert('年份格式錯誤', '請輸入有效的年份 (1886 至 2100)。');
-      return;
-    }
+    // 由出廠日期 (YYYY-MM-DD) 自動解析出廠年份 (Year)
+    const derivedYear = manufactureDate.trim()
+      ? parseInt(manufactureDate.split('-')[0], 10)
+      : null;
+    const yearNum = derivedYear && !isNaN(derivedYear) ? derivedYear : null;
 
     const priceNum = purchasePrice ? parseFloat(purchasePrice) : null;
     if (purchasePrice && (isNaN(priceNum!) || priceNum! < 0)) {
@@ -307,55 +306,30 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             </View>
           </View>
 
-          {/* Manufacture Date */}
+          {/* Manufacture Date (出廠日期，自動解析年份) */}
+          <DatePickerInput
+            label="行照出廠日期 MANUFACTURE DATE"
+            value={manufactureDate}
+            onChange={setManufactureDate}
+            maximumDate={new Date()}
+            placeholder="點擊選取行照出廠日期"
+            helperText={manufactureDate ? `已自動解析出廠年份：${manufactureDate.split('-')[0]} 年` : '選填，選擇後系統將自動解析出廠年份並推算定檢視窗'}
+            containerClassName="mb-4"
+          />
+
+          {/* Current Mileage */}
           <View className="mb-4">
             <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-              行照出廠日期 MANUFACTURE DATE (選填，自動推算驗車視窗)
+              目前里程 ODOMETER (KM)
             </Text>
             <TextInput
-              value={manufactureDate}
-              onChangeText={(text) => {
-                setManufactureDate(text);
-                if (text.length >= 4 && !year) {
-                  const y = text.substring(0, 4);
-                  if (!isNaN(parseInt(y, 10))) setYear(y);
-                }
-              }}
-              placeholder="YYYY-MM-DD (例: 2020-05-15)"
+              value={currentMileage}
+              onChangeText={setCurrentMileage}
+              placeholder="例: 12500"
               placeholderTextColor="#52525b"
+              keyboardType="numeric"
               className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
             />
-          </View>
-
-          {/* Year & Current Mileage */}
-          <View className="flex-row gap-3 mb-4">
-            <View className="flex-1">
-              <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                出廠年份 YEAR
-              </Text>
-              <TextInput
-                value={year}
-                onChangeText={setYear}
-                placeholder="例: 2024"
-                placeholderTextColor="#52525b"
-                keyboardType="numeric"
-                className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-              />
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                目前里程 ODOMETER (KM)
-              </Text>
-              <TextInput
-                value={currentMileage}
-                onChangeText={setCurrentMileage}
-                placeholder="例: 12500"
-                placeholderTextColor="#52525b"
-                keyboardType="numeric"
-                className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-              />
-            </View>
           </View>
 
           {/* Fuel Type */}
@@ -391,18 +365,14 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
 
           {/* Purchase Date & Price */}
           <View className="flex-row gap-3 mb-4">
-            <View className="flex-1">
-              <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                購入日期 (YYYY-MM-DD)
-              </Text>
-              <TextInput
-                value={purchaseDate}
-                onChangeText={setPurchaseDate}
-                placeholder="例: 2023-08-15"
-                placeholderTextColor="#52525b"
-                className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-              />
-            </View>
+            <DatePickerInput
+              label="購入入庫日期 PURCHASE DATE"
+              value={purchaseDate}
+              onChange={setPurchaseDate}
+              maximumDate={new Date()}
+              placeholder="點擊選取購入日期"
+              containerClassName="flex-1"
+            />
 
             <View className="flex-1">
               <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">

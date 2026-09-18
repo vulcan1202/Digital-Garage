@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useUpdateModification } from '../../hooks/queries/useModifications';
 import { ModificationCategory, ModificationRow } from '../../types/database';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface EditModificationModalProps {
   visible: boolean;
@@ -229,30 +230,20 @@ export const EditModificationModal: React.FC<EditModificationModalProps> = ({
 
               {/* 安裝日與購買日 (Install & Purchase Date) */}
               <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-xs font-mono text-metal-300 uppercase mb-1.5">
-                    安裝日期 (YYYY-MM-DD)
-                  </Text>
-                  <TextInput
-                    value={installDate}
-                    onChangeText={setInstallDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#52525b"
-                    className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-mono text-metal-300 uppercase mb-1.5">
-                    購買日期 (YYYY-MM-DD)
-                  </Text>
-                  <TextInput
-                    value={purchaseDate}
-                    onChangeText={setPurchaseDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#52525b"
-                    className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono"
-                  />
-                </View>
+                <DatePickerInput
+                  label="安裝日期 (YYYY-MM-DD)"
+                  value={installDate}
+                  onChange={setInstallDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
+                <DatePickerInput
+                  label="購買日期 (YYYY-MM-DD)"
+                  value={purchaseDate}
+                  onChange={setPurchaseDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
               </View>
 
               {/* 安裝時里程 */}

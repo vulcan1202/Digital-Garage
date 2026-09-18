@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAddReminder } from '../../hooks/queries/useReminders';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface AddReminderModalProps {
   visible: boolean;
@@ -184,18 +185,14 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
                   />
                 </View>
 
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    起算基準日期 (YYYY-MM-DD)
-                  </Text>
-                  <TextInput
-                    value={baseDate}
-                    onChangeText={setBaseDate}
-                    placeholder="2024-01-01"
-                    placeholderTextColor="#52525b"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
+                <DatePickerInput
+                  label="起算基準日期 BASE DATE"
+                  value={baseDate}
+                  onChange={setBaseDate}
+                  maximumDate={new Date()}
+                  placeholder="點擊選取基準日"
+                  containerClassName="flex-1"
+                />
               </View>
 
               {/* Action Buttons */}

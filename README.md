@@ -383,14 +383,14 @@ Vehicle B (ID: 202)
 測試項目                                    測試規模 / 結果
 ======================================================================
 TypeScript Static Typecheck (tsc)          PASS (0 Errors)
-Frontend Jest Test Suites (npm test)       PASS (25 Suites / 137 Tests)
+Frontend Jest Test Suites (npm test)       PASS (26 Suites / 145 Tests)
 Backend Go Test Suites (go test)           PASS (100% Passed)
 Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk)
 Cloud Run API Health Endpoint              PASS (200 OK)
 ======================================================================
 ```
 
-### P1-7 & P2-2 QA 14 大維度審查涵蓋範圍
+### P1-7 & P2-2 & P2-2.5 QA 15 大維度審查涵蓋範圍
 1. **Database Integrity**：外鍵串聯、唯一約束、檢查約束及觸發器完整性。
 2. **RLS / Multi-tenant Security**：跨用戶與跨階層資料隔離驗證。
 3. **API Contract / Validation**：400/401/403/404/409 錯誤狀態碼合約與欄位防禦。
@@ -405,6 +405,7 @@ Cloud Run API Health Endpoint              PASS (200 OK)
 12. **Multi-Vehicle Cache Isolation**：跨車輛快取與查詢鍵完全隔離。
 13. **Stress / Boundary Stability**：快照 20 筆上限截斷與記憶體保護。
 14. **Recurring Expenses & Month Clamping**：規費生命週期、智慧預填、出廠日交易連動與月末天數防溢位截斷。
+15. **Global DatePicker & Vehicle Date Sync**：Dark-Metal 日期挑選器封裝、出廠年份自動解析、西元前導補零與未來日期防護邊界。
 
 ---
 
@@ -489,7 +490,7 @@ go run cmd/api/main.go
 
 ## 16. 開發進度與狀態 (Project Status)
 
-目前專案已完成 P0 至 P2-2 之全部功能開發與品質驗收：
+目前專案已完成 P0 至 P2-2.5 之全部功能開發與品質驗收：
 
 | 階段代號 | 範疇定義 | 驗收狀態 |
 | :--- | :--- | :---: |
@@ -503,6 +504,7 @@ go run cmd/api/main.go
 | **P1-7** | Stability / QA (全系統 13 大維度生產級穩定性驗收) | ✅ Completed |
 | **P2-1** | Observability & Operations (端到端 Request ID 串聯、Cloud Logging 結構化日誌、敏感脫敏、前端 ErrorReporter 與 ErrorBoundary) | ✅ Completed |
 | **P2-2** | Recurring Expenses & Compliance (出廠日連動、公路養管費正名、台灣監理智慧預填) | ✅ Completed |
+| **P2-2.5** | Global DatePicker & Vehicle Date Sync (全域 Dark-Metal 日期選擇器封裝、出廠年份自動解析、全表單手動日期全面升級) | ✅ Completed |
 
 ---
 

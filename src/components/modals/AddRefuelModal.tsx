@@ -1,4 +1,3 @@
-import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -14,7 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAddRefuel } from '../../hooks/queries/useFuel';
+import { DatePickerInput } from '../common/DatePickerInput';
 import { FuelType } from '../../types/database';
+import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 
 interface AddRefuelModalProps {
   visible: boolean;
@@ -181,18 +182,14 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
 
               {/* 日期與加油當前里程 */}
               <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油日期 DATE (YYYY-MM-DD) *
-                  </Text>
-                  <TextInput
-                    value={refuelDate}
-                    onChangeText={setRefuelDate}
-                    placeholder="2024-03-20"
-                    placeholderTextColor="#52525b"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
+                <DatePickerInput
+                  label="加油日期 DATE"
+                  required
+                  value={refuelDate}
+                  onChange={setRefuelDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">

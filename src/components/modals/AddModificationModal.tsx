@@ -18,6 +18,7 @@ import { ModificationCategory } from '../../types/database';
 import { storageService } from '../../services/storageService';
 import { modificationService } from '../../services/modificationService';
 import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface AddModificationModalProps {
   visible: boolean;
@@ -247,34 +248,38 @@ export const AddModificationModal: React.FC<AddModificationModalProps> = ({
                 </View>
               </View>
 
-              {/* 安裝日與安裝里程 (嚴格區分 install_date) */}
+              {/* 購買日與安裝日 */}
               <View className="flex-row gap-3 mb-4">
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    安裝日期 INSTALL DATE
-                  </Text>
-                  <TextInput
-                    value={installDate}
-                    onChangeText={setInstallDate}
-                    placeholder="2024-03-20"
-                    placeholderTextColor="#52525b"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
+                <DatePickerInput
+                  label="購買日期 PURCHASE DATE"
+                  value={purchaseDate}
+                  onChange={setPurchaseDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
 
-                <View className="flex-1">
-                  <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    安裝里程 (KM)
-                  </Text>
-                  <TextInput
-                    value={installMileage}
-                    onChangeText={setInstallMileage}
-                    placeholder="例: 15000"
-                    placeholderTextColor="#52525b"
-                    keyboardType="numeric"
-                    className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
-                  />
-                </View>
+                <DatePickerInput
+                  label="安裝日期 INSTALL DATE"
+                  value={installDate}
+                  onChange={setInstallDate}
+                  maximumDate={new Date()}
+                  containerClassName="flex-1"
+                />
+              </View>
+
+              {/* 安裝里程 */}
+              <View className="mb-4">
+                <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
+                  安裝里程 (KM)
+                </Text>
+                <TextInput
+                  value={installMileage}
+                  onChangeText={setInstallMileage}
+                  placeholder="例: 15000"
+                  placeholderTextColor="#52525b"
+                  keyboardType="numeric"
+                  className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
+                />
               </View>
 
               {/* 料資與工資 */}

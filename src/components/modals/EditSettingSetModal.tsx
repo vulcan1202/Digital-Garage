@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { useUpdateSettingSet } from '../../hooks/queries/useModifications';
 import { ModificationSettingSetRow, ModificationSettingRow } from '../../types/database';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface EditSettingSetModalProps {
   visible: boolean;
@@ -161,18 +162,14 @@ export const EditSettingSetModal: React.FC<EditSettingSetModalProps> = ({
 
           {/* 紀錄日期與里程 */}
           <View className="flex-row gap-3 mb-4">
-            <View className="flex-1">
-              <Text className="text-xs font-mono text-metal-300 mb-1.5 uppercase">
-                紀錄日期 (YYYY-MM-DD) *
-              </Text>
-              <TextInput
-                value={recordedDate}
-                onChangeText={setRecordedDate}
-                placeholder="2026-09-15"
-                placeholderTextColor="#52525b"
-                className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm"
-              />
-            </View>
+            <DatePickerInput
+              label="紀錄日期 (YYYY-MM-DD)"
+              required
+              value={recordedDate}
+              onChange={setRecordedDate}
+              maximumDate={new Date()}
+              containerClassName="flex-1"
+            />
 
             <View className="flex-1">
               <Text className="text-xs font-mono text-metal-300 mb-1.5 uppercase">

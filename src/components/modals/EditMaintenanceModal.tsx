@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { useUpdateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordRow, MaintenanceRecordType } from '../../types/database';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface EditMaintenanceModalProps {
   visible: boolean;
@@ -179,16 +180,14 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
             {/* 日期與里程 */}
             <View className="flex-row gap-3 mb-4">
-              <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-400 mb-1.5">施作日期 (YYYY-MM-DD)</Text>
-                <TextInput
-                  value={serviceDate}
-                  onChangeText={setServiceDate}
-                  placeholder="2024-01-01"
-                  placeholderTextColor="#64748B"
-                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
-                />
-              </View>
+              <DatePickerInput
+                label="施作日期 SERVICE DATE"
+                required
+                value={serviceDate}
+                onChange={setServiceDate}
+                maximumDate={new Date()}
+                containerClassName="flex-1"
+              />
               <View className="flex-1">
                 <Text className="text-xs font-semibold text-slate-400 mb-1.5">當前里程 (KM) *</Text>
                 <TextInput

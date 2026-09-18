@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useUpdateRefuel } from '../../hooks/queries/useFuel';
 import { RefuelRow, FuelType } from '../../types/database';
+import { DatePickerInput } from '../common/DatePickerInput';
 
 interface EditRefuelModalProps {
   visible: boolean;
@@ -149,16 +150,14 @@ export const EditRefuelModal: React.FC<EditRefuelModalProps> = ({
           >
             {/* 日期與里程 */}
             <View className="flex-row gap-3 mb-4">
-              <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-400 mb-1.5">加油日期 (YYYY-MM-DD)</Text>
-                <TextInput
-                  value={refuelDate}
-                  onChangeText={setRefuelDate}
-                  placeholder="2024-01-01"
-                  placeholderTextColor="#64748B"
-                  className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
-                />
-              </View>
+              <DatePickerInput
+                label="加油日期 DATE"
+                required
+                value={refuelDate}
+                onChange={setRefuelDate}
+                maximumDate={new Date()}
+                containerClassName="flex-1"
+              />
               <View className="flex-1">
                 <Text className="text-xs font-semibold text-slate-400 mb-1.5">當前里程 (KM) *</Text>
                 <TextInput
