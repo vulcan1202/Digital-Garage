@@ -12,6 +12,7 @@ jest.mock('../networkMonitor', () => ({
   networkMonitor: {
     notifyOnline: jest.fn(),
     notifyOffline: jest.fn(),
+    recordLatency: jest.fn(),
   },
 }));
 

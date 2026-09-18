@@ -40,13 +40,15 @@ export async function requestApi<T>(endpoint: string, options: RequestInit = {})
   };
 
   let response: Response;
+  const startTime = Date.now();
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
-    // 網路連線正常
-    networkMonitor.notifyOnline();
+    // 附帶測速 (Piggyback Strategy)：記錄真實業務 API 請求耗時
+    const latency = Date.now() - startTime;
+    networkMonitor.recordLatency(latency);
   } catch (netErr: unknown) {
     // 網路連線中斷或伺服器不可達
     networkMonitor.notifyOffline();

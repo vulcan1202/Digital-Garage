@@ -42,7 +42,7 @@ import { ModificationsTab } from '../components/garage/ModificationsTab';
 import { PhotosHubTab } from '../components/garage/PhotosHubTab';
 import { AnalyticsTab } from '../components/garage/AnalyticsTab';
 import { RemindersTab } from '../components/garage/RemindersTab';
-import { networkMonitor } from '../services/networkMonitor';
+import { networkMonitor, ServerStatusInfo, SERVER_REGION_CODE } from '../services/networkMonitor';
 import { syncQueue } from '../services/syncQueue';
 
 export type VehicleHubTab = 'overview' | 'records' | 'modifications' | 'photos' | 'analytics' | 'reminders';
@@ -88,13 +88,13 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
 
   // 離線與同步狀態管理
-  const [isOnline, setIsOnline] = useState(networkMonitor.getIsOnline());
+  const [serverStatus, setServerStatus] = useState<ServerStatusInfo>(networkMonitor.getServerStatus());
   const [syncQueueItems, setSyncQueueItems] = useState(syncQueue.getQueue());
   const [failedSyncItems, setFailedSyncItems] = useState(syncQueue.getFailedMutations());
 
   useEffect(() => {
-    const unsubNet = networkMonitor.addListener((online) => {
-      setIsOnline(online);
+    const unsubNet = networkMonitor.addListener((_, status) => {
+      setServerStatus(status || networkMonitor.getServerStatus());
     });
     const unsubQueue = syncQueue.subscribe(() => {
       setSyncQueueItems(syncQueue.getQueue());
@@ -106,7 +106,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
     };
   }, []);
 
-  const handleStatusBadgePress = () => {
+  const handleStatusBadgePress = async () => {
     if (failedSyncItems.length > 0) {
       const details = failedSyncItems
         .slice(0, 5)
@@ -133,15 +133,44 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
           { text: '稍後處理', style: 'cancel' },
         ]
       );
-    } else if (!isOnline) {
+    } else if (!serverStatus.isOnline) {
       Alert.alert(
-        '離線模式',
-        `目前處於離線狀態。\n待同步佇列：${syncQueueItems.length} 筆操作\n恢復連線後將自動於背景上傳。`
+        '🔴 離線模式',
+        `目前處於離線狀態。\n待同步佇列：${syncQueueItems.length} 筆操作\n恢復連線後將自動於背景上傳。`,
+        [
+          {
+            text: '手動探活重試',
+            onPress: async () => {
+              const updated = await networkMonitor.checkHealthZeroCost();
+              if (updated.isOnline) {
+                Alert.alert('🟢 恢復連線', `已重新連線至 ${updated.region}\n延遲：${updated.latencyMs ?? '--'} ms`);
+              } else {
+                Alert.alert('無法連線', '伺服器仍未回應，請檢查網路環境');
+              }
+            },
+          },
+          { text: '確定', style: 'cancel' },
+        ]
       );
     } else if (syncQueueItems.length > 0) {
       Alert.alert('佇列同步中', `正在同步 ${syncQueueItems.length} 筆離線操作至車庫雲端伺服器...`);
     } else {
-      Alert.alert('雲端連線正常', '已與數位車庫後端伺服器建立正常連線，資料即時同步中。');
+      Alert.alert(
+        '🟢 雲端連線正常',
+        `節點位置：${serverStatus.region}\n即時往返延遲：${
+          serverStatus.latencyMs !== null ? `${serverStatus.latencyMs} ms` : '計算中 (等待業務請求)'
+        }\n資料傳輸策略：附帶測速 (Piggyback) 0 額外流量`,
+        [
+          {
+            text: '手動探活測速',
+            onPress: async () => {
+              const updated = await networkMonitor.checkHealthZeroCost();
+              Alert.alert('探活結果', `節點：${updated.region}\n往返延遲：${updated.latencyMs ?? '--'} ms (HEAD 0 封包傳輸)`);
+            },
+          },
+          { text: '關閉', style: 'cancel' },
+        ]
+      );
     }
   };
 
@@ -419,9 +448,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 ? 'bg-red-500/15 border-red-500/40'
                 : syncQueueItems.length > 0
                 ? 'bg-cyan-500/15 border-cyan-500/40'
-                : isOnline
-                ? 'bg-white/[0.04] border-white/10'
-                : 'bg-amber-500/15 border-amber-500/40'
+                : serverStatus.isOnline
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-red-500/15 border-red-500/40'
             }`}
           >
             <View
@@ -430,9 +459,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   ? 'bg-red-500'
                   : syncQueueItems.length > 0
                   ? 'bg-cyan-400'
-                  : isOnline
-                  ? 'bg-racing-green'
-                  : 'bg-amber-400'
+                  : serverStatus.isOnline
+                  ? 'bg-emerald-400'
+                  : 'bg-red-500'
               }`}
             />
             <Text
@@ -441,18 +470,18 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   ? 'text-red-400'
                   : syncQueueItems.length > 0
                   ? 'text-cyan-300'
-                  : isOnline
-                  ? 'text-metal-300'
-                  : 'text-amber-300'
+                  : serverStatus.isOnline
+                  ? 'text-emerald-300'
+                  : 'text-red-400'
               }`}
             >
               {failedSyncItems.length > 0
                 ? `ERR (${failedSyncItems.length})`
                 : syncQueueItems.length > 0
                 ? `SYNC (${syncQueueItems.length})`
-                : isOnline
-                ? 'ONLINE'
-                : 'OFFLINE'}
+                : serverStatus.isOnline
+                ? `連線正常 | ${SERVER_REGION_CODE}${serverStatus.latencyMs !== null ? ` | ${serverStatus.latencyMs}ms` : ''}`
+                : '離線模式 (暫存本機)'}
             </Text>
           </TouchableOpacity>
 

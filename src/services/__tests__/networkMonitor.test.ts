@@ -20,13 +20,13 @@ describe('networkMonitor service', () => {
     const listener = jest.fn();
     const unsub = networkMonitor.addListener(listener);
 
-    // 註冊時應立即收到當前狀態 (true)
-    expect(listener).toHaveBeenCalledWith(true);
+    // 註冊時應立即收到當前狀態 (true, serverStatus)
+    expect(listener).toHaveBeenCalledWith(true, expect.objectContaining({ isOnline: true }));
 
     // 通知離線
     networkMonitor.notifyOffline();
     expect(networkMonitor.getIsOnline()).toBe(false);
-    expect(listener).toHaveBeenCalledWith(false);
+    expect(listener).toHaveBeenCalledWith(false, expect.objectContaining({ isOnline: false }));
 
     // 再次通知離線 (重複狀態不應重複通知)
     listener.mockClear();
@@ -36,7 +36,7 @@ describe('networkMonitor service', () => {
     // 通知上線
     networkMonitor.notifyOnline();
     expect(networkMonitor.getIsOnline()).toBe(true);
-    expect(listener).toHaveBeenCalledWith(true);
+    expect(listener).toHaveBeenCalledWith(true, expect.objectContaining({ isOnline: true }));
 
     unsub();
   });
@@ -49,6 +49,35 @@ describe('networkMonitor service', () => {
     unsub();
     networkMonitor.notifyOffline();
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('recordLatency 應正確更新延遲數值、時間戳與在線狀態', () => {
+    networkMonitor.setOnline(false);
+    expect(networkMonitor.getLatencyMs()).toBeNull();
+
+    networkMonitor.recordLatency(168);
+    expect(networkMonitor.getIsOnline()).toBe(true);
+    expect(networkMonitor.getLatencyMs()).toBe(168);
+
+    const status = networkMonitor.getServerStatus();
+    expect(status.latencyMs).toBe(168);
+    expect(status.region).toContain('us-central1');
+    expect(status.lastUpdated).toBeInstanceOf(Date);
+  });
+
+  it('checkHealthZeroCost 應透過 HEAD 方法發送零 Body 探活並更新延遲', async () => {
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({
+      status: 204,
+      ok: true,
+    });
+
+    const status = await networkMonitor.checkHealthZeroCost();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/health'),
+      expect.objectContaining({ method: 'HEAD' })
+    );
+    expect(status.isOnline).toBe(true);
+    expect(typeof status.latencyMs).toBe('number');
   });
 
   it('checkConnectivity 當 fetch 成功時應確認為連線狀態', async () => {

@@ -66,6 +66,12 @@ func main() {
 	// API 路由
 	r.Route("/api/v1", func(api chi.Router) {
 		// 健康檢查 (免認證)
+		// HEAD /health: 極輕量零傳輸探活，不連線資料庫，不回傳 Body，出網流量為 0
+		api.Head("/health", func(w http.ResponseWriter, r *http.Request) {
+			response.NoContent(w)
+		})
+
+		// GET /health: 完整健康檢查，包含資料庫連線狀態檢測
 		api.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			dbStatus := "disconnected"
 			if pool != nil {

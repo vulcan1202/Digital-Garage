@@ -1,9 +1,21 @@
 import { onlineManager } from '@tanstack/react-query';
 
-type NetworkListener = (isOnline: boolean) => void;
+export interface ServerStatusInfo {
+  isOnline: boolean;
+  region: string; // 靜態常數: 'us-central1 (北美愛荷華)'
+  latencyMs: number | null;
+  lastUpdated: Date | null;
+}
+
+export const SERVER_REGION = 'us-central1 (北美愛荷華)';
+export const SERVER_REGION_CODE = 'us-central1';
+
+type NetworkListener = (isOnline: boolean, serverStatus?: ServerStatusInfo) => void;
 
 class NetworkMonitor {
   private isOnline: boolean = true;
+  private latencyMs: number | null = null;
+  private lastUpdated: Date | null = null;
   private listeners: Set<NetworkListener> = new Set();
   private isChecking: boolean = false;
   private checkUrl: string;
@@ -32,7 +44,7 @@ class NetworkMonitor {
   public addListener(listener: NetworkListener): () => void {
     this.listeners.add(listener);
     // 立即通知當前狀態
-    listener(this.isOnline);
+    listener(this.isOnline, this.getServerStatus());
     return () => {
       this.listeners.delete(listener);
     };
@@ -46,12 +58,52 @@ class NetworkMonitor {
   }
 
   /**
+   * 取得當前伺服器狀態與延遲資訊
+   */
+  public getServerStatus(): ServerStatusInfo {
+    return {
+      isOnline: this.isOnline,
+      region: SERVER_REGION,
+      latencyMs: this.latencyMs,
+      lastUpdated: this.lastUpdated,
+    };
+  }
+
+  /**
+   * 取得最新的往返延遲 (毫秒)
+   */
+  public getLatencyMs(): number | null {
+    return this.latencyMs;
+  }
+
+  /**
+   * 記錄由真實業務 API 請求所附帶測量出的往返耗時 (Piggyback Strategy)
+   */
+  public recordLatency(durationMs: number) {
+    // 僅在合法正整數範圍內更新
+    if (typeof durationMs === 'number' && durationMs >= 0) {
+      this.latencyMs = Math.round(durationMs);
+      this.lastUpdated = new Date();
+      if (!this.isOnline) {
+        this.isOnline = true;
+        onlineManager.setOnline(true);
+      }
+      this.notifyListeners();
+    }
+  }
+
+  /**
    * 設定連線狀態並發佈事件
    */
   public setOnline(status: boolean) {
-    if (this.isOnline !== status) {
+    const statusChanged = this.isOnline !== status;
+    if (statusChanged) {
       this.isOnline = status;
       onlineManager.setOnline(status);
+      if (!status) {
+        this.latencyMs = null;
+      }
+      this.lastUpdated = new Date();
       this.notifyListeners();
     }
   }
@@ -75,6 +127,45 @@ class NetworkMonitor {
   }
 
   /**
+   * 手動極簡探活 (Zero-Cost Strategy)：
+   * 僅在使用者手動觸發連線重試時呼叫。
+   * 透過 HEAD /health 執行零傳輸 Body 探活，更新延遲與在線狀態，不消耗雲端運算與頻寬。
+   */
+  public async checkHealthZeroCost(): Promise<ServerStatusInfo> {
+    const startTime = Date.now();
+    let timeoutId: any;
+    try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 4000);
+      if (timeoutId && typeof timeoutId.unref === 'function') {
+        timeoutId.unref();
+      }
+
+      const res = await fetch(`${this.checkUrl}/health`, {
+        method: 'HEAD',
+        signal: controller.signal,
+      });
+
+      const latency = Date.now() - startTime;
+      if (res.status > 0) {
+        this.isOnline = true;
+        onlineManager.setOnline(true);
+        this.recordLatency(latency);
+      } else {
+        this.setOnline(false);
+      }
+    } catch {
+      this.setOnline(false);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    return this.getServerStatus();
+  }
+
+  /**
    * 輕量連線檢查 (帶 3.5s 超時保護，避免掛起)
    */
   public async checkConnectivity(): Promise<boolean> {
@@ -89,14 +180,12 @@ class NetworkMonitor {
         timeoutId.unref();
       }
 
-      // 發送 HEAD 或 GET 請求至後端伺服器 (若失敗則標記離線)
-      const res = await fetch(`${this.checkUrl}/vehicles`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
+      // 發送 HEAD /health 請求至後端伺服器 (若失敗則標記離線)
+      const res = await fetch(`${this.checkUrl}/health`, {
+        method: 'HEAD',
         signal: controller.signal,
       });
 
-      // 只要伺服器有回應 (無論 200, 401, 403 均代表網路通暢)
       const reachable = res.status > 0;
       this.setOnline(reachable);
       return reachable;
@@ -112,9 +201,10 @@ class NetworkMonitor {
   }
 
   private notifyListeners() {
+    const serverStatus = this.getServerStatus();
     this.listeners.forEach((listener) => {
       try {
-        listener(this.isOnline);
+        listener(this.isOnline, serverStatus);
       } catch (err) {
         console.warn('[networkMonitor] listener execution error:', err);
       }
@@ -123,3 +213,4 @@ class NetworkMonitor {
 }
 
 export const networkMonitor = new NetworkMonitor();
+
