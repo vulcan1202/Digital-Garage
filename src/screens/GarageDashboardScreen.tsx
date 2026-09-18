@@ -157,15 +157,15 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
     } else {
       Alert.alert(
         '🟢 雲端連線正常',
-        `節點位置：${serverStatus.region}\n即時往返延遲：${
+        `節點位置：${serverStatus.region}\nPing(延遲)：${
           serverStatus.latencyMs !== null ? `${serverStatus.latencyMs} ms` : '計算中 (等待業務請求)'
-        }\n資料傳輸策略：附帶測速 (Piggyback) 0 額外流量`,
+        }`,
         [
           {
             text: '手動探活測速',
             onPress: async () => {
               const updated = await networkMonitor.checkHealthZeroCost();
-              Alert.alert('探活結果', `節點：${updated.region}\n往返延遲：${updated.latencyMs ?? '--'} ms (HEAD 0 封包傳輸)`);
+              Alert.alert('探活結果', `節點：${updated.region}\nPing(延遲)：${updated.latencyMs ?? '--'} ms (HEAD 0 封包傳輸)`);
             },
           },
           { text: '關閉', style: 'cancel' },
@@ -480,7 +480,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 : syncQueueItems.length > 0
                 ? `SYNC (${syncQueueItems.length})`
                 : serverStatus.isOnline
-                ? `連線正常 | ${SERVER_REGION_CODE}${serverStatus.latencyMs !== null ? ` | ${serverStatus.latencyMs}ms` : ''}`
+                ? '連線正常'
                 : '離線模式 (暫存本機)'}
             </Text>
           </TouchableOpacity>
