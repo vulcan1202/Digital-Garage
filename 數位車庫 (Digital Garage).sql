@@ -25,14 +25,6 @@ DROP TYPE IF EXISTS "fuel_type" CASCADE;
 DROP TYPE IF EXISTS "maintenance_record_type" CASCADE;
 DROP TYPE IF EXISTS "reminder_status" CASCADE;
 
--- 清空媒體儲存桶物件 (若存在)
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'storage' AND table_name = 'objects') THEN
-    DELETE FROM storage.objects WHERE bucket_id = 'vehicle-media';
-  END IF;
-END $$;
-
 
 -- ==========================================
 -- 1. ENUMS 定義
