@@ -7,7 +7,7 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Google Cloud Run](https://img.shields.io/badge/Cloud%20Run-us--central1-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
-[![Tests](https://img.shields.io/badge/Tests-150%2F150%20Pass-brightgreen)](./documentation/testing-and-qa.md)
+[![Tests](https://img.shields.io/badge/Tests-152%2F152%20Pass-brightgreen)](./documentation/testing-and-qa.md)
 
 ---
 
@@ -83,6 +83,11 @@
 ### 6. 雲端零流量費架構 (Cloud Run `us-central1`)
 * 後端 API 全面部署於 Google Cloud Run `us-central1` 區域，與 Supabase 雲端資料庫保持同區/最優路徑傳輸，消除跨區網路流量衍生費用。
 
+### 7. 伺服器狀態與無感延遲監測 (Server Status & Piggyback Latency Monitor - P2-2.7)
+* **零成本附帶測速 (Zero-Cost Piggyback)**：完全捨棄背景輪詢（No Polling），不產生額外 Cloud Run vCPU 與網路流量計費；透過前端網路攔截層於使用者正常業務操作時附帶測量真實 RTT 往返延遲。
+* **極簡 HTTP 204 HEAD 探活**：提供手動點擊即時刷新機制，後端回傳零 Payload 的 HTTP 204 No Content，極致輕量無負擔。
+* **Dark-Metal 狀態膠囊**：首頁座艙即時呈現伺服器連線狀態（在線/離線）、真實延遲毫秒（ms）與部署節點（`us-central1`），具備綠/黃/紅三段式健康色階與網路中斷自適應。
+
 ---
 
 ## 核心技術棧 (Tech Stack)
@@ -128,6 +133,7 @@
 | **P2-2** | Recurring Expenses (出廠日連動、公路養管費正名、台灣排程預填) | ✅ Completed |
 | **P2-2.5** | Global DatePicker (全域 Dark-Metal 日期選擇器、出廠年份解析) | ✅ Completed |
 | **P2-2.6** | Statutory Alignment (原發照日 YYYY-MM-DD 與出廠年月 YYYY-MM 雙軌對齊、定檢推算、Cloud Run 部署至 us-central1) | ✅ Completed |
+| **P2-2.7** | Server Status & Latency Monitor (零成本附帶測速、極簡 HEAD 204 探活、Dark-Metal 狀態膠囊與節點可觀測性) | ✅ Completed |
 
 ---
 
@@ -142,7 +148,7 @@ npm install
 # 執行靜態型別檢查
 npm run typecheck
 
-# 執行 Jest 單元測試套件 (26 Suites / 150 Tests)
+# 執行 Jest 單元測試套件 (26 Suites / 152 Tests)
 npm test -- --watchAll=false
 
 # 啟動 Expo 本地開發伺服器
@@ -180,12 +186,14 @@ subst X: /d
 ```
 
 ### 產出發布安裝包
-* **APK 檔案路徑**：`android/app/build/outputs/apk/release/app-release.apk`
+* **專案根目錄直接存取**：
+  * `數位車庫_DigitalGarage.apk`（約 `82.1 MB`）
+  * `app-release.apk`（約 `82.1 MB`）
+* **Gradle 原始建置路徑**：`android/app/build/outputs/apk/release/app-release.apk`
 * **封裝架構**：整合 `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` 原生函式庫
-* **檔案大小**：約 `82.1 MB`
 * **安裝方式**：可直接傳輸至 Android 手機點擊安裝，或透過 ADB 安裝：
   ```bash
-  adb install -r android/app/build/outputs/apk/release/app-release.apk
+  adb install -r 數位車庫_DigitalGarage.apk
   ```
 
 ---

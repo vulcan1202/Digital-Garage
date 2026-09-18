@@ -11,14 +11,14 @@
 測試項目                                    測試規模 / 結果
 ======================================================================
 TypeScript Static Typecheck (tsc)          PASS (0 Errors, 全專案型別零錯誤)
-Frontend Jest Test Suites (npm test)       PASS (26 Suites / 145 Tests 全數通過)
+Frontend Jest Test Suites (npm test)       PASS (26 Suites / 152 Tests 全數通過)
 Backend Go Test Suites (go test)           PASS (100% Passed)
 Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk, 82.08 MB)
-Cloud Run API Health Endpoint              PASS (200 OK)
+Cloud Run API Health Endpoint              PASS (GET 200 OK / HEAD 204 No Content)
 ======================================================================
 ```
 
-### P1-7 & P2-2 & P2-2.5 QA 15 大維度審查涵蓋範圍
+### P1-7 & P2-2 & P2-2.5 & P2-2.7 QA 16 大維度審查涵蓋範圍
 1. **Database Integrity**：外鍵串聯、唯一約束、檢查約束及觸發器完整性。
 2. **RLS / Multi-tenant Security**：跨用戶與跨階層資料隔離驗證。
 3. **API Contract / Validation**：400/401/403/404/409 錯誤狀態碼合約與欄位防禦。
@@ -34,6 +34,7 @@ Cloud Run API Health Endpoint              PASS (200 OK)
 13. **Stress / Boundary Stability**：快照 20 筆上限截斷與記憶體保護。
 14. **Recurring Expenses & Month Clamping**：規費生命週期、智慧預填、出廠日交易連動與月末天數防溢位截斷。
 15. **Global DatePicker & Vehicle Date Sync**：Dark-Metal 日期挑選器封裝、出廠年份自動解析、西元前導補零與未來日期防護邊界。
+16. **Server Status & Piggyback Latency**：零輪詢附帶測速、極簡 HEAD 204 探活、即時 RTT 延遲計算與網路中斷離線自適應。
 
 ---
 
