@@ -58,25 +58,36 @@ describe('recurringCalculator', () => {
   describe('Taiwan Regulatory Smart Pre-Fill', () => {
     const carUnder5 = {
       year: 2024,
-      manufacture_date: '2024-05-15',
+      manufacture_date: '2024-05',
+      registration_date: '2024-05-15',
       vehicle_type: 'car',
     };
 
     const car7Years = {
       year: 2019,
-      manufacture_date: '2019-06-20',
+      manufacture_date: '2019-06',
+      registration_date: '2019-06-20',
+      vehicle_type: 'car',
+    };
+
+    const carFallback = {
+      year: 2019,
+      manufacture_date: '2019-06',
+      registration_date: null,
       vehicle_type: 'car',
     };
 
     const car11Years = {
       year: 2015,
-      manufacture_date: '2015-05-10',
+      manufacture_date: '2015-05',
+      registration_date: '2015-05-10',
       vehicle_type: 'car',
     };
 
     const motorcycle = {
       year: 2020,
-      manufacture_date: '2020-08-10',
+      manufacture_date: '2020-08',
+      registration_date: '2020-08-10',
       vehicle_type: 'motorcycle',
     };
 
@@ -102,20 +113,39 @@ describe('recurringCalculator', () => {
       expect(res.paidDate).toBe('2026-07-15');
     });
 
-    it('TC-REC-04: 車齡 7 年汽車（5~10 年）每年定檢 1 次，前後 1 個月檢驗窗口', () => {
+    it('TC-REC-04: 車齡 7 年汽車（5~10 年）依 registration_date 月日為基準，前後 1 個月檢驗窗口', () => {
       const today = new Date(2026, 4, 1); // 2026-05-01
       const res = calculateInspectionPreFill(car7Years, today);
 
       expect(res.category).toBe('inspection');
       expect(res.title).toBe('2026年 定期檢驗');
       expect(res.defaultAmount).toBe(450);
-      // 出廠日為 06-20，基準日前後各 1 個月為 05-20 至 07-20
+      // 原發照日為 06-20，基準日前後各 1 個月為 05-20 至 07-20
       expect(res.coverageStartDate).toBe('2026-05-20');
       expect(res.coverageEndDate).toBe('2026-07-20');
+      expect(res.notice).toContain('2019-06-20');
+    });
+
+    it('TC-REC-04-FALLBACK: 若車輛無 registration_date，退回出廠年月 1 日並顯示補填警示', () => {
+      const today = new Date(2026, 4, 1);
+      const res = calculateInspectionPreFill(carFallback, today);
+
+      expect(res.category).toBe('inspection');
+      expect(res.title).toBe('2026年 定期檢驗');
+      expect(res.coverageStartDate).toBe('2026-05-01');
+      expect(res.coverageEndDate).toBe('2026-07-01');
+      expect(res.notice).toContain('尚未設定行照原發照日');
+    });
+
+    it('TC-REC-04-NEW: 未滿 5 年之新車顯示免定檢及預估 5 年檢驗窗口提示', () => {
+      const today = new Date(2026, 4, 1);
+      const res = calculateInspectionPreFill(carUnder5, today);
+
+      expect(res.notice).toContain('出廠未滿 5 年新車依法免定檢');
     });
 
     it('TC-REC-05: 車齡 11 年汽車（滿 10 年）每年兩驗，下半期窗口自動切換', () => {
-      // 5 月出廠，上半期窗口 04-10 ~ 06-10。若今日為 8 月，切換至下半期 11 月 (10-10 ~ 12-10)
+      // 5 月出廠/發照，上半期窗口 04-10 ~ 06-10。若今日為 8 月，切換至下半期 11 月 (10-10 ~ 12-10)
       const todayInAugust = new Date(2026, 7, 20); // 2026-08-20
       const res = calculateInspectionPreFill(car11Years, todayInAugust);
 

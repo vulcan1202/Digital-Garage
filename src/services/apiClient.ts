@@ -4,7 +4,7 @@ import { networkMonitor } from './networkMonitor';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'https://digital-garage-api-997244262524.asia-east1.run.app/api/v1';
+  'https://digital-garage-api-997244262524.us-central1.run.app/api/v1';
 
 /**
  * 產生合規之 UUID v4 作為客戶端請求關聯識別碼

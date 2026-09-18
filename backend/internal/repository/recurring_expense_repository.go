@@ -125,8 +125,19 @@ func (r *RecurringExpenseRepository) Create(ctx context.Context, userID string, 
 		return nil, fmt.Errorf("failed to lock vehicle: %w", err)
 	}
 
-	// 2. 若勾選同步出廠日，更新 Vehicles 表
-	if req.SyncAsManufactureDate != nil && *req.SyncAsManufactureDate != "" {
+	// 2. 若勾選同步行照原發照日，更新 Vehicles 表
+	if req.SyncAsRegistrationDate != nil && *req.SyncAsRegistrationDate != "" {
+		updateRegQuery := `
+			UPDATE "Vehicles"
+			SET registration_date = $1::date, updated_at = now()
+			WHERE id = $2 AND user_id = $3;
+		`
+		_, err = tx.Exec(ctx, updateRegQuery, *req.SyncAsRegistrationDate, vehicleID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sync registration_date in transaction: %w", err)
+		}
+	} else if req.SyncAsManufactureDate != nil && *req.SyncAsManufactureDate != "" {
+		// 舊版向後相容
 		updateMfgQuery := `
 			UPDATE "Vehicles"
 			SET manufacture_date = $1::date, updated_at = now()

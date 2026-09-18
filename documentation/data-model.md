@@ -29,7 +29,7 @@ auth.users
 
 | 資料表名稱 | 說明 | 關鍵限制與外部鍵約束 |
 | :--- | :--- | :--- |
-| `Vehicles` | 車輛主表 | `user_id -> auth.users`, `current_mileage >= initial_mileage`, 支援 `manufacture_date` |
+| `Vehicles` | 車輛主表 | `user_id -> auth.users`, `current_mileage >= initial_mileage`, 支援出廠年月 `manufacture_date` 與行照原發照日 `registration_date` (皆有 `<= CURRENT_DATE` 約束) |
 | `VehiclePhotos` | 車輛照片表 | `vehicle_id -> Vehicles (CASCADE)`, 單一封面唯一約束 |
 | `Refuels` | 加油紀錄表 | `vehicle_id -> Vehicles (CASCADE)`, `volume > 0`, `total_cost >= 0` |
 | `MaintenanceRecords` | 保養與維修表 | `vehicle_id -> Vehicles (CASCADE)`, `record_type IN ('maintenance', 'repair')` |

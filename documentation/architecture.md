@@ -58,7 +58,7 @@
 * **JWT 解析與驗證**：`github.com/golang-jwt/jwt/v5` (`v5.3.1`)
 
 ### 雲端基礎設施 (Cloud Services)
-* **運算平台**：Google Cloud Run（部署區域：`asia-east1` 台灣彰化）
+* **運算平台**：Google Cloud Run（部署區域：`us-central1` 美國中部）
 * **資料庫**：Supabase PostgreSQL 15
 * **使用者身分驗證**：Supabase Auth
 * **物件儲存**：Supabase Storage Bucket

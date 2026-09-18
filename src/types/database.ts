@@ -60,7 +60,8 @@ export type VehicleRow = {
   model: string;
   vehicle_type: VehicleType;
   year: number | null;
-  manufacture_date: string | null; // date
+  manufacture_date: string | null; // date (出廠年月 YYYY-MM-01)
+  registration_date: string | null; // date (原發照日 YYYY-MM-DD)
   purchase_date: string | null; // date
   purchase_price: number | null;
   fuel_type: FuelType | null;
@@ -80,6 +81,7 @@ export type VehicleInsert = {
   vehicle_type: VehicleType; // 必填，不可預設
   year?: number | null;
   manufacture_date?: string | null;
+  registration_date?: string | null;
   purchase_date?: string | null;
   purchase_price?: number | null;
   fuel_type?: FuelType | null;
@@ -99,6 +101,7 @@ export type VehicleUpdate = {
   vehicle_type?: VehicleType;
   year?: number | null;
   manufacture_date?: string | null;
+  registration_date?: string | null;
   purchase_date?: string | null;
   purchase_price?: number | null;
   fuel_type?: FuelType | null;
@@ -471,6 +474,7 @@ export type RecurringExpenseInsert = {
   coverage_start_date: string;
   coverage_end_date: string;
   notes?: string | null;
+  sync_as_registration_date?: string | null;
   sync_as_manufacture_date?: string | null;
   created_at?: string;
   updated_at?: string;

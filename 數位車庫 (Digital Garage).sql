@@ -79,6 +79,7 @@ CREATE TABLE "Vehicles" (
   "vehicle_type" varchar NOT NULL CHECK ("vehicle_type" IN ('car', 'motorcycle', 'other')),
   "year" integer,
   "manufacture_date" date CHECK ("manufacture_date" IS NULL OR "manufacture_date" <= CURRENT_DATE),
+  "registration_date" date CHECK ("registration_date" IS NULL OR "registration_date" <= CURRENT_DATE),
   "purchase_date" date,
   "purchase_price" decimal(12,2) CHECK ("purchase_price" IS NULL OR "purchase_price" >= 0),
   "fuel_type" fuel_type,

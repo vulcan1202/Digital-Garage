@@ -37,8 +37,9 @@ type CreateRecurringExpenseRequest struct {
 	PaidDate              string  `json:"paid_date"`
 	CoverageStartDate     string  `json:"coverage_start_date"`
 	CoverageEndDate       string  `json:"coverage_end_date"`
-	Notes                 *string `json:"notes"`
-	SyncAsManufactureDate *string `json:"sync_as_manufacture_date"` // 可選：若勾選同步設為出廠日，於同一事務內更新 Vehicles 表
+	Notes                  *string `json:"notes"`
+	SyncAsRegistrationDate *string `json:"sync_as_registration_date"` // 可選：若勾選同步設為行照原發照日，於同一事務內更新 Vehicles 表
+	SyncAsManufactureDate  *string `json:"sync_as_manufacture_date"`  // 舊版相容：若勾選同步設為出廠日
 }
 
 // UpdateRecurringExpenseRequest 更新規費紀錄 Payload

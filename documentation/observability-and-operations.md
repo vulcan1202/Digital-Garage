@@ -17,7 +17,7 @@
                             │ X-Request-ID Header
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│             Go Backend (Cloud Run asia-east1)          │
+│             Go Backend (Cloud Run us-central1)         │
 │  - RequestID Middleware: 零信任校驗 (8~64字元安全字元) │
 │  - 回應標頭權威回寫 (X-Request-ID / Access-Control)     │
 │  - log/slog Google Cloud Logging JSON 規格結構化日誌   │

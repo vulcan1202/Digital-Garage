@@ -11,7 +11,7 @@ class NetworkMonitor {
   constructor() {
     this.checkUrl =
       process.env.EXPO_PUBLIC_API_URL ||
-      'https://digital-garage-api-997244262524.asia-east1.run.app/api/v1';
+      'https://digital-garage-api-997244262524.us-central1.run.app/api/v1';
 
     // 初始化 TanStack Query 內部狀態
     onlineManager.setOnline(this.isOnline);

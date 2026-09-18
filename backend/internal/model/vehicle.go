@@ -9,8 +9,9 @@ type Vehicle struct {
 	Brand                string    `json:"brand"`
 	Model                string    `json:"model"`
 	Year                 *int      `json:"year"`
-	ManufactureDate      *string   `json:"manufacture_date"` // YYYY-MM-DD
-	PurchaseDate         *string   `json:"purchase_date"`    // YYYY-MM-DD
+	ManufactureDate      *string   `json:"manufacture_date"`  // YYYY-MM or YYYY-MM-DD
+	RegistrationDate     *string   `json:"registration_date"` // YYYY-MM-DD (原發照日)
+	PurchaseDate         *string   `json:"purchase_date"`     // YYYY-MM-DD
 	InitialMileage       int       `json:"initial_mileage"`
 	CurrentMileage       int       `json:"current_mileage"`
 	VehicleType          string    `json:"vehicle_type"`
@@ -40,6 +41,7 @@ type VehicleWithCover struct {
 	Model                string    `json:"model"`
 	Year                 *int      `json:"year"`
 	ManufactureDate      *string   `json:"manufacture_date"`
+	RegistrationDate     *string   `json:"registration_date"`
 	PurchaseDate         *string   `json:"purchase_date"`
 	InitialMileage       int       `json:"initial_mileage"`
 	CurrentMileage       int       `json:"current_mileage"`
@@ -66,6 +68,7 @@ type CreateVehicleRequest struct {
 	VehicleType          string   `json:"vehicle_type"` // 必填：car, motorcycle, other
 	Year                 *int     `json:"year"`
 	ManufactureDate      *string  `json:"manufacture_date"`
+	RegistrationDate     *string  `json:"registration_date"`
 	PurchaseDate         *string  `json:"purchase_date"`
 	PurchasePrice        *float64 `json:"purchase_price"`
 	FuelType             *string  `json:"fuel_type"`
@@ -82,6 +85,7 @@ type UpdateVehicleRequest struct {
 	VehicleType          *string  `json:"vehicle_type"`
 	Year                 *int     `json:"year"`
 	ManufactureDate      *string  `json:"manufacture_date"`
+	RegistrationDate     *string  `json:"registration_date"`
 	PurchaseDate         *string  `json:"purchase_date"`
 	PurchasePrice        *float64 `json:"purchase_price"`
 	FuelType             *string  `json:"fuel_type"`

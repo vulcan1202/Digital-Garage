@@ -11,8 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 export interface DatePickerInputProps {
   label: string;
-  value: string; // YYYY-MM-DD
+  value: string; // YYYY-MM-DD 或 YYYY-MM
   onChange: (dateStr: string) => void;
+  mode?: 'date' | 'month'; // 預設 'date'；若為 'month' 則僅選取 YYYY-MM
   maximumDate?: Date;
   minimumDate?: Date;
   placeholder?: string;
@@ -32,11 +33,26 @@ function formatDateStr(year: number, month: number, day: number): string {
   return `${year}-${padZero(month)}-${padZero(day)}`;
 }
 
+function formatMonthStr(year: number, month: number): string {
+  return `${year}-${padZero(month)}`;
+}
+
 function parseDateStr(str?: string): { year: number; month: number; day: number } {
-  if (str && /^\d{4}-\d{2}-\d{2}$/.test(str.trim())) {
-    const [y, m, d] = str.trim().split('-').map((v) => parseInt(v, 10));
-    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-      return { year: y, month: m, day: d };
+  if (str) {
+    const trimmed = str.trim();
+    // 支援 YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map((v) => parseInt(v, 10));
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return { year: y, month: m, day: d };
+      }
+    }
+    // 支援 YYYY-MM
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      const [y, m] = trimmed.split('-').map((v) => parseInt(v, 10));
+      if (!isNaN(y) && !isNaN(m)) {
+        return { year: y, month: m, day: 1 };
+      }
     }
   }
   const now = new Date();
@@ -51,20 +67,26 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   label,
   value,
   onChange,
+  mode = 'date',
   maximumDate,
   minimumDate,
-  placeholder = 'YYYY-MM-DD (點擊選取日期)',
+  placeholder,
   disabled = false,
   required = false,
   containerClassName = '',
   helperText,
 }) => {
+  const isMonthMode = mode === 'month';
+  const defaultPlaceholder = isMonthMode
+    ? 'YYYY-MM (點擊選取年月)'
+    : 'YYYY-MM-DD (點擊選取日期)';
+
   const [isOpen, setIsOpen] = useState(false);
 
   // 解析初始值或今日
   const parsed = useMemo(() => parseDateStr(value), [value]);
 
-  // 當前日曆瀏覽的 年 與 月
+  // 當前瀏覽的 年 與 月
   const [viewYear, setViewYear] = useState<number>(parsed.year);
   const [viewMonth, setViewMonth] = useState<number>(parsed.month);
 
@@ -72,7 +94,9 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   const [selected, setSelected] = useState<{ year: number; month: number; day: number }>(parsed);
 
   // 檢視模式：'calendar' 日曆 | 'yearPicker' 年份快選 | 'monthPicker' 月份快選
-  const [pickerMode, setPickerMode] = useState<'calendar' | 'yearPicker' | 'monthPicker'>('calendar');
+  const [pickerMode, setPickerMode] = useState<'calendar' | 'yearPicker' | 'monthPicker'>(
+    isMonthMode ? 'monthPicker' : 'calendar'
+  );
 
   const openPicker = () => {
     if (disabled) return;
@@ -80,18 +104,23 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     setViewYear(current.year);
     setViewMonth(current.month);
     setSelected(current);
-    setPickerMode('calendar');
+    setPickerMode(isMonthMode ? 'monthPicker' : 'calendar');
     setIsOpen(true);
   };
 
   const closePicker = () => {
     setIsOpen(false);
-    setPickerMode('calendar');
+    setPickerMode(isMonthMode ? 'monthPicker' : 'calendar');
   };
 
   const handleConfirm = () => {
-    const formatted = formatDateStr(selected.year, selected.month, selected.day);
-    onChange(formatted);
+    if (isMonthMode) {
+      const formattedMonth = formatMonthStr(viewYear, viewMonth);
+      onChange(formattedMonth);
+    } else {
+      const formattedDate = formatDateStr(selected.year, selected.month, selected.day);
+      onChange(formattedDate);
+    }
     closePicker();
   };
 
@@ -131,34 +160,50 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   };
 
-  // 檢查某日是否禁用 (超過 maximumDate 或低於 minimumDate)
+  // 取得當前 viewYear / viewMonth 的總天數與第 1 天星期
+  const daysInMonth = useMemo(() => {
+    return new Date(viewYear, viewMonth, 0).getDate();
+  }, [viewYear, viewMonth]);
+
+  const firstDayOfWeek = useMemo(() => {
+    return new Date(viewYear, viewMonth - 1, 1).getDay();
+  }, [viewYear, viewMonth]);
+
+  // 判斷日期是否超出邊界限制
   const isDateDisabled = useCallback(
-    (year: number, month: number, day: number) => {
-      const d = new Date(year, month - 1, day);
+    (y: number, m: number, d: number) => {
+      const current = new Date(y, m - 1, d);
       if (maximumDate) {
-        const max = new Date(maximumDate.getFullYear(), maximumDate.getMonth(), maximumDate.getDate(), 23, 59, 59);
-        if (d > max) return true;
+        const max = new Date(
+          maximumDate.getFullYear(),
+          maximumDate.getMonth(),
+          maximumDate.getDate(),
+          23,
+          59,
+          59
+        );
+        if (current > max) return true;
       }
       if (minimumDate) {
-        const min = new Date(minimumDate.getFullYear(), minimumDate.getMonth(), minimumDate.getDate(), 0, 0, 0);
-        if (d < min) return true;
+        const min = new Date(
+          minimumDate.getFullYear(),
+          minimumDate.getMonth(),
+          minimumDate.getDate(),
+          0,
+          0,
+          0
+        );
+        if (current < min) return true;
       }
       return false;
     },
     [maximumDate, minimumDate]
   );
 
-  // 當月天數與首日星期
-  const { daysInMonth, firstDayOfWeek } = useMemo(() => {
-    const days = new Date(viewYear, viewMonth, 0).getDate();
-    const firstDay = new Date(viewYear, viewMonth - 1, 1).getDay(); // 0 = Sun
-    return { daysInMonth: days, firstDayOfWeek: firstDay };
-  }, [viewYear, viewMonth]);
-
-  // 可選年份清單 (自 1980 至 當前年份 + 5 年)
+  // 年份清單（自 1900 年至當前年份 + 5 年）
   const yearList = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const startYear = 1980;
+    const startYear = 1970;
     const endYear = currentYear + 5;
     const list: number[] = [];
     for (let y = endYear; y >= startYear; y--) {
@@ -167,83 +212,69 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     return list;
   }, []);
 
-  // 格式化目前選定之完整字串以利頂部 Banner 提示
-  const selectedBannerText = useMemo(() => {
-    const d = new Date(selected.year, selected.month - 1, selected.day);
-    const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-    const weekday = dayNames[d.getDay()] || '';
-    return `${selected.year} 年 ${padZero(selected.month)} 月 ${padZero(selected.day)} 日 (${weekday})`;
-  }, [selected]);
-
   return (
     <View className={containerClassName}>
       {/* 標籤 Label */}
-      <View className="flex-row items-center mb-1.5">
-        <Text className="text-xs font-mono text-metal-400">
-          {label}
+      <View className="flex-row items-center justify-between mb-1.5">
+        <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider">
+          {label} {required && <Text className="text-racing-orange">*</Text>}
         </Text>
-        {required && <Text className="text-racing-red ml-1 text-xs">*</Text>}
       </View>
 
-      {/* 輸入觸發按鈕 Input Trigger */}
+      {/* 輸入框外觀觸控區 Touchable Trigger */}
       <TouchableOpacity
         onPress={openPicker}
         disabled={disabled}
         activeOpacity={0.7}
-        className={`p-3 rounded-xl border flex-row items-center justify-between ${
-          disabled ? 'bg-white/[0.02] border-white/5 opacity-50' : 'bg-white/[0.04] border-white/10'
-        }`}
+        className={`flex-row items-center justify-between bg-zinc-950 border ${
+          value ? 'border-cyan-500/50' : 'border-white/10'
+        } rounded-xl px-3.5 py-2.5 ${disabled ? 'opacity-40' : ''}`}
       >
-        <View className="flex-1 mr-2">
-          {value ? (
-            <Text className="text-white font-mono text-sm tracking-wide">{value}</Text>
-          ) : (
-            <Text className="text-metal-500 font-mono text-sm">{placeholder}</Text>
-          )}
-        </View>
-        <Ionicons name="calendar-outline" size={17} color="#06b6d4" />
+        <Text
+          className={`font-mono text-sm ${
+            value ? 'text-white font-semibold' : 'text-zinc-500'
+          }`}
+        >
+          {value || placeholder || defaultPlaceholder}
+        </Text>
+        <Ionicons
+          name={isMonthMode ? 'calendar-number-outline' : 'calendar-outline'}
+          size={18}
+          color={value ? '#06b6d4' : '#71717a'}
+        />
       </TouchableOpacity>
 
-      {helperText && (
-        <Text className="text-[10px] text-metal-500 font-mono mt-1 ml-0.5">{helperText}</Text>
-      )}
+      {/* 說明文字 Helper Text */}
+      {helperText ? (
+        <Text className="text-[10px] text-zinc-500 font-mono mt-1 px-1">
+          {helperText}
+        </Text>
+      ) : null}
 
-      {/* 日期選擇彈窗 DatePicker Modal */}
-      <Modal
-        visible={isOpen}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={closePicker}
-      >
+      {/* 日期/年月選擇彈窗 Modal */}
+      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={closePicker}>
         <TouchableWithoutFeedback onPress={closePicker}>
-          <View className="flex-1 bg-black/80 justify-center items-center px-4">
+          <View className="flex-1 justify-center items-center bg-black/75 px-4">
             <TouchableWithoutFeedback>
-              <View className="w-full max-w-sm bg-[#16181f] border border-white/15 rounded-2xl p-4 shadow-2xl">
-                {/* 彈窗標題與關閉按鈕 */}
-                <View className="flex-row items-center justify-between pb-3 border-b border-white/10">
-                  <View className="flex-row items-center">
-                    <Ionicons name="calendar" size={16} color="#06b6d4" />
-                    <Text className="text-white font-bold text-sm ml-2 font-mono">
-                      {label || '選取日期'}
+              <View className="w-full max-w-[340px] bg-metal-900 border border-white/15 rounded-2xl p-4 shadow-2xl">
+                {/* 頂部標題列 Header */}
+                <View className="flex-row items-center justify-between pb-3 mb-2 border-b border-white/10">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons
+                      name={isMonthMode ? 'calendar-number' : 'calendar'}
+                      size={18}
+                      color="#06b6d4"
+                    />
+                    <Text className="text-sm font-mono font-bold text-white tracking-wide">
+                      {isMonthMode ? '選取年月 MONTH PICKER' : '選取日期 DATE PICKER'}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={closePicker}
-                    className="p-1 rounded-full bg-white/5"
-                  >
-                    <Ionicons name="close" size={18} color="#94a3b8" />
+                  <TouchableOpacity onPress={closePicker} className="p-1">
+                    <Ionicons name="close" size={20} color="#a1a1aa" />
                   </TouchableOpacity>
                 </View>
 
-                {/* 當前已選日期顯示 Banner */}
-                <View className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-2.5 my-3 items-center">
-                  <Text className="text-xs text-metal-400 font-mono">已選取日期</Text>
-                  <Text className="text-cyan-400 font-mono font-bold text-base mt-0.5">
-                    {selectedBannerText}
-                  </Text>
-                </View>
-
-                {/* 年月導航列 Navigator */}
+                {/* 年月切換控制器 Month/Year Navigator */}
                 <View className="flex-row items-center justify-between mb-3 px-1">
                   <View className="flex-row items-center gap-1">
                     <TouchableOpacity
@@ -252,38 +283,54 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     >
                       <Ionicons name="play-back" size={12} color="#a1a1aa" />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handlePrevMonth}
-                      className="w-7 h-7 rounded-lg bg-white/5 items-center justify-center border border-white/10"
-                    >
-                      <Ionicons name="chevron-back" size={14} color="#fff" />
-                    </TouchableOpacity>
+                    {!isMonthMode && (
+                      <TouchableOpacity
+                        onPress={handlePrevMonth}
+                        className="w-7 h-7 rounded-lg bg-white/5 items-center justify-center border border-white/10"
+                      >
+                        <Ionicons name="chevron-back" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* 點擊切換為年份 / 月份快速選取模式 */}
                   <TouchableOpacity
-                    onPress={() =>
-                      setPickerMode((prev) => (prev === 'calendar' ? 'yearPicker' : 'calendar'))
-                    }
+                    onPress={() => {
+                      if (isMonthMode) {
+                        setPickerMode((prev) => (prev === 'yearPicker' ? 'monthPicker' : 'yearPicker'));
+                      } else {
+                        setPickerMode((prev) => (prev === 'calendar' ? 'yearPicker' : 'calendar'));
+                      }
+                    }}
                     className="flex-row items-center bg-white/5 px-3 py-1 rounded-lg border border-white/10"
                   >
                     <Text className="text-white font-mono font-bold text-sm mr-1">
-                      {`${viewYear} 年 ${viewMonth} 月`}
+                      {isMonthMode ? `${viewYear} 年 ${viewMonth} 月` : `${viewYear} 年 ${viewMonth} 月`}
                     </Text>
                     <Ionicons
-                      name={pickerMode === 'calendar' ? 'chevron-down' : 'chevron-up'}
+                      name={
+                        isMonthMode
+                          ? pickerMode === 'yearPicker'
+                            ? 'chevron-up'
+                            : 'chevron-down'
+                          : pickerMode === 'calendar'
+                          ? 'chevron-down'
+                          : 'chevron-up'
+                      }
                       size={13}
                       color="#06b6d4"
                     />
                   </TouchableOpacity>
 
                   <View className="flex-row items-center gap-1">
-                    <TouchableOpacity
-                      onPress={handleNextMonth}
-                      className="w-7 h-7 rounded-lg bg-white/5 items-center justify-center border border-white/10"
-                    >
-                      <Ionicons name="chevron-forward" size={14} color="#fff" />
-                    </TouchableOpacity>
+                    {!isMonthMode && (
+                      <TouchableOpacity
+                        onPress={handleNextMonth}
+                        className="w-7 h-7 rounded-lg bg-white/5 items-center justify-center border border-white/10"
+                      >
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       onPress={() => setViewYear((y) => y + 1)}
                       className="w-7 h-7 rounded-lg bg-white/5 items-center justify-center border border-white/10"
@@ -301,7 +348,12 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     </Text>
                     <ScrollView
                       showsVerticalScrollIndicator={true}
-                      contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}
+                      contentContainerStyle={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        gap: 6,
+                        justifyContent: 'center',
+                      }}
                     >
                       {yearList.map((y) => {
                         const isCurrent = y === viewYear;
@@ -332,7 +384,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                   </View>
                 )}
 
-                {/* 模式 2：月份快速挑選 Grid */}
+                {/* 模式 2：月份快速挑選 Grid (3 x 4 矩陣) */}
                 {pickerMode === 'monthPicker' && (
                   <View className="h-56 justify-center">
                     <Text className="text-metal-400 font-mono text-[11px] mb-3 text-center">
@@ -346,7 +398,10 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                             key={m}
                             onPress={() => {
                               setViewMonth(m);
-                              setPickerMode('calendar');
+                              setSelected((prev) => ({ ...prev, year: viewYear, month: m }));
+                              if (!isMonthMode) {
+                                setPickerMode('calendar');
+                              }
                             }}
                             className={`w-[76px] py-3 rounded-lg items-center border ${
                               isCurrent
@@ -368,8 +423,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                   </View>
                 )}
 
-                {/* 模式 3：標準日曆網格 Calendar Grid */}
-                {pickerMode === 'calendar' && (
+                {/* 模式 3：標準日曆網格 Calendar Grid (僅在 date 模式下顯示) */}
+                {pickerMode === 'calendar' && !isMonthMode && (
                   <View>
                     {/* 星期標頭 */}
                     <View className="flex-row justify-between mb-1 pb-1 border-b border-white/5">
@@ -390,7 +445,10 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     <View className="flex-row flex-wrap justify-between">
                       {/* 前置空格 */}
                       {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                        <View key={`empty-${i}`} className="w-9 h-9 items-center justify-center my-0.5" />
+                        <View
+                          key={`empty-${i}`}
+                          className="w-9 h-9 items-center justify-center my-0.5"
+                        />
                       ))}
 
                       {/* 當月天數 */}
@@ -457,7 +515,9 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                       onPress={handleSetToday}
                       className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30"
                     >
-                      <Text className="text-xs font-mono text-cyan-400 font-semibold">今天</Text>
+                      <Text className="text-xs font-mono text-cyan-400 font-semibold">
+                        {isMonthMode ? '本月' : '今天'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
 

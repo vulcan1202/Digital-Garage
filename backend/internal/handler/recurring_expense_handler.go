@@ -149,8 +149,19 @@ func (h *RecurringExpenseHandler) Create(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 6. 同步出廠日驗證 (若提供)
-	if req.SyncAsManufactureDate != nil && *req.SyncAsManufactureDate != "" {
+	// 6. 同步發照日驗證 (若提供)
+	if req.SyncAsRegistrationDate != nil && *req.SyncAsRegistrationDate != "" {
+		regDate, err := time.Parse("2006-01-02", *req.SyncAsRegistrationDate)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期格式無效，須為 YYYY-MM-DD")
+			return
+		}
+		if regDate.After(time.Now()) {
+			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期不可晚於當前日期")
+			return
+		}
+	} else if req.SyncAsManufactureDate != nil && *req.SyncAsManufactureDate != "" {
+		// 舊版相容
 		mfgDate, err := time.Parse("2006-01-02", *req.SyncAsManufactureDate)
 		if err != nil {
 			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "出廠日期格式無效，須為 YYYY-MM-DD")

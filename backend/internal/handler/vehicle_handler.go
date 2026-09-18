@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"digital-garage-backend/internal/middleware"
 	"digital-garage-backend/internal/model"
@@ -174,6 +175,45 @@ func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.RegistrationDate != nil {
+		rd := strings.TrimSpace(*req.RegistrationDate)
+		if rd != "" {
+			t, err := time.Parse("2006-01-02", rd)
+			if err != nil {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期 (registration_date) 格式必須為 YYYY-MM-DD")
+				return
+			}
+			if t.After(time.Now()) {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期 (registration_date) 不得晚於當前日期")
+				return
+			}
+			req.RegistrationDate = &rd
+		} else {
+			req.RegistrationDate = nil
+		}
+	}
+
+	if req.ManufactureDate != nil {
+		md := strings.TrimSpace(*req.ManufactureDate)
+		if md != "" {
+			if len(md) == 7 {
+				md = md + "-01"
+			}
+			t, err := time.Parse("2006-01-02", md)
+			if err != nil {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "出廠日期 (manufacture_date) 格式必須為 YYYY-MM 或 YYYY-MM-DD")
+				return
+			}
+			if t.After(time.Now()) {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "出廠日期 (manufacture_date) 不得晚於當前日期")
+				return
+			}
+			req.ManufactureDate = &md
+		} else {
+			req.ManufactureDate = nil
+		}
+	}
+
 	if req.LicensePlate != nil {
 		lp := strings.TrimSpace(*req.LicensePlate)
 		if lp == "" {
@@ -262,6 +302,43 @@ func (h *VehicleHandler) Update(w http.ResponseWriter, r *http.Request) {
 			req.FuelType = nil
 		} else {
 			req.FuelType = &ft
+		}
+	}
+	if req.RegistrationDate != nil {
+		rd := strings.TrimSpace(*req.RegistrationDate)
+		if rd != "" {
+			t, err := time.Parse("2006-01-02", rd)
+			if err != nil {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期 (registration_date) 格式必須為 YYYY-MM-DD")
+				return
+			}
+			if t.After(time.Now()) {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "原發照日期 (registration_date) 不得晚於當前日期")
+				return
+			}
+			req.RegistrationDate = &rd
+		} else {
+			req.RegistrationDate = nil
+		}
+	}
+	if req.ManufactureDate != nil {
+		md := strings.TrimSpace(*req.ManufactureDate)
+		if md != "" {
+			if len(md) == 7 {
+				md = md + "-01"
+			}
+			t, err := time.Parse("2006-01-02", md)
+			if err != nil {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "出廠日期 (manufacture_date) 格式必須為 YYYY-MM 或 YYYY-MM-DD")
+				return
+			}
+			if t.After(time.Now()) {
+				response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "出廠日期 (manufacture_date) 不得晚於當前日期")
+				return
+			}
+			req.ManufactureDate = &md
+		} else {
+			req.ManufactureDate = nil
 		}
 	}
 	if req.LicensePlate != nil {

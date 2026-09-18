@@ -14,7 +14,12 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCreateRecurringExpenseMutation } from '../../hooks/queries/useRecurringExpenses';
 import { RecurringExpenseCategory } from '../../types/recurringExpense';
-import { getSmartPreFill } from '../../utils/calculators/recurringCalculator';
+import {
+  getSmartPreFill,
+  parseYMD,
+  formatYMD,
+  addMonthsClamped,
+} from '../../utils/calculators/recurringCalculator';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { VehicleWithCover } from '../../types/database';
 import { DatePickerInput } from '../common/DatePickerInput';
@@ -50,7 +55,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   const [coverageEndDate, setCoverageEndDate] = useState('');
   const [notes, setNotes] = useState('');
   const [notice, setNotice] = useState<string | undefined>('');
-  const [syncAsManufactureDate, setSyncAsManufactureDate] = useState(false);
+  const [syncAsRegistrationDate, setSyncAsRegistrationDate] = useState(false);
 
   const rawKeyboardInset = useKeyboardBottomInset();
   const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
@@ -65,7 +70,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     setCoverageStartDate(prefill.coverageStartDate);
     setCoverageEndDate(prefill.coverageEndDate);
     setNotice(prefill.notice);
-    setSyncAsManufactureDate(false);
+    setSyncAsRegistrationDate(false);
   };
 
   useEffect(() => {
@@ -101,33 +106,76 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       return;
     }
 
-    try {
-      let syncDate: string | null = null;
-      if (category === 'inspection' && syncAsManufactureDate) {
-        // 使用覆蓋期間的起始日前推一個月，或直接以當前設定推算出的出廠日為準
-        // 最直覺：如果車輛未填出廠日，將本檢驗窗口之起始日的前一個月或當期基準日回填
-        // 檢驗窗口 start 是基準日前一個月，因此基準日 = start + 1 month
-        syncDate = coverageStartDate;
+    const doSubmit = async (syncDate: string | null) => {
+      try {
+        await createMutation.mutateAsync({
+          vehicle_id: vehicleId,
+          category,
+          title: title.trim(),
+          amount: amtNum,
+          paid_date: paidDate.trim(),
+          coverage_start_date: coverageStartDate.trim(),
+          coverage_end_date: coverageEndDate.trim(),
+          notes: notes.trim() ? notes.trim() : null,
+          sync_as_registration_date: syncDate,
+        });
+
+        Alert.alert('登記成功', `已成功新增「${title}」紀錄！`);
+        onClose();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '儲存失敗，請檢查資料輸入';
+        Alert.alert('登記失敗', msg);
+      }
+    };
+
+    if (category === 'inspection' && syncAsRegistrationDate) {
+      // 依 coverageStartDate (+1 month) 推算檢驗基準日
+      let derivedRegDate: string | null = null;
+      const parsedStart = parseYMD(coverageStartDate);
+      if (parsedStart) {
+        const baseObj = addMonthsClamped(parsedStart.year, parsedStart.month, parsedStart.day, 1);
+        let regYear = baseObj.year;
+        if (vehicle?.manufacture_date) {
+          const pMfg = parseYMD(vehicle.manufacture_date);
+          if (pMfg) regYear = pMfg.year;
+        } else if (vehicle?.registration_date) {
+          const pReg = parseYMD(vehicle.registration_date);
+          if (pReg) regYear = pReg.year;
+        } else if (vehicle?.year) {
+          regYear = vehicle.year;
+        }
+
+        const todayYear = new Date().getFullYear();
+        if (regYear > todayYear) {
+          regYear = todayYear;
+        }
+        const targetObj = addMonthsClamped(regYear, baseObj.month, baseObj.day, 0);
+        derivedRegDate = formatYMD(targetObj.year, targetObj.month, targetObj.day);
       }
 
-      await createMutation.mutateAsync({
-        vehicle_id: vehicleId,
-        category,
-        title: title.trim(),
-        amount: amtNum,
-        paid_date: paidDate.trim(),
-        coverage_start_date: coverageStartDate.trim(),
-        coverage_end_date: coverageEndDate.trim(),
-        notes: notes.trim() ? notes.trim() : null,
-        sync_as_manufacture_date: syncDate,
-      });
-
-      Alert.alert('登記成功', `已成功新增「${title}」紀錄！`);
-      onClose();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '儲存失敗，請檢查資料輸入';
-      Alert.alert('登記失敗', msg);
+      if (derivedRegDate) {
+        // 若該車輛已有 registration_date 且與目前計算出的日期不同，跳出 Alert 確認覆寫
+        if (vehicle?.registration_date && vehicle.registration_date !== derivedRegDate) {
+          Alert.alert(
+            '確認覆寫原發照日期',
+            `此車輛目前原發照日期為「${vehicle.registration_date}」，是否確認將其覆寫為「${derivedRegDate}」？\n此變更將影響未來的定期檢驗視窗推算。`,
+            [
+              { text: '取消', style: 'cancel' },
+              {
+                text: '確認覆寫',
+                style: 'destructive',
+                onPress: () => doSubmit(derivedRegDate),
+              },
+            ]
+          );
+          return;
+        }
+        await doSubmit(derivedRegDate);
+        return;
+      }
     }
+
+    await doSubmit(null);
   };
 
   return (
@@ -261,24 +309,24 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
               />
             </View>
 
-            {/* 若為定期檢驗且車輛無出廠日，顯示同步出廠日 Checkbox */}
-            {category === 'inspection' && vehicle && !vehicle.manufacture_date && (
+            {/* 若為定期檢驗，顯示同步發照日 Checkbox */}
+            {category === 'inspection' && vehicle && (
               <TouchableOpacity
-                onPress={() => setSyncAsManufactureDate(!syncAsManufactureDate)}
+                onPress={() => setSyncAsRegistrationDate(!syncAsRegistrationDate)}
                 activeOpacity={0.7}
                 className="flex-row items-center gap-2.5 p-3 rounded-xl bg-zinc-800/80 border border-white/10 mb-3.5"
               >
                 <Ionicons
-                  name={syncAsManufactureDate ? 'checkbox' : 'square-outline'}
+                  name={syncAsRegistrationDate ? 'checkbox' : 'square-outline'}
                   size={20}
-                  color={syncAsManufactureDate ? '#ff6b00' : '#888'}
+                  color={syncAsRegistrationDate ? '#ff6b00' : '#888'}
                 />
                 <View className="flex-1">
                   <Text className="text-white text-xs font-medium">
-                    同步將此檢驗基準日儲存為愛車行照出廠日
+                    同步設為行照原發照日期 (Registration Date)
                   </Text>
                   <Text className="text-metal-400 text-[10px] mt-0.5">
-                    出廠日設定後，未來將全自動計算每年檢驗視窗與頻率
+                    下次定檢將自動以此日期的月日為基準（前後各一個月窗口）
                   </Text>
                 </View>
               </TouchableOpacity>

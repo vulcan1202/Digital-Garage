@@ -109,7 +109,7 @@ go run cmd/api/main.go
 
 | 元件 | 雲端服務商 / 平台 | 部署配置與端點 |
 | :--- | :--- | :--- |
-| **API 後端** | Google Cloud Run | 區域：`asia-east1` (台灣)<br>端點：`https://digital-garage-api-997244262524.asia-east1.run.app` |
+| **API 後端** | Google Cloud Run | 區域：`us-central1` (美國中部，零跨區網路流量費)<br>端點：`https://digital-garage-api-997244262524.us-central1.run.app` |
 | **資料庫** | Supabase Cloud | PostgreSQL 15，含 11 大業務資料表、時序 View 與完整 RLS |
 | **使用者驗證** | Supabase Auth | 發行 JWT Bearer Token |
 | **媒體儲存** | Supabase Storage | 存放車輛、工單、改裝實體照片 |
@@ -118,7 +118,7 @@ go run cmd/api/main.go
 
 ## 6. 開發進度與狀態 (Project Status)
 
-目前專案已完成 P0 至 P2-2.5 之全部功能開發與品質驗收：
+目前專案已完成 P0 至 P2-2.6 之全部功能開發與品質驗收：
 
 | 階段代號 | 範疇定義 | 驗收狀態 |
 | :--- | :--- | :---: |
@@ -133,6 +133,7 @@ go run cmd/api/main.go
 | **P2-1** | Observability & Operations (端到端 Request ID 串聯、Cloud Logging 結構化日誌、敏感脫敏、前端 ErrorReporter 與 ErrorBoundary) | ✅ Completed |
 | **P2-2** | Recurring Expenses & Compliance (出廠日連動、公路養管費正名、台灣監理智慧預填) | ✅ Completed |
 | **P2-2.5** | Global DatePicker & Vehicle Date Sync (全域 Dark-Metal 日期選擇器封裝、出廠年份自動解析、全表單手動日期全面升級) | ✅ Completed |
+| **P2-2.6** | Statutory Registration Date Alignment (原發照日 YYYY-MM-DD 與出廠年月 YYYY-MM 雙軌法規對齊、定檢視窗推算、覆寫安全防護、部署遷移至 us-central1) | ✅ Completed |
 
 ---
 

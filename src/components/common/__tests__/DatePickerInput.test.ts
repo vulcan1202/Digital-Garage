@@ -44,9 +44,37 @@ describe('DatePicker & Vehicle Date Specification (P2-2.5)', () => {
     });
   });
 
+  describe('Month Mode (mode="month") Parsing and Formatting', () => {
+    function parseMonthStr(str?: string): { year: number; month: number } {
+      if (str && /^\d{4}-\d{2}/.test(str.trim())) {
+        const [y, m] = str.trim().split('-').map((v) => parseInt(v, 10));
+        if (!isNaN(y) && !isNaN(m)) {
+          return { year: y, month: m };
+        }
+      }
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    }
+
+    function formatMonthStr(year: number, month: number): string {
+      const mStr = month < 10 ? '0' + month : '' + month;
+      return `${year}-${mStr}`;
+    }
+
+    it('TC-DP-MONTH-01: 應能正確解析 YYYY-MM 與 YYYY-MM-DD 前綴之出廠年月', () => {
+      expect(parseMonthStr('2023-08')).toEqual({ year: 2023, month: 8 });
+      expect(parseMonthStr('2023-08-15')).toEqual({ year: 2023, month: 8 });
+    });
+
+    it('TC-DP-MONTH-02: 應能正確輸出 YYYY-MM 格式字串', () => {
+      expect(formatMonthStr(2025, 4)).toBe('2025-04');
+      expect(formatMonthStr(2025, 11)).toBe('2025-11');
+    });
+  });
+
   describe('Vehicle Manufacture Date & Year Extraction Integration', () => {
-    it('TC-DP-04: 選定出廠日期後應能正確自動解析出廠年份 (西元整數)', () => {
-      const manufactureDate = '2022-03-15';
+    it('TC-DP-04: 選定出廠年月 (YYYY-MM) 後應能正確自動解析出廠年份 (西元整數)', () => {
+      const manufactureDate = '2022-03';
       const derivedYear = manufactureDate.trim()
         ? parseInt(manufactureDate.split('-')[0], 10)
         : null;
@@ -54,7 +82,7 @@ describe('DatePicker & Vehicle Date Specification (P2-2.5)', () => {
       expect(derivedYear).toBe(2022);
     });
 
-    it('TC-DP-05: 編輯模式下若車輛僅有 year 無 manufacture_date，應預設以 ${year}-01-01 作為基線', () => {
+    it('TC-DP-05: 編輯模式下若車輛僅有 year 無 manufacture_date，應預設以 ${year}-01 作為基線', () => {
       const vehicle = {
         id: 1,
         year: 2019,
@@ -62,26 +90,35 @@ describe('DatePicker & Vehicle Date Specification (P2-2.5)', () => {
       };
 
       const initManufactureDate =
-        vehicle.manufacture_date || (vehicle.year ? `${vehicle.year}-01-01` : '');
+        vehicle.manufacture_date || (vehicle.year ? `${vehicle.year}-01` : '');
 
-      expect(initManufactureDate).toBe('2019-01-01');
+      expect(initManufactureDate).toBe('2019-01');
       const derivedYear = parseInt(initManufactureDate.split('-')[0], 10);
       expect(derivedYear).toBe(2019);
     });
 
-    it('TC-DP-06: 編輯模式下若車輛已具備完整出廠日期，應優先採用出廠日期', () => {
+    it('TC-DP-06: 編輯模式下若車輛具備出廠年月 (YYYY-MM)，應優先採用', () => {
       const vehicle = {
         id: 2,
         year: 2020,
-        manufacture_date: '2020-07-24',
+        manufacture_date: '2020-07',
       };
 
       const initManufactureDate =
-        vehicle.manufacture_date || (vehicle.year ? `${vehicle.year}-01-01` : '');
+        vehicle.manufacture_date || (vehicle.year ? `${vehicle.year}-01` : '');
 
-      expect(initManufactureDate).toBe('2020-07-24');
+      expect(initManufactureDate).toBe('2020-07');
       const derivedYear = parseInt(initManufactureDate.split('-')[0], 10);
       expect(derivedYear).toBe(2020);
+    });
+
+    it('TC-DP-06-REG: 行照原發照日期 (registration_date) 保留完整年月日 (YYYY-MM-DD)', () => {
+      const registrationDate = '2021-06-18';
+      expect(/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)).toBe(true);
+      const [year, month, day] = registrationDate.split('-').map((v) => parseInt(v, 10));
+      expect(year).toBe(2021);
+      expect(month).toBe(6);
+      expect(day).toBe(18);
     });
   });
 

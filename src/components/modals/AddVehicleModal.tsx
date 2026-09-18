@@ -50,6 +50,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   const [model, setModel] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
   const [manufactureDate, setManufactureDate] = useState('');
+  const [registrationDate, setRegistrationDate] = useState('');
   const [currentMileage, setCurrentMileage] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
@@ -69,6 +70,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     setModel('');
     setVehicleType(null);
     setManufactureDate('');
+    setRegistrationDate('');
     setCurrentMileage('');
     setPurchaseDate('');
     setPurchasePrice('');
@@ -95,7 +97,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
       return;
     }
 
-    // 由出廠日期 (YYYY-MM-DD) 自動解析出廠年份 (Year)
+    // 由出廠日期 (YYYY-MM) 自動解析出廠年份 (Year)
     const derivedYear = manufactureDate.trim()
       ? parseInt(manufactureDate.split('-')[0], 10)
       : null;
@@ -121,6 +123,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
         vehicle_type: vehicleType,
         year: yearNum,
         manufacture_date: manufactureDate.trim() ? manufactureDate.trim() : null,
+        registration_date: registrationDate.trim() ? registrationDate.trim() : null,
         current_mileage: !isNaN(mileageNum) ? mileageNum : 0,
         initial_mileage: !isNaN(mileageNum) ? mileageNum : 0,
         purchase_date: purchaseDate.trim() ? purchaseDate.trim() : null,
@@ -306,14 +309,27 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
             </View>
           </View>
 
-          {/* Manufacture Date (出廠日期，自動解析年份) */}
+          {/* Manufacture Date (出廠年月，自動解析年份) */}
           <DatePickerInput
-            label="行照出廠日期 MANUFACTURE DATE"
+            label="行照出廠年月 MANUFACTURE YEAR/MONTH"
+            mode="month"
             value={manufactureDate}
             onChange={setManufactureDate}
             maximumDate={new Date()}
-            placeholder="點擊選取行照出廠日期"
-            helperText={manufactureDate ? `已自動解析出廠年份：${manufactureDate.split('-')[0]} 年` : '選填，選擇後系統將自動解析出廠年份並推算定檢視窗'}
+            placeholder="YYYY-MM (點擊選取出廠年月)"
+            helperText={manufactureDate ? `已自動解析出廠年份：${manufactureDate.split('-')[0]} 年` : '選填，選擇後系統將自動解析出廠年份'}
+            containerClassName="mb-4"
+          />
+
+          {/* Registration Date (行照原發照日，推算定檢視窗) */}
+          <DatePickerInput
+            label="行照原發照日 REGISTRATION DATE"
+            mode="date"
+            value={registrationDate}
+            onChange={setRegistrationDate}
+            maximumDate={new Date()}
+            placeholder="YYYY-MM-DD (點擊選取原發照日期)"
+            helperText="選填，定檢日期依原發照日計算，前後各一個月有效"
             containerClassName="mb-4"
           />
 
