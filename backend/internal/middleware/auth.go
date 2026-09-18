@@ -180,7 +180,10 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			// 寫入 Request Context
+			// 寫入 Request Context 與跨中介層共享元資料
+			if meta := GetRequestMetadata(r.Context()); meta != nil {
+				meta.UserID = sub
+			}
 			ctx := context.WithValue(r.Context(), UserIDKey, sub)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

@@ -12,49 +12,51 @@ export type AppErrorCode =
 export class AppError extends Error {
   public readonly code: AppErrorCode;
   public readonly details?: unknown;
+  public readonly requestId?: string;
 
-  constructor(code: AppErrorCode, message: string, details?: unknown) {
+  constructor(code: AppErrorCode, message: string, details?: unknown, requestId?: string) {
     super(message);
     this.name = 'AppError';
     this.code = code;
     this.details = details;
+    this.requestId = requestId;
     Object.setPrototypeOf(this, AppError.prototype);
   }
 
-  static authRequired(message = '請先登入帳號', details?: unknown): AppError {
-    return new AppError('AUTH_REQUIRED', message, details);
+  static authRequired(message = '請先登入帳號', details?: unknown, requestId?: string): AppError {
+    return new AppError('AUTH_REQUIRED', message, details, requestId);
   }
 
-  static notFound(message = '查無此資料', details?: unknown): AppError {
-    return new AppError('NOT_FOUND', message, details);
+  static notFound(message = '查無此資料', details?: unknown, requestId?: string): AppError {
+    return new AppError('NOT_FOUND', message, details, requestId);
   }
 
-  static validation(message = '輸入參數驗證失敗', details?: unknown): AppError {
-    return new AppError('VALIDATION_ERROR', message, details);
+  static validation(message = '輸入參數驗證失敗', details?: unknown, requestId?: string): AppError {
+    return new AppError('VALIDATION_ERROR', message, details, requestId);
   }
 
-  static conflict(message = '資料狀態衝突或違反唯一約束', details?: unknown): AppError {
-    return new AppError('CONFLICT', message, details);
+  static conflict(message = '資料狀態衝突或違反唯一約束', details?: unknown, requestId?: string): AppError {
+    return new AppError('CONFLICT', message, details, requestId);
   }
 
-  static permissionDenied(message = '權限不足，無法執行此操作', details?: unknown): AppError {
-    return new AppError('PERMISSION_DENIED', message, details);
+  static permissionDenied(message = '權限不足，無法執行此操作', details?: unknown, requestId?: string): AppError {
+    return new AppError('PERMISSION_DENIED', message, details, requestId);
   }
 
-  static network(message = '網路連線異常，請稍後再試', details?: unknown): AppError {
-    return new AppError('NETWORK_ERROR', message, details);
+  static network(message = '網路連線異常，請稍後再試', details?: unknown, requestId?: string): AppError {
+    return new AppError('NETWORK_ERROR', message, details, requestId);
   }
 
-  static database(message = '資料庫操作異常', details?: unknown): AppError {
-    return new AppError('DATABASE_ERROR', message, details);
+  static database(message = '資料庫操作異常', details?: unknown, requestId?: string): AppError {
+    return new AppError('DATABASE_ERROR', message, details, requestId);
   }
 
-  static storage(message = '檔案儲存或上傳失敗', details?: unknown): AppError {
-    return new AppError('STORAGE_UPLOAD_FAILED', message, details);
+  static storage(message = '檔案儲存或上傳失敗', details?: unknown, requestId?: string): AppError {
+    return new AppError('STORAGE_UPLOAD_FAILED', message, details, requestId);
   }
 
-  static unknown(message = '發生未預期的系統錯誤', details?: unknown): AppError {
-    return new AppError('UNKNOWN', message, details);
+  static unknown(message = '發生未預期的系統錯誤', details?: unknown, requestId?: string): AppError {
+    return new AppError('UNKNOWN', message, details, requestId);
   }
 
   /**

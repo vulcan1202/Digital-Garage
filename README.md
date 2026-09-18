@@ -303,7 +303,59 @@ Vehicle B (ID: 202)
 
 ---
 
-## 10. 測試與品質驗證 (Testing & QA)
+## 10. 可觀測性與端到端追蹤 (Observability & Tracing - P2-1)
+
+為滿足生產環境的高可用性與分散式排錯需求，系統建置了端到端關聯追蹤、結構化日誌與行動端崩潰防護機制：
+
+```text
+┌────────────────────────────────────────────────────────┐
+│             React Native / Expo Client                 │
+│  - X-Request-ID 自動注入與傳播 (crypto.randomUUID)      │
+│  - AppError 捕獲權威 Request ID 與關聯分析             │
+│  - ErrorReporter: 30s 滑動視窗複合鍵去重 + 敏感脫敏    │
+│  - ErrorBoundary: 沉浸式 Dark-Metal 崩潰備援 UI        │
+└───────────────────────────┬────────────────────────────┘
+                            │ X-Request-ID Header
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│             Go Backend (Cloud Run asia-east1)          │
+│  - RequestID Middleware: 零信任校驗 (8~64字元安全字元) │
+│  - 回應標頭權威回寫 (X-Request-ID / Access-Control)     │
+│  - log/slog Google Cloud Logging JSON 規格結構化日誌   │
+│  - 敏感鍵遞迴脫敏 (Exact Key Match Redaction)          │
+│  - Safe Panic Recovery: 500 JSON 遮罩 + 伺服器日誌堆疊 │
+└────────────────────────────────────────────────────────┘
+```
+
+### 1. 端到端 Request Correlation ID 機制
+* **零信任輸入校驗**：後端嚴格檢驗 Client 傳入的 `X-Request-ID`。長度須介於 8~64 字元且僅允許 `^[a-zA-Z0-9_-]+$`。若不符規則、為空或含惡意字元，後端立即捨棄並由 `crypto/rand` 生成權威 UUID v4。
+* **雙向傳播與跨域支援**：後端處理後將權威 ID 回寫至 Response Header，並於 CORS 配置 `ExposedHeaders: ["X-Request-ID"]`。
+* **前端關聯保存**：前端 `apiClient` 於發送請求時自動帶入，若後端回傳業務或系統錯誤（4xx/5xx），`AppError` 自動記錄後端權威 `requestId`。
+
+### 2. Google Cloud Logging 結構化日誌 (`log/slog`)
+* **原生相容**：後端棄用純文字 `log.Printf`，全面改用 Go 1.21+ 原生 `log/slog` 輸出 JSON。
+* **Cloud Run 欄位對齊**：
+  * 時間戳格式：`RFC3339Nano`
+  * 嚴重性層級：`severity` (`DEFAULT`, `INFO`, `WARNING`, `ERROR`)
+  * HTTP 請求物件：`httpRequest` 包含 `requestMethod`, `requestUrl`, `status`, `userAgent`, `remoteIp`, 與以秒為單位的延遲 `latency` (如 `"0.082s"`)
+  * 環境標籤：自動載入 `K_SERVICE` 與 `K_REVISION`
+* **隱私敏感資料脫敏 (Privacy-by-Design Sanitization)**：
+  * 精確匹配敏感鍵值（不分大小寫）：`authorization`, `password`, `token`, `access_token`, `refresh_token`, `secret`, `jwt`, `api_key`, `cookie`。
+  * 遞迴深層對 Map / Slice 進行遮罩脫敏為 `"[REDACTED]"`，避免遮蔽正常業務欄位（如 `token_type`、`device_token`）。
+  * 絕不記錄 Request Body / Response Body 原始 Payload，防止個資與機密外洩。
+
+### 3. 安全 Panic 復原中介軟體 (Recovery)
+* **抗崩潰防護**：外層中介軟體捕獲所有 Handler 內部未預期之 panic。
+* **資訊外洩防禦**：後端內部記錄含堆疊追蹤（Stack Trace）之 `ERROR` 級別結構化日誌，對客戶端僅回傳安全的 `500 INTERNAL_ERROR` JSON 結構，絕不向外部暴露程式碼行號或系統細節。
+
+### 4. 前端 ErrorReporter 與全域 ErrorBoundary
+* **智慧降噪與去重**：`errorReporter` 實作 30 秒滑動視窗複合鍵去重演算法（`hash(errorType + endpoint + status + normalizedMessage)`），防止高頻重複錯誤灌爆。
+* **錯誤分級過濾**：離線網路斷線（`FetchError` / `NETWORK_ERROR`）與標準身分過期（401）不視為系統崩潰，予以安靜抑制；僅將未處理的 5xx 伺服器異常或 UI Render Crash 列入回報。
+* **全域 UI 崩潰邊界 (`ErrorBoundary`)**：以車庫 Dark-Metal 金屬質感呈現降級 UI，顯示安全之錯誤代碼與後端關聯 Request ID，並提供非破壞性重試按鈕（保留使用者登入 Session）。
+
+---
+
+## 11. 測試與品質驗證 (Testing & QA)
 
 專案具備完整之自動化測試套件與基線檢查：
 
@@ -312,7 +364,7 @@ Vehicle B (ID: 202)
 測試項目                                    測試規模 / 結果
 ======================================================================
 TypeScript Static Typecheck (tsc)          PASS (0 Errors)
-Frontend Jest Test Suites (npm test)       PASS (22 Suites / 114 Tests)
+Frontend Jest Test Suites (npm test)       PASS (24 Suites / 127 Tests)
 Backend Go Test Suites (go test)           PASS (100% Passed)
 Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk)
 Cloud Run API Health Endpoint              PASS (200 OK)
@@ -336,7 +388,7 @@ Cloud Run API Health Endpoint              PASS (200 OK)
 
 ---
 
-## 11. 重要 QA 發現與工程防禦 (QA Findings)
+## 12. 重要 QA 發現與工程防禦 (QA Findings)
 
 ### ISS-01：離線同步非同步狀態機閃退救援 (Crash Recovery)
 * **問題復現**：在行動裝置環境中，若應用程式於發送網路同步時（狀態為 `SYNCING`）遭作業系統強制終止（App killed / OOM），該任務的 `SYNCING` 狀態將永久殘留在本地持久化儲存中。下次啟動時，佇列會因該任務非 `PENDING` 狀態而陷入永久死結。
@@ -354,7 +406,7 @@ Cloud Run API Health Endpoint              PASS (200 OK)
 
 ---
 
-## 12. 建置與執行 (Build & Run)
+## 13. 建置與執行 (Build & Run)
 
 ### 前置需求
 * Node.js `>= 18.0.0`
@@ -390,7 +442,7 @@ go run cmd/api/main.go
 
 ---
 
-## 13. Android Release 建置 (Android Build)
+## 14. Android Release 建置 (Android Build)
 
 專案已完成 Android 原生專案配置，並成功產出簽署之生產環境 Release APK：
 
@@ -404,7 +456,7 @@ go run cmd/api/main.go
 
 ---
 
-## 14. 雲端部署現況 (Deployment)
+## 15. 雲端部署現況 (Deployment)
 
 | 元件 | 雲端服務商 / 平台 | 部署配置與端點 |
 | :--- | :--- | :--- |
@@ -415,9 +467,9 @@ go run cmd/api/main.go
 
 ---
 
-## 15. 開發進度與狀態 (Project Status)
+## 16. 開發進度與狀態 (Project Status)
 
-目前專案已完成 P0 至 P1-7 之全部功能開發與品質驗收：
+目前專案已完成 P0 至 P2-1 之全部功能開發與品質驗收：
 
 | 階段代號 | 範疇定義 | 驗收狀態 |
 | :--- | :--- | :---: |
@@ -429,10 +481,11 @@ go run cmd/api/main.go
 | **P1-5** | Timeline (全生命週期動態時序牆與 4 級確定性排序) | ✅ Completed |
 | **P1-6** | Offline / Sync Architecture (輕量化離線快取與 FIFO 突變佇列) | ✅ Completed |
 | **P1-7** | Stability / QA (全系統 13 大維度生產級穩定性驗收) | ✅ Completed |
+| **P2-1** | Observability & Operations (端到端 Request ID 串聯、Cloud Logging 結構化日誌、敏感脫敏、前端 ErrorReporter 與 ErrorBoundary) | ✅ Completed |
 
 ---
 
-## 16. 已知限制 (Known Limitations)
+## 17. 已知限制 (Known Limitations)
 
 為客觀呈現目前系統設計邊界，列出已確認之系統限制：
 
@@ -441,13 +494,14 @@ go run cmd/api/main.go
 2. **照片檔案不支援離線隊列暫存**：
    考量行動裝置暫存空間與上傳穩定度，相片檔案（工單實拍、改裝照片）需在連線狀態下直接上傳至雲端 Storage，不進入離線文字佇列。
 3. **線上監控與大規模浸泡測試邊界**：
-   目前尚未整合第三方 APM / 崩潰回報 SDK（如 Firebase Crashlytics、Sentry），亦未實施生產環境大規模高併發浸泡測試（Soak Testing）。
+   系統已具備內部零相依之 Sentry-compatible `ErrorReporter` 與 Google Cloud Logging 結構化日誌。整合第三方 APM 原生 Native SDK（如 Firebase Crashlytics、Sentry Native SDK）與大規模高併發浸泡測試（Soak Testing）保留為未來維運階段之擴充選項。
 
 ---
 
-## 17. 工程實踐原則 (Engineering Notes)
+## 18. 工程實踐原則 (Engineering Notes)
 
 * **Server-Authoritative**：以伺服器端資料庫計算作為唯一的權威依據，前端不私自維護第二套業務計算規則。
 * **DB-Level Integrity**：依賴資料庫的外鍵、Check 約束、Partial Unique Index 與觸發器防護資料一致性。
 * **Ownership Isolation**：自資料庫 RLS、後端 API 擁有權檢查至前端 CacheKey，全面落實多租戶隔離。
 * **Resilient State Machine**：在離線與非同步同步情境中，充分考量行動裝置生命週期中斷（App killed）、4xx 永久錯誤隔離防堵隊列停滯、與自動連線偵測。
+* **Zero-Trust Observability**：外部傳入之關聯 ID 一律經過安全性字元與長度校驗；內部日誌全面經由白名單脫敏器過濾敏感金鑰，絕不洩漏 Authorization Header 或密碼資訊。

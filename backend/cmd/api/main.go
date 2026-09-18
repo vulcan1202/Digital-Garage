@@ -47,18 +47,18 @@ func main() {
 
 	r := chi.NewRouter()
 
-	// 基礎中間件
-	r.Use(chimiddleware.RequestID)
+	// 基礎中介層責任鏈 (P2-1 Observability & Reliability)
+	r.Use(middleware.RequestIDMiddleware)
 	r.Use(chimiddleware.RealIP)
-	r.Use(chimiddleware.Logger)
-	r.Use(chimiddleware.Recoverer)
+	r.Use(middleware.StructuredLoggerMiddleware)
+	r.Use(middleware.RecoveryMiddleware)
 
 	// CORS 設定
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))

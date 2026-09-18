@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, Text, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 import { useAuth } from './src/hooks/useAuth';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { GarageDashboardScreen } from './src/screens/GarageDashboardScreen';
@@ -10,11 +10,34 @@ import { VehicleTimelineScreen } from './src/screens/VehicleTimelineScreen';
 import { ModificationDetailScreen } from './src/screens/ModificationDetailScreen';
 import { syncQueue } from './src/services/syncQueue';
 import { networkMonitor } from './src/services/networkMonitor';
+import { errorReporter } from './src/services/errorReporter';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { AppError } from './src/services/errors/AppError';
 
 import './global.css';
 
-// 建立全域 QueryClient
+// 建立全域 QueryClient 並掛載異常觀測快取
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (!errorReporter.isSuppressedError(error)) {
+        errorReporter.captureException(error, {
+          queryKey: query.queryKey,
+          requestId: (error as AppError)?.requestId,
+        });
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (!errorReporter.isSuppressedError(error)) {
+        errorReporter.captureException(error, {
+          mutationKey: mutation.options.mutationKey,
+          requestId: (error as AppError)?.requestId,
+        });
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 分鐘快取
@@ -93,7 +116,8 @@ function MainNavigator() {
 
 export default function App() {
   useEffect(() => {
-    // 啟動時水合離線佇列並檢查後端連線
+    // 啟動時初始化錯誤回報服務、水合離線佇列並檢查後端連線
+    errorReporter.init();
     syncQueue.hydrate();
     networkMonitor.checkConnectivity();
 
@@ -110,7 +134,9 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView className="flex-1 bg-garage-bg" edges={['top', 'left', 'right']}>
           <StatusBar style="light" />
-          <MainNavigator />
+          <ErrorBoundary>
+            <MainNavigator />
+          </ErrorBoundary>
         </SafeAreaView>
       </SafeAreaProvider>
     </QueryClientProvider>
