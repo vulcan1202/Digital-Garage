@@ -481,7 +481,7 @@ go run cmd/api/main.go
 | 元件 | 雲端服務商 / 平台 | 部署配置與端點 |
 | :--- | :--- | :--- |
 | **API 後端** | Google Cloud Run | 區域：`asia-east1` (台灣)<br>端點：`https://digital-garage-api-997244262524.asia-east1.run.app` |
-| **資料庫** | Supabase Cloud | PostgreSQL 15，含 10 大業務資料表與完整 RLS |
+| **資料庫** | Supabase Cloud | PostgreSQL 15，含 11 大業務資料表、時序 View 與完整 RLS |
 | **使用者驗證** | Supabase Auth | 發行 JWT Bearer Token |
 | **媒體儲存** | Supabase Storage | 存放車輛、工單、改裝實體照片 |
 
@@ -489,7 +489,7 @@ go run cmd/api/main.go
 
 ## 16. 開發進度與狀態 (Project Status)
 
-目前專案已完成 P0 至 P2-1 之全部功能開發與品質驗收：
+目前專案已完成 P0 至 P2-2 之全部功能開發與品質驗收：
 
 | 階段代號 | 範疇定義 | 驗收狀態 |
 | :--- | :--- | :---: |
@@ -502,6 +502,7 @@ go run cmd/api/main.go
 | **P1-6** | Offline / Sync Architecture (輕量化離線快取與 FIFO 突變佇列) | ✅ Completed |
 | **P1-7** | Stability / QA (全系統 13 大維度生產級穩定性驗收) | ✅ Completed |
 | **P2-1** | Observability & Operations (端到端 Request ID 串聯、Cloud Logging 結構化日誌、敏感脫敏、前端 ErrorReporter 與 ErrorBoundary) | ✅ Completed |
+| **P2-2** | Recurring Expenses & Compliance (出廠日連動、公路養管費正名、台灣監理智慧預填) | ✅ Completed |
 
 ---
 
