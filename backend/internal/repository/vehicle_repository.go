@@ -29,6 +29,7 @@ func (r *VehicleRepository) ListVehicles(ctx context.Context, userID string) ([]
 	query := `
 		SELECT 
 			v.id, v.user_id, v.brand, v.model, v.year, 
+			to_char(v.manufacture_date, 'YYYY-MM-DD') AS manufacture_date,
 			to_char(v.purchase_date, 'YYYY-MM-DD') AS purchase_date,
 			v.initial_mileage, v.current_mileage,
 			v.vehicle_type, v.purchase_price, v.fuel_type, v.engine_displacement_cc, v.license_plate,
@@ -55,7 +56,7 @@ func (r *VehicleRepository) ListVehicles(ctx context.Context, userID string) ([]
 		var v model.VehicleWithCover
 		err := rows.Scan(
 			&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
-			&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+			&v.ManufactureDate, &v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
 			&v.VehicleType, &v.PurchasePrice, &v.FuelType, &v.EngineDisplacementCC, &v.LicensePlate,
 			&v.CreatedAt, &v.UpdatedAt, &v.CoverURL,
 		)
@@ -76,6 +77,7 @@ func (r *VehicleRepository) GetVehicleByID(ctx context.Context, userID string, v
 	vehicleQuery := `
 		SELECT 
 			id, user_id, brand, model, year, 
+			to_char(manufacture_date, 'YYYY-MM-DD') AS manufacture_date,
 			to_char(purchase_date, 'YYYY-MM-DD') AS purchase_date,
 			initial_mileage, current_mileage,
 			vehicle_type, purchase_price, fuel_type, engine_displacement_cc, license_plate,
@@ -87,7 +89,7 @@ func (r *VehicleRepository) GetVehicleByID(ctx context.Context, userID string, v
 	var v model.Vehicle
 	err := r.pool.QueryRow(ctx, vehicleQuery, vehicleID, userID).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
-		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.ManufactureDate, &v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
 		&v.VehicleType, &v.PurchasePrice, &v.FuelType, &v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,
 	)
@@ -145,21 +147,21 @@ func (r *VehicleRepository) CreateVehicle(ctx context.Context, userID string, re
 
 	query := `
 		INSERT INTO "Vehicles" (
-			user_id, brand, model, vehicle_type, year, purchase_date, purchase_price,
+			user_id, brand, model, vehicle_type, year, manufacture_date, purchase_date, purchase_price,
 			fuel_type, engine_displacement_cc, license_plate, initial_mileage, current_mileage
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'),
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, user_id, brand, model, year, to_char(manufacture_date, 'YYYY-MM-DD'), to_char(purchase_date, 'YYYY-MM-DD'),
 			initial_mileage, current_mileage, vehicle_type, purchase_price, fuel_type,
 			engine_displacement_cc, license_plate, created_at, updated_at;
 	`
 
 	var v model.Vehicle
 	err := r.pool.QueryRow(ctx, query,
-		userID, req.Brand, req.Model, req.VehicleType, req.Year, req.PurchaseDate, req.PurchasePrice,
+		userID, req.Brand, req.Model, req.VehicleType, req.Year, req.ManufactureDate, req.PurchaseDate, req.PurchasePrice,
 		req.FuelType, req.EngineDisplacementCC, req.LicensePlate, initMileage, curMileage,
 	).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
-		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.ManufactureDate, &v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
 		&v.VehicleType, &v.PurchasePrice, &v.FuelType,
 		&v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,
@@ -180,15 +182,16 @@ func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, ve
 			model = COALESCE($4, model),
 			vehicle_type = COALESCE($5, vehicle_type),
 			year = CASE WHEN $6::boolean THEN $7::integer ELSE year END,
-			purchase_date = CASE WHEN $8::boolean THEN $9::date ELSE purchase_date END,
-			purchase_price = CASE WHEN $10::boolean THEN $11::numeric ELSE purchase_price END,
-			fuel_type = CASE WHEN $12::boolean THEN $13::fuel_type ELSE fuel_type END,
-			engine_displacement_cc = CASE WHEN $14::boolean THEN $15::integer ELSE engine_displacement_cc END,
-			license_plate = CASE WHEN $16::boolean THEN $17::varchar ELSE license_plate END,
-			current_mileage = COALESCE($18, current_mileage),
+			manufacture_date = CASE WHEN $8::boolean THEN $9::date ELSE manufacture_date END,
+			purchase_date = CASE WHEN $10::boolean THEN $11::date ELSE purchase_date END,
+			purchase_price = CASE WHEN $12::boolean THEN $13::numeric ELSE purchase_price END,
+			fuel_type = CASE WHEN $14::boolean THEN $15::fuel_type ELSE fuel_type END,
+			engine_displacement_cc = CASE WHEN $16::boolean THEN $17::integer ELSE engine_displacement_cc END,
+			license_plate = CASE WHEN $18::boolean THEN $19::varchar ELSE license_plate END,
+			current_mileage = COALESCE($20, current_mileage),
 			updated_at = now()
 		WHERE id = $1 AND user_id = $2
-		RETURNING id, user_id, brand, model, year, to_char(purchase_date, 'YYYY-MM-DD'),
+		RETURNING id, user_id, brand, model, year, to_char(manufacture_date, 'YYYY-MM-DD'), to_char(purchase_date, 'YYYY-MM-DD'),
 			initial_mileage, current_mileage, vehicle_type, purchase_price, fuel_type,
 			engine_displacement_cc, license_plate, created_at, updated_at;
 	`
@@ -197,6 +200,12 @@ func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, ve
 	var yearVal *int
 	if hasYear {
 		yearVal = req.Year
+	}
+
+	hasManufactureDate := req.ManufactureDate != nil
+	var mfgDateVal *string
+	if hasManufactureDate {
+		mfgDateVal = req.ManufactureDate
 	}
 
 	hasDate := req.PurchaseDate != nil
@@ -234,6 +243,7 @@ func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, ve
 		vehicleID, userID,
 		req.Brand, req.Model, req.VehicleType,
 		hasYear, yearVal,
+		hasManufactureDate, mfgDateVal,
 		hasDate, dateVal,
 		hasPrice, priceVal,
 		hasFuelType, fuelVal,
@@ -242,7 +252,7 @@ func (r *VehicleRepository) UpdateVehicle(ctx context.Context, userID string, ve
 		req.CurrentMileage,
 	).Scan(
 		&v.ID, &v.UserID, &v.Brand, &v.Model, &v.Year,
-		&v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
+		&v.ManufactureDate, &v.PurchaseDate, &v.InitialMileage, &v.CurrentMileage,
 		&v.VehicleType, &v.PurchasePrice, &v.FuelType,
 		&v.EngineDisplacementCC, &v.LicensePlate,
 		&v.CreatedAt, &v.UpdatedAt,

@@ -49,6 +49,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   const [model, setModel] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
   const [year, setYear] = useState('');
+  const [manufactureDate, setManufactureDate] = useState('');
   const [currentMileage, setCurrentMileage] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
@@ -68,6 +69,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
     setModel('');
     setVehicleType(null);
     setYear('');
+    setManufactureDate('');
     setCurrentMileage('');
     setPurchaseDate('');
     setPurchasePrice('');
@@ -100,41 +102,33 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
       return;
     }
 
-    let priceNum: number | null = null;
-    if (purchasePrice.trim()) {
-      const parsed = parseFloat(purchasePrice.trim());
-      if (isNaN(parsed) || parsed < 0) {
-        Alert.alert('購車價格格式錯誤', '購車金額必須為大於或等於 0 之數值。');
-        return;
-      }
-      priceNum = parsed;
+    const priceNum = purchasePrice ? parseFloat(purchasePrice) : null;
+    if (purchasePrice && (isNaN(priceNum!) || priceNum! < 0)) {
+      Alert.alert('購車金額格式錯誤', '購車金額必須為大於或等於 0 之數字。');
+      return;
     }
 
-    let ccNum: number | null = null;
-    if (engineDisplacement.trim()) {
-      const parsed = parseInt(engineDisplacement.trim(), 10);
-      if (isNaN(parsed) || parsed <= 0) {
-        Alert.alert('排氣量格式錯誤', '排氣量 (c.c.) 必須為大於 0 之正整數。');
-        return;
-      }
-      ccNum = parsed;
+    const ccNum = engineDisplacement ? parseInt(engineDisplacement, 10) : null;
+    if (engineDisplacement && (isNaN(ccNum!) || ccNum! <= 0)) {
+      Alert.alert('排氣量格式錯誤', '排氣量 (cc) 必須為大於 0 之正整數。');
+      return;
     }
 
     try {
       setIsUploadingPhotos(true);
-      const finalMileage = isNaN(mileageNum) ? 0 : mileageNum;
       const created = await createVehicleMutation.mutateAsync({
         brand: brand.trim(),
         model: model.trim(),
         vehicle_type: vehicleType,
         year: yearNum,
-        initial_mileage: finalMileage,
-        current_mileage: finalMileage,
-        purchase_date: purchaseDate.trim() || null,
+        manufacture_date: manufactureDate.trim() ? manufactureDate.trim() : null,
+        current_mileage: !isNaN(mileageNum) ? mileageNum : 0,
+        initial_mileage: !isNaN(mileageNum) ? mileageNum : 0,
+        purchase_date: purchaseDate.trim() ? purchaseDate.trim() : null,
         purchase_price: priceNum,
         fuel_type: fuelType,
         engine_displacement_cc: ccNum,
-        license_plate: licensePlate.trim() || null,
+        license_plate: licensePlate.trim() ? licensePlate.trim() : null,
       });
 
       // 若有選取相片，上傳至 vehicle-media 並寫入 VehiclePhotos (第一張自動為封面)
@@ -311,6 +305,26 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
                 className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
               />
             </View>
+          </View>
+
+          {/* Manufacture Date */}
+          <View className="mb-4">
+            <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
+              行照出廠日期 MANUFACTURE DATE (選填，自動推算驗車視窗)
+            </Text>
+            <TextInput
+              value={manufactureDate}
+              onChangeText={(text) => {
+                setManufactureDate(text);
+                if (text.length >= 4 && !year) {
+                  const y = text.substring(0, 4);
+                  if (!isNaN(parseInt(y, 10))) setYear(y);
+                }
+              }}
+              placeholder="YYYY-MM-DD (例: 2020-05-15)"
+              placeholderTextColor="#52525b"
+              className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
+            />
           </View>
 
           {/* Year & Current Mileage */}

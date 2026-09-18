@@ -1,27 +1,176 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DoubleBezelCard } from '../DoubleBezelCard';
-import { ReminderRow } from '../../types/database';
+import { ReminderRow, VehicleWithCover } from '../../types/database';
 import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
+import { RecurringStatusSummary, RECURRING_CATEGORY_LABELS, RecurringExpenseCategory } from '../../types/recurringExpense';
 
 interface RemindersTabProps {
+  vehicle: VehicleWithCover | null;
   reminderEvals: { reminder: ReminderRow; evaluation: ReminderCalculationResult }[];
   alertCounts: { overdue: number; dueSoon: number };
+  recurringStatuses?: RecurringStatusSummary[];
   onAddReminder: () => void;
+  onAddRecurringExpense: () => void;
   onCompleteReminder: (id: number, name: string) => void;
   onDeleteReminder: (id: number, name: string) => void;
 }
 
+const CATEGORY_ICONS: Record<RecurringExpenseCategory, keyof typeof Ionicons.glyphMap> = {
+  license_tax: 'document-text-outline',
+  road_maintenance_fee: 'speedometer-outline',
+  inspection: 'construct-outline',
+  compulsory_insurance: 'shield-checkmark-outline',
+  liability_insurance: 'shield-outline',
+  other: 'receipt-outline',
+};
+
 export const RemindersTab: React.FC<RemindersTabProps> = ({
+  vehicle,
   reminderEvals,
   alertCounts,
+  recurringStatuses = [],
   onAddReminder,
+  onAddRecurringExpense,
   onCompleteReminder,
   onDeleteReminder,
 }) => {
+  const recurringAlertCounts = React.useMemo(() => {
+    let overdue = 0;
+    let dueSoon = 0;
+    recurringStatuses.forEach((s) => {
+      if (s.status === 'overdue') overdue++;
+      else if (s.status === 'due_soon') dueSoon++;
+    });
+    return { overdue, dueSoon };
+  }, [recurringStatuses]);
+
   return (
     <View className="gap-4">
+      {/* 週期規費與法定排程 (RECURRING EXPENSES & COMPLIANCE) */}
+      <View className="gap-3 mb-2">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+              RECURRING EXPENSES & COMPLIANCE
+            </Text>
+            {recurringAlertCounts.overdue > 0 && (
+              <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
+                <Text className="text-[10px] font-mono text-racing-red font-bold">
+                  {recurringAlertCounts.overdue} OVERDUE
+                </Text>
+              </View>
+            )}
+            {recurringAlertCounts.dueSoon > 0 && (
+              <View className="bg-racing-amber/20 px-2 py-0.5 rounded-full border border-racing-amber/40">
+                <Text className="text-[10px] font-mono text-racing-amber font-bold">
+                  {recurringAlertCounts.dueSoon} DUE SOON
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            onPress={onAddRecurringExpense}
+            className="flex-row items-center bg-cyan-500/15 px-3 py-1.5 rounded-full border border-cyan-500/30"
+          >
+            <Ionicons name="add" size={14} color="#06b6d4" />
+            <Text className="text-xs text-cyan-400 font-bold ml-1 font-mono">
+              登記規費
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {recurringStatuses.length === 0 ? (
+          <DoubleBezelCard innerClassName="py-6 items-center">
+            <Ionicons name="calendar-outline" size={32} color="#06b6d4" />
+            <Text className="text-metal-400 text-xs mt-2 font-mono text-center">
+              尚無週期規費紀錄，點擊右上角登記牌照稅、公路養管費或定檢
+            </Text>
+          </DoubleBezelCard>
+        ) : (
+          <View className="gap-2.5">
+            {recurringStatuses.map((item) => {
+              let statusBg = 'bg-white/[0.02] border-white/10';
+              let badgeColor = 'text-metal-400';
+              let badgeBg = 'bg-white/5 border-white/10';
+              let statusText = '未設定';
+
+              if (item.status === 'overdue') {
+                statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                badgeColor = 'text-racing-red';
+                badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                statusText = '已逾期';
+              } else if (item.status === 'due_soon') {
+                statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
+                badgeColor = 'text-racing-amber';
+                badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
+                statusText = '即將到期';
+              } else if (item.status === 'good') {
+                badgeColor = 'text-racing-green';
+                badgeBg = 'bg-racing-green/10 border-racing-green/30';
+                statusText = '正常';
+              }
+
+              const iconName = CATEGORY_ICONS[item.category] || 'receipt-outline';
+              const label = RECURRING_CATEGORY_LABELS[item.category] || item.title;
+
+              return (
+                <View
+                  key={item.category}
+                  className={`p-3.5 rounded-xl border flex-row items-center justify-between ${statusBg}`}
+                >
+                  <View className="flex-row items-center flex-1 mr-2">
+                    <View className="w-8 h-8 rounded-lg bg-white/5 items-center justify-center mr-2.5 border border-white/10">
+                      <Ionicons name={iconName} size={16} color="#06b6d4" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-white font-semibold text-sm" numberOfLines={1}>
+                        {label}
+                      </Text>
+                      {item.coverage_end_date ? (
+                        <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
+                          有效至 {item.coverage_end_date}
+                          {item.days_remaining !== null && item.days_remaining !== undefined && (
+                            <Text
+                              className={
+                                item.days_remaining < 0
+                                  ? 'text-racing-red font-bold'
+                                  : item.days_remaining <= 30
+                                  ? 'text-racing-amber font-bold'
+                                  : 'text-racing-green'
+                              }
+                            >
+                              {item.days_remaining < 0
+                                ? ` · 逾期 ${Math.abs(item.days_remaining)} 天`
+                                : ` · 剩餘 ${item.days_remaining} 天`}
+                            </Text>
+                          )}
+                        </Text>
+                      ) : (
+                        <Text className="text-[11px] text-metal-500 font-mono mt-0.5">
+                          尚未登記最新繳納與覆蓋期
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
+                    <Text className={`text-[10px] font-mono font-bold ${badgeColor}`}>
+                      {statusText}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* 分隔線 */}
+      <View className="h-[1px] bg-white/10 my-1" />
+
       {/* 頂部雷達狀態與新增按鈕 */}
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center">

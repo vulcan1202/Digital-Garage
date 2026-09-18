@@ -106,6 +106,9 @@ func main() {
 				analyticsRepo := repository.NewAnalyticsRepository(pool)
 				analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 
+				recurringExpenseRepo := repository.NewRecurringExpenseRepository(pool)
+				recurringExpenseHandler := handler.NewRecurringExpenseHandler(recurringExpenseRepo)
+
 				protected.Route("/vehicles", func(vr chi.Router) {
 					vehicleHandler.RegisterRoutes(vr)
 
@@ -130,6 +133,18 @@ func main() {
 
 					// 車輛持有與營運成本多維度分析 (P1-2 Cost Analytics)
 					vr.Get("/{vehicleId}/analytics/cost", analyticsHandler.GetCostAnalytics)
+
+					// 週期性規費與到期管理 (P2-2 Recurring Expenses)
+					vr.Get("/{vehicleId}/recurring-expenses", recurringExpenseHandler.List)
+					vr.Post("/{vehicleId}/recurring-expenses", recurringExpenseHandler.Create)
+					vr.Get("/{vehicleId}/recurring-expenses/status", recurringExpenseHandler.GetLatestStatus)
+				})
+
+				// 週期性規費：依紀錄 ID 查詢、更新與刪除
+				protected.Route("/recurring-expenses", func(rer chi.Router) {
+					rer.Get("/{id}", recurringExpenseHandler.GetByID)
+					rer.Patch("/{id}", recurringExpenseHandler.Update)
+					rer.Delete("/{id}", recurringExpenseHandler.Delete)
 				})
 
 				// 加油紀錄：依紀錄 ID 更新與刪除

@@ -16,6 +16,7 @@ import { useTimeline } from '../hooks/queries/useTimeline';
 import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
 import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
 import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
+import { useDeleteRecurringExpense } from '../hooks/queries/useRecurringExpenses';
 import {
   VehicleTimelineRow,
   TimelineEventType,
@@ -33,7 +34,7 @@ interface VehicleTimelineScreenProps {
   onNavigateToModDetail?: (modId: number) => void;
 }
 
-type FilterCategory = 'ALL' | 'refuel' | 'maintenance' | 'repair' | 'modification';
+type FilterCategory = 'ALL' | 'refuel' | 'maintenance' | 'repair' | 'modification' | 'recurring_expense';
 
 export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   vehicleId,
@@ -50,6 +51,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   const deleteRefuelMutation = useDeleteRefuel();
   const deleteMaintenanceMutation = useDeleteMaintenanceRecord();
   const deleteModMutation = useDeleteModification();
+  const deleteRecurringMutation = useDeleteRecurringExpense();
 
   const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
@@ -119,6 +121,14 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           label: '購入入庫',
           border: 'none' as const,
         };
+      case 'recurring_expense':
+        return {
+          icon: <Ionicons name="document-text-outline" size={16} color="#06b6d4" />,
+          color: 'text-cyan-400',
+          bg: 'bg-cyan-500/10 border-cyan-500/30',
+          label: '週期規費',
+          border: 'none' as const,
+        };
     }
   };
 
@@ -134,6 +144,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
     else if (item.event_type === 'maintenance') typeName = '保養工單';
     else if (item.event_type === 'repair') typeName = '維修工單';
     else if (item.event_type === 'modification') typeName = '改裝品';
+    else if (item.event_type === 'recurring_expense') typeName = '週期規費';
 
     Alert.alert(`刪除${typeName}`, `確定要刪除「${item.title}」嗎？\n此操作無法復原。`, [
       { text: '取消', style: 'cancel' },
@@ -148,6 +159,8 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
               await deleteMaintenanceMutation.mutateAsync({ id: item.event_id, vehicleId });
             } else if (item.event_type === 'modification') {
               await deleteModMutation.mutateAsync({ id: item.event_id, vehicleId });
+            } else if (item.event_type === 'recurring_expense') {
+              await deleteRecurringMutation.mutateAsync({ id: item.event_id, vehicleId });
             }
             refetch();
             Alert.alert('刪除成功', `已成功刪除該筆${typeName}。`);
@@ -428,6 +441,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
               { id: 'maintenance', label: '定期保養' },
               { id: 'repair', label: '故障維修' },
               { id: 'modification', label: '改裝升級' },
+              { id: 'recurring_expense', label: '週期規費' },
             ] as const
           ).map((tab) => {
             const isActive = filter === tab.id;

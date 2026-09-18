@@ -37,6 +37,14 @@ export type ReminderStatus =
   | 'active'
   | 'paused';
 
+export type RecurringExpenseCategory =
+  | 'license_tax'
+  | 'road_maintenance_fee'
+  | 'inspection'
+  | 'compulsory_insurance'
+  | 'liability_insurance'
+  | 'other';
+
 // ==========================================
 // 2. TABLES (Row, Insert, Update)
 // 採用 type 定義以完美相容 Supabase GenericTable & PostgREST
@@ -52,6 +60,7 @@ export type VehicleRow = {
   model: string;
   vehicle_type: VehicleType;
   year: number | null;
+  manufacture_date: string | null; // date
   purchase_date: string | null; // date
   purchase_price: number | null;
   fuel_type: FuelType | null;
@@ -70,6 +79,7 @@ export type VehicleInsert = {
   model: string;
   vehicle_type: VehicleType; // 必填，不可預設
   year?: number | null;
+  manufacture_date?: string | null;
   purchase_date?: string | null;
   purchase_price?: number | null;
   fuel_type?: FuelType | null;
@@ -88,6 +98,7 @@ export type VehicleUpdate = {
   model?: string;
   vehicle_type?: VehicleType;
   year?: number | null;
+  manufacture_date?: string | null;
   purchase_date?: string | null;
   purchase_price?: number | null;
   fuel_type?: FuelType | null;
@@ -435,11 +446,55 @@ export type ModificationSettingUpdate = {
   updated_at?: string;
 };
 
+// 週期性規費 (RecurringExpenses - P2-2)
+export type RecurringExpenseRow = {
+  id: number;
+  vehicle_id: number;
+  category: RecurringExpenseCategory;
+  title: string;
+  amount: number;
+  paid_date: string;
+  coverage_start_date: string;
+  coverage_end_date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecurringExpenseInsert = {
+  id?: number;
+  vehicle_id: number;
+  category: RecurringExpenseCategory;
+  title: string;
+  amount: number;
+  paid_date: string;
+  coverage_start_date: string;
+  coverage_end_date: string;
+  notes?: string | null;
+  sync_as_manufacture_date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type RecurringExpenseUpdate = {
+  id?: number;
+  vehicle_id?: number;
+  category?: RecurringExpenseCategory;
+  title?: string;
+  amount?: number;
+  paid_date?: string;
+  coverage_start_date?: string;
+  coverage_end_date?: string;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
 // ==========================================
 // 3. VIEWS (vehicle_timeline)
 // ==========================================
 
-export type TimelineEventType = 'refuel' | 'maintenance' | 'repair' | 'modification' | 'purchase';
+export type TimelineEventType = 'refuel' | 'maintenance' | 'repair' | 'modification' | 'purchase' | 'recurring_expense';
 
 export type VehicleTimelineRow = {
   vehicle_id: number;
@@ -599,6 +654,20 @@ export type Database = {
           }
         ];
       };
+      RecurringExpenses: {
+        Row: RecurringExpenseRow;
+        Insert: RecurringExpenseInsert;
+        Update: RecurringExpenseUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "RecurringExpenses_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: false;
+            referencedRelation: "Vehicles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       vehicle_timeline: {
@@ -614,6 +683,7 @@ export type Database = {
       fuel_type: FuelType;
       maintenance_record_type: MaintenanceRecordType;
       reminder_status: ReminderStatus;
+      recurring_expense_category: RecurringExpenseCategory;
     };
     CompositeTypes: {
       [_ in never]: never;

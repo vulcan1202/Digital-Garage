@@ -13,6 +13,7 @@ import { DoubleBezelCard } from '../components/DoubleBezelCard';
 import { useVehicles, useDeleteVehicle, useVehiclePhotos } from '../hooks/queries/useVehicles';
 import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
 import { useReminders, useCompleteReminder, useDeleteReminder } from '../hooks/queries/useReminders';
+import { useRecurringStatus } from '../hooks/queries/useRecurringExpenses';
 import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
 import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
 import { calculateVehicleTotalCost, calculateAverageCostPerKm } from '../utils/calculators/costCalculator';
@@ -28,6 +29,7 @@ import { EditRefuelModal } from '../components/modals/EditRefuelModal';
 import { AddMaintenanceModal } from '../components/modals/AddMaintenanceModal';
 import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal';
 import { AddReminderModal } from '../components/modals/AddReminderModal';
+import { AddRecurringExpenseModal } from '../components/modals/AddRecurringExpenseModal';
 import { AddModificationModal } from '../components/modals/AddModificationModal';
 import { EditModificationModal } from '../components/modals/EditModificationModal';
 import { VehiclePhotoGalleryModal } from '../components/modals/VehiclePhotoGalleryModal';
@@ -76,6 +78,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [isAddMaintenanceOpen, setIsAddMaintenanceOpen] = useState(false);
   const [initialMaintType, setInitialMaintType] = useState<MaintenanceRecordType>('maintenance');
   const [isAddReminderOpen, setIsAddReminderOpen] = useState(false);
+  const [isAddRecurringOpen, setIsAddRecurringOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [viewerImages, setViewerImages] = useState<Array<{ uri: string; title?: string }> | null>(null);
 
@@ -158,6 +161,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const { data: refuels = [] } = useRefuels(activeId);
   const { data: maintenanceRecords = [] } = useMaintenanceRecords(activeId);
   const { data: reminders = [] } = useReminders(activeId);
+  const { data: recurringStatuses = [] } = useRecurringStatus(activeId);
   const { data: modifications = [] } = useModifications(activeId);
   const { data: vehiclePhotos = [] } = useVehiclePhotos(activeId);
 
@@ -833,9 +837,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
 
           {activeTab === 'reminders' && (
             <RemindersTab
+              vehicle={activeVehicle}
               reminderEvals={reminderEvals}
               alertCounts={alertCounts}
+              recurringStatuses={recurringStatuses}
               onAddReminder={() => setIsAddReminderOpen(true)}
+              onAddRecurringExpense={() => setIsAddRecurringOpen(true)}
               onCompleteReminder={handleCompleteReminder}
               onDeleteReminder={handleDeleteReminder}
             />
@@ -878,6 +885,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             vehicleId={activeVehicle.id}
             currentVehicleMileage={activeVehicle.current_mileage}
             onClose={() => setIsAddReminderOpen(false)}
+          />
+
+          <AddRecurringExpenseModal
+            visible={isAddRecurringOpen}
+            vehicle={activeVehicle}
+            onClose={() => setIsAddRecurringOpen(false)}
           />
 
           <AddModificationModal

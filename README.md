@@ -55,6 +55,23 @@ Vehicle
   * **正常（Good）**
 * **彈性控制**：支援「啟用中（`active`）」與「暫停（`paused`）」狀態切換；標記完成時自動將基準里程與基準日期前移至最新作業點。
 
+### 週期規費與法定檢驗 (Recurring Expenses & Compliance - P2-2)
+* **台灣在地監理法規與排程支援**：
+  * **牌照稅 (`license_tax`)**：自用汽機車每年 4 月開徵（04/01 ~ 04/30）。
+  * **公路使用養護安全管理費（公路養管費，`road_maintenance_fee`）**：自用汽機車每年 7 月開徵（07/01 ~ 07/31）。
+  * **定期檢驗 / 排氣定檢 (`inspection`)**：汽車滿 5 年未滿 10 年每年 1 次，10 年以上每年 2 次；機車滿 5 年每年排氣定檢 1 次。法定應檢期間為行照出廠日（或原發照日）**前後各 1 個月**（共 2 個月檢驗窗口）。
+  * **強制汽車責任險 (`compulsory_insurance`) & 任意險 (`liability_insurance`)**：支援自訂覆蓋起訖日，預設 1 年保單週期。
+* **智慧預填與出廠日向後相容連動（方案 B Hybrid Smart Pre-fill）**：
+  * 車輛主表擴充 `manufacture_date`（出廠日期/原發照日，可為空）。
+  * 若新增車輛或登記定檢時尚未設定出廠日，提供「同步為行照出廠日期」選項，於後端單一原子交易 (`pgx.Tx`) 內完成規費記錄寫入並同步更新車輛出廠日。
+  * 支援依當前年份自動推算當期或次期規費開徵視窗。
+* **月末溢位安全防護 (Month Clamping Defense)**：
+  * 計算前後 1 個月檢驗窗口時，嚴格防範原生 JavaScript `setMonth(±1)` 之月份溢位 bug。
+  * 採用自建 `addMonthsClamped` 函式，精準處理閏年 2/29 轉 2/28、小月 30 號與大月 31 號之邊界條件。
+* **狀態即時監控**：
+  * 劃分為「正常（Good）」、「即將到期（Due Soon，30天內）」、「已逾期（Overdue）」與「未設定（Unset）」。
+  * 整合進入車輛 Cockpit 之 `RemindersTab`，並以型別對齊整合進入 `vehicle_timeline` View。
+
 ### 改裝品管理 (Modifications)
 * **改裝品檔案**：記錄品牌、品名、型號、改裝品類別（懸吊、煞車、引擎、排氣、進氣、輪框輪胎、外觀、內裝、電系、其他）。
 * **雙重成本拆分**：明確區分「購買價格（`purchase_price`）」與「安裝工資（`install_price`）」，以及購買日、安裝日與安裝里程。
@@ -160,7 +177,7 @@ Vehicle
 
 ## 5. 資料模型 (Data Model)
 
-系統由 10 張關聯資料表與 1 個唯讀視圖（View）構成，完整對應車輛生命週期各實體：
+系統由 11 張關聯資料表與 1 個唯讀視圖（View）構成，完整對應車輛生命週期各實體：
 
 ```text
 auth.users
@@ -172,6 +189,7 @@ auth.users
     ├── MaintenanceRecords
     │       └── MaintenancePhotos
     ├── Reminders
+    ├── RecurringExpenses
     └── Modifications
             ├── ModificationPhotos
             └── ModificationSettingSets
@@ -182,17 +200,18 @@ auth.users
 
 | 資料表名稱 | 說明 | 關鍵限制與外部鍵約束 |
 | :--- | :--- | :--- |
-| `Vehicles` | 車輛主表 | `user_id -> auth.users`, `current_mileage >= initial_mileage` |
+| `Vehicles` | 車輛主表 | `user_id -> auth.users`, `current_mileage >= initial_mileage`, 支援 `manufacture_date` |
 | `VehiclePhotos` | 車輛照片表 | `vehicle_id -> Vehicles (CASCADE)`, 單一封面唯一約束 |
 | `Refuels` | 加油紀錄表 | `vehicle_id -> Vehicles (CASCADE)`, `volume > 0`, `total_cost >= 0` |
 | `MaintenanceRecords` | 保養與維修表 | `vehicle_id -> Vehicles (CASCADE)`, `record_type IN ('maintenance', 'repair')` |
 | `MaintenancePhotos` | 保養維修照片表 | `maintenance_record_id -> MaintenanceRecords (CASCADE)` |
 | `Reminders` | 保養週期提醒表 | `vehicle_id -> Vehicles (CASCADE)`, `last_record_id -> SET NULL` |
+| `RecurringExpenses` | 週期規費與法定排程表 | `vehicle_id -> Vehicles (CASCADE)`, `category` Enum, `amount >= 0`, `paid_date <= CURRENT_DATE` |
 | `Modifications` | 改裝品檔案表 | `vehicle_id -> Vehicles (CASCADE)`, `category` Enum 列舉 |
 | `ModificationPhotos` | 改裝實拍照表 | `modification_id -> Modifications (CASCADE)` |
 | `ModificationSettingSets` | 改裝調校版本表 | `modification_id -> Modifications (CASCADE)`, 單一生效版本唯一約束 |
 | `ModificationSettings` | 改裝參數細項表 | `setting_set_id -> ModificationSettingSets (CASCADE)` |
-| `vehicle_timeline` (View) | 時序動態聚合 View | `WITH (security_invoker = true)` 繼承呼叫者 RLS 權限 |
+| `vehicle_timeline` (View) | 時序動態聚合 View | `WITH (security_invoker = true)` 繼承呼叫者 RLS 權限，整合購車、加油、保養、維修、改裝與週期規費 |
 
 ---
 
@@ -364,14 +383,14 @@ Vehicle B (ID: 202)
 測試項目                                    測試規模 / 結果
 ======================================================================
 TypeScript Static Typecheck (tsc)          PASS (0 Errors)
-Frontend Jest Test Suites (npm test)       PASS (24 Suites / 127 Tests)
+Frontend Jest Test Suites (npm test)       PASS (25 Suites / 137 Tests)
 Backend Go Test Suites (go test)           PASS (100% Passed)
 Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk)
 Cloud Run API Health Endpoint              PASS (200 OK)
 ======================================================================
 ```
 
-### P1-7 QA 13 大維度審查涵蓋範圍
+### P1-7 & P2-2 QA 14 大維度審查涵蓋範圍
 1. **Database Integrity**：外鍵串聯、唯一約束、檢查約束及觸發器完整性。
 2. **RLS / Multi-tenant Security**：跨用戶與跨階層資料隔離驗證。
 3. **API Contract / Validation**：400/401/403/404/409 錯誤狀態碼合約與欄位防禦。
@@ -385,6 +404,7 @@ Cloud Run API Health Endpoint              PASS (200 OK)
 11. **Android UI / Lifecycle**：虛擬鍵盤推昇與 Modal 重新渲染之狀態保護。
 12. **Multi-Vehicle Cache Isolation**：跨車輛快取與查詢鍵完全隔離。
 13. **Stress / Boundary Stability**：快照 20 筆上限截斷與記憶體保護。
+14. **Recurring Expenses & Month Clamping**：規費生命週期、智慧預填、出廠日交易連動與月末天數防溢位截斷。
 
 ---
 

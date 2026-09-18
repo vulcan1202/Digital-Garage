@@ -188,6 +188,7 @@ export const localStore = {
       model: data.model,
       vehicle_type: data.vehicle_type || 'car',
       year: data.year ?? null,
+      manufacture_date: data.manufacture_date ?? null,
       purchase_date: data.purchase_date ?? null,
       purchase_price: data.purchase_price ?? null,
       fuel_type: data.fuel_type ?? null,
