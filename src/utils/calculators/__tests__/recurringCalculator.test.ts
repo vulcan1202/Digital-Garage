@@ -6,6 +6,7 @@ import {
   getSmartPreFill,
   calculateInspectionPreFill,
   deriveInspectionWindow,
+  calculateRecurringAlertCounts,
 } from '../recurringCalculator';
 
 describe('recurringCalculator', () => {
@@ -201,6 +202,44 @@ describe('recurringCalculator', () => {
 
       expect(res.coverageStartDate).toBe('2026-05-15');
       expect(res.coverageEndDate).toBe('2027-05-14');
+    });
+  });
+
+  describe('calculateRecurringAlertCounts', () => {
+    it('固定規費在繳費月中觸發 dueSoon 警報（例如 4 月牌照稅）', () => {
+      const statuses = [
+        { category: 'license_tax' as const, title: '牌照稅', status: 'unset' as const },
+        { category: 'road_maintenance_fee' as const, title: '汽燃費', status: 'unset' as const },
+      ];
+      const aprilDate = new Date(2026, 3, 10); // April
+      const counts = calculateRecurringAlertCounts(statuses, aprilDate);
+
+      expect(counts.dueSoon).toBe(1); // license_tax is due in April
+      expect(counts.overdue).toBe(0);
+    });
+
+    it('固定規費在非繳費月不觸發警報（例如 2 月）', () => {
+      const statuses = [
+        { category: 'license_tax' as const, title: '牌照稅', status: 'unset' as const },
+        { category: 'road_maintenance_fee' as const, title: '汽燃費', status: 'unset' as const },
+      ];
+      const febDate = new Date(2026, 1, 10); // February
+      const counts = calculateRecurringAlertCounts(statuses, febDate);
+
+      expect(counts.dueSoon).toBe(0);
+      expect(counts.overdue).toBe(0);
+    });
+
+    it('定檢與保險依 status 正確統計 overdue 與 dueSoon', () => {
+      const statuses = [
+        { category: 'inspection' as const, title: '定檢', status: 'due_soon' as const },
+        { category: 'compulsory_insurance' as const, title: '強制險', status: 'overdue' as const },
+        { category: 'liability_insurance' as const, title: '第三責任險', status: 'good' as const },
+      ];
+      const counts = calculateRecurringAlertCounts(statuses);
+
+      expect(counts.dueSoon).toBe(1);
+      expect(counts.overdue).toBe(1);
     });
   });
 });

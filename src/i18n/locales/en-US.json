@@ -19,6 +19,13 @@
       "upload": "Upload",
       "confirmDelete": "Confirm Delete"
     },
+    "quickActions": {
+      "addRefuel": "+Fuel",
+      "addMaintenance": "+Service",
+      "addRepair": "+Repair",
+      "addModification": "+Tuning",
+      "addReminder": "+Alert"
+    },
     "tabs": {
       "overview": "Overview",
       "records": "Records ({{count}})",
@@ -49,7 +56,8 @@
     "activeFleet": "ACTIVE FLEET ({{count}})",
     "addVehicle": "Add Vehicle",
     "editVehicle": "Edit Vehicle",
-    "deleteVehicle": "Delete Vehicle?",
+    "deleteVehicleBtn": "Delete Car",
+    "deleteVehicle": "Delete this vehicle?",
     "deleteVehicleConfirm": "Permanently delete \"{{name}}\" and all related fuel, service, and tuning records? This action cannot be undone!",
     "vehicleDeleted": "Deleted",
     "vehicleDeletedMsg": "The vehicle and all associated records have been removed from the cloud.",
@@ -237,7 +245,13 @@
   "recurring": {
     "title": "Expenses",
     "complianceTitle": "RECURRING EXPENSES & COMPLIANCE",
+    "maintenanceTitle": "Maintenance Reminders",
     "addExpense": "Add Statutory Expense / Inspection",
+    "subtabs": {
+      "complianceAlert": "Fees ⚠️",
+      "complianceOk": "Fees ✅",
+      "maintenance": "Maintenance ({{count}})"
+    },
     "status": {
       "good": "Valid",
       "dueSoon": "Due Soon",
@@ -383,8 +397,8 @@
     "highestMonthly": "Max ${{cost}}"
   },
   "serverStatus": {
-    "online": "Connected",
-    "offline": "Offline Mode (Local Storage)",
+    "online": "Online",
+    "offline": "Offline",
     "syncing": "Syncing Queue",
     "error": "Connection Error",
     "pingLatency": "Ping (Latency)",

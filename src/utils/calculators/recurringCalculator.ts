@@ -1,4 +1,4 @@
-import { RecurringExpenseCategory, SmartPreFillResult } from '../../types/recurringExpense';
+import { RecurringExpenseCategory, SmartPreFillResult, RecurringStatusSummary } from '../../types/recurringExpense';
 
 /**
  * 判斷是否為閏年
@@ -363,3 +363,70 @@ export function calculateInspectionPreFill(
   };
 }
 
+/**
+ * 計算指定車輛當前所有週期規費與法定排程的警報總數 (OVERDUE 與 DUE_SOON)
+ * 涵蓋牌照稅 4 月開徵/逾期、公路養管費 7 月開徵/逾期、定檢雙階寬限期與保險到期
+ */
+export function calculateRecurringAlertCounts(
+  recurringStatuses: RecurringStatusSummary[],
+  today: Date = new Date()
+): { overdue: number; dueSoon: number } {
+  let overdue = 0;
+  let dueSoon = 0;
+  const todayStr = formatYMD(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+  recurringStatuses.forEach((s) => {
+    if (s.category === 'inspection' && s.coverage_end_date) {
+      const parsedEnd = parseYMD(s.coverage_end_date);
+      if (parsedEnd) {
+        const baseObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
+        const baseDateStr = formatYMD(baseObj.year, baseObj.month, baseObj.day);
+        const startObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -2);
+        const startDateStr = formatYMD(startObj.year, startObj.month, startObj.day);
+
+        if (todayStr > s.coverage_end_date) {
+          overdue++;
+        } else if (todayStr >= baseDateStr) {
+          overdue++; // 後一個月（需要驗車，紅色警告）
+        } else if (todayStr >= startDateStr) {
+          dueSoon++; // 前一個月（可驗車，黃色標記）
+        }
+        return;
+      }
+    }
+
+    if (s.category === 'license_tax' || s.category === 'road_maintenance_fee') {
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      const levyMonth = s.category === 'license_tax' ? 4 : 7;
+
+      let isPaidThisYear = false;
+      if (s.status !== 'unset' && s.coverage_end_date) {
+        const parsedEnd = parseYMD(s.coverage_end_date);
+        if (parsedEnd && parsedEnd.year >= currentYear) {
+          isPaidThisYear = true;
+        }
+      }
+      if (s.last_paid_date) {
+        const parsedPaid = parseYMD(s.last_paid_date);
+        if (parsedPaid && parsedPaid.year >= currentYear) {
+          isPaidThisYear = true;
+        }
+      }
+
+      if (!isPaidThisYear) {
+        if (currentMonth > levyMonth) {
+          overdue++;
+        } else if (currentMonth === levyMonth) {
+          dueSoon++;
+        }
+      }
+      return;
+    }
+
+    if (s.status === 'overdue') overdue++;
+    else if (s.status === 'due_soon') dueSoon++;
+  });
+
+  return { overdue, dueSoon };
+}

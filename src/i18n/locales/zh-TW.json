@@ -19,6 +19,13 @@
       "upload": "上傳",
       "confirmDelete": "確定刪除"
     },
+    "quickActions": {
+      "addRefuel": "+加油",
+      "addMaintenance": "+保養",
+      "addRepair": "+維修",
+      "addModification": "+改裝",
+      "addReminder": "+提醒"
+    },
     "tabs": {
       "overview": "總覽",
       "records": "歷程 ({{count}})",
@@ -49,6 +56,7 @@
     "activeFleet": "車庫車隊 ({{count}})",
     "addVehicle": "新增愛車",
     "editVehicle": "編輯愛車",
+    "deleteVehicleBtn": "刪除愛車",
     "deleteVehicle": "確認移除愛車？",
     "deleteVehicleConfirm": "此操作將永久刪除「{{name}}」及其所有加油、保修、改裝紀錄（SQL 級聯刪除），無法還原！",
     "vehicleDeleted": "已移除",
@@ -237,7 +245,13 @@
   "recurring": {
     "title": "規費",
     "complianceTitle": "週期規費與法定排程",
+    "maintenanceTitle": "維護提醒",
     "addExpense": "登記規費 / 定檢",
+    "subtabs": {
+      "complianceAlert": "規費⚠️",
+      "complianceOk": "規費✅",
+      "maintenance": "維護提醒 ({{count}})"
+    },
     "status": {
       "good": "正常",
       "dueSoon": "即將到期",
@@ -383,8 +397,8 @@
     "highestMonthly": "最高 ${{cost}}"
   },
   "serverStatus": {
-    "online": "連線正常",
-    "offline": "離線模式 (暫存本機)",
+    "online": "在線",
+    "offline": "離線",
     "syncing": "佇列同步中",
     "error": "連線異常",
     "pingLatency": "Ping(延遲)",

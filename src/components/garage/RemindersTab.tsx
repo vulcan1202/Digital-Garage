@@ -6,7 +6,7 @@ import { DoubleBezelCard } from '../DoubleBezelCard';
 import { ReminderRow, VehicleWithCover } from '../../types/database';
 import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
 import { RecurringStatusSummary, RECURRING_CATEGORY_LABELS, RecurringExpenseCategory } from '../../types/recurringExpense';
-import { parseYMD, formatYMD, addMonthsClamped } from '../../utils/calculators/recurringCalculator';
+import { parseYMD, formatYMD, addMonthsClamped, calculateRecurringAlertCounts } from '../../utils/calculators/recurringCalculator';
 
 interface RemindersTabProps {
   vehicle: VehicleWithCover | null;
@@ -39,72 +39,64 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
   onDeleteReminder,
 }) => {
   const { t } = useTranslation();
+  const [activeSubTab, setActiveSubTab] = React.useState<'compliance' | 'maintenance'>('compliance');
+
   const recurringAlertCounts = React.useMemo(() => {
-    let overdue = 0;
-    let dueSoon = 0;
-    const now = new Date();
-    const todayStr = formatYMD(now.getFullYear(), now.getMonth() + 1, now.getDate());
-
-    recurringStatuses.forEach((s) => {
-      if (s.category === 'inspection' && s.coverage_end_date) {
-        const parsedEnd = parseYMD(s.coverage_end_date);
-        if (parsedEnd) {
-          const baseObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
-          const baseDateStr = formatYMD(baseObj.year, baseObj.month, baseObj.day);
-          const startObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -2);
-          const startDateStr = formatYMD(startObj.year, startObj.month, startObj.day);
-
-          if (todayStr > s.coverage_end_date) {
-            overdue++;
-          } else if (todayStr >= baseDateStr) {
-            overdue++; // 後一個月（需要驗車，紅色警告）
-          } else if (todayStr >= startDateStr) {
-            dueSoon++; // 前一個月（可驗車，黃色標記）
-          }
-          return;
-        }
-      }
-
-      if (s.category === 'license_tax' || s.category === 'road_maintenance_fee') {
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1;
-        const levyMonth = s.category === 'license_tax' ? 4 : 7;
-
-        let isPaidThisYear = false;
-        if (s.status !== 'unset' && s.coverage_end_date) {
-          const parsedEnd = parseYMD(s.coverage_end_date);
-          if (parsedEnd && parsedEnd.year >= currentYear) {
-            isPaidThisYear = true;
-          }
-        }
-        if (s.last_paid_date) {
-          const parsedPaid = parseYMD(s.last_paid_date);
-          if (parsedPaid && parsedPaid.year >= currentYear) {
-            isPaidThisYear = true;
-          }
-        }
-
-        if (!isPaidThisYear) {
-          if (currentMonth > levyMonth) {
-            overdue++;
-          } else if (currentMonth === levyMonth) {
-            dueSoon++;
-          }
-        }
-        return;
-      }
-
-      if (s.status === 'overdue') overdue++;
-      else if (s.status === 'due_soon') dueSoon++;
-    });
-    return { overdue, dueSoon };
+    return calculateRecurringAlertCounts(recurringStatuses);
   }, [recurringStatuses]);
+
+  const hasComplianceAlert = recurringAlertCounts.overdue > 0 || recurringAlertCounts.dueSoon > 0;
+  const hasMaintenanceAlert = alertCounts.overdue > 0 || alertCounts.dueSoon > 0;
 
   return (
     <View className="gap-4">
+      {/* 次分頁切換列 (Sub-tabs: 規費⚠️/✅ vs 維護提醒) */}
+      <View className="flex-row bg-zinc-950 p-1 rounded-xl border border-white/10">
+        <TouchableOpacity
+          onPress={() => setActiveSubTab('compliance')}
+          className={`flex-1 py-2 rounded-lg items-center justify-center flex-row ${
+            activeSubTab === 'compliance'
+              ? 'bg-racing-amber/20 border border-racing-amber/40'
+              : 'border border-transparent'
+          }`}
+          activeOpacity={0.75}
+        >
+          <Text
+            className={`text-xs font-mono font-bold ${
+              activeSubTab === 'compliance' ? 'text-racing-amber' : 'text-metal-400'
+            }`}
+          >
+            {hasComplianceAlert
+              ? t('recurring.subtabs.complianceAlert')
+              : t('recurring.subtabs.complianceOk')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setActiveSubTab('maintenance')}
+          className={`flex-1 py-2 rounded-lg items-center justify-center flex-row ${
+            activeSubTab === 'maintenance'
+              ? 'bg-racing-orange/20 border border-racing-orange/40'
+              : 'border border-transparent'
+          }`}
+          activeOpacity={0.75}
+        >
+          <Text
+            className={`text-xs font-mono font-bold ${
+              activeSubTab === 'maintenance' ? 'text-racing-orange' : 'text-metal-400'
+            }`}
+          >
+            {t('recurring.subtabs.maintenance', { count: reminderEvals.length })}
+          </Text>
+          {hasMaintenanceAlert && (
+            <View className="w-1.5 h-1.5 rounded-full bg-racing-red ml-1.5" />
+          )}
+        </TouchableOpacity>
+      </View>
       {/* 週期規費與法定排程 (RECURRING EXPENSES & COMPLIANCE) */}
-      <View className="gap-3 mb-2">
-        <View className="flex-row items-center justify-between">
+      {activeSubTab === 'compliance' && (
+        <View className="gap-3 mb-2">
+          <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
             <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
               {t('recurring.complianceTitle')}
@@ -364,17 +356,18 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
             </Text>
           </>
         )}
-      </View>
+        </View>
+      )}
 
-      {/* 分隔線 */}
-      <View className="h-[1px] bg-white/10 my-1" />
-
-      {/* 頂部雷達狀態與新增按鈕 */}
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
-            MAINTENANCE RADAR
-          </Text>
+      {/* 維護提醒 (MAINTENANCE RADAR) */}
+      {activeSubTab === 'maintenance' && (
+        <>
+          {/* 頂部雷達狀態與新增按鈕 */}
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
+                {t('recurring.maintenanceTitle')}
+              </Text>
           {alertCounts.overdue > 0 && (
             <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
               <Text className="text-[10px] font-mono text-racing-red font-bold">
@@ -478,7 +471,9 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
               </View>
             );
           })}
-        </View>
+          </View>
+        )}
+        </>
       )}
     </View>
   );

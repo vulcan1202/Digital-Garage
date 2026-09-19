@@ -22,6 +22,7 @@ interface EditVehicleModalProps {
   visible: boolean;
   vehicle: VehicleWithCover | null;
   onClose: () => void;
+  onDelete?: () => void;
 }
 
 const FUEL_TYPES: { label: string; value: FuelType }[] = [
@@ -39,6 +40,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
   visible,
   vehicle,
   onClose,
+  onDelete,
 }) => {
   const { t } = useTranslation();
   const [brand, setBrand] = useState('');
@@ -392,7 +394,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
           </View>
 
           {/* Action Buttons */}
-          <View className="flex-row gap-3 mb-4">
+          <View className="flex-row gap-3 mb-3">
             <TouchableOpacity
               onPress={onClose}
               className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
@@ -419,6 +421,23 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               )}
             </TouchableOpacity>
           </View>
+
+          {/* 刪除愛車危險區塊 (防呆二度確認) */}
+          {onDelete && (
+            <TouchableOpacity
+              onPress={() => {
+                onClose();
+                onDelete();
+              }}
+              className="py-3 rounded-full bg-red-500/10 border border-red-500/25 items-center justify-center mb-6 flex-row"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={14} color="#ef4444" />
+              <Text className="text-racing-red font-mono text-xs font-semibold ml-1.5">
+                {t('vehicle.deleteVehicleBtn')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
     </View>

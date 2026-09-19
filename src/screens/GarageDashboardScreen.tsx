@@ -425,30 +425,30 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
     <ScrollView className="flex-1 bg-garage-bg" contentContainerStyle={{ paddingBottom: 60 }}>
       {/* 頂部 Header */}
       <View className="pt-14 px-5 pb-4 flex-row items-center justify-between border-b border-white/[0.06]">
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3 flex-1 min-w-0 mr-2">
           <Image
             source={require('../../assets/icon.png')}
-            className="w-11 h-11 rounded-xl border border-amber-400/30 shadow-md"
+            className="w-11 h-11 rounded-xl border border-amber-400/30 shadow-md flex-shrink-0"
             resizeMode="cover"
           />
-          <View>
-            <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold">
+          <View className="flex-1 min-w-0">
+            <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold" numberOfLines={1}>
               {t('common.telemetryHeader')}
             </Text>
-            <Text className="text-2xl font-bold text-white tracking-tight mt-0.5">
+            <Text className="text-2xl font-bold text-white tracking-tight mt-0.5" numberOfLines={1}>
               {t('common.cockpitTitle')}
             </Text>
           </View>
         </View>
 
         {/* 狀態指示燈、語系切換器與登出按鈕 */}
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-1.5 flex-shrink-0">
           <LanguageSwitcher />
 
           <TouchableOpacity
             onPress={handleStatusBadgePress}
             activeOpacity={0.7}
-            className={`flex-row items-center px-2.5 py-1 rounded-full border ${
+            className={`flex-row items-center px-2 py-1 rounded-full border ${
               failedSyncItems.length > 0
                 ? 'bg-red-500/15 border-red-500/40'
                 : syncQueueItems.length > 0
@@ -459,7 +459,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             }`}
           >
             <View
-              className={`w-2 h-2 rounded-full mr-1.5 ${
+              className={`w-1.5 h-1.5 rounded-full mr-1 ${
                 failedSyncItems.length > 0
                   ? 'bg-red-500'
                   : syncQueueItems.length > 0
@@ -470,7 +470,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
               }`}
             />
             <Text
-              className={`text-[11px] font-mono font-bold ${
+              className={`text-[10px] font-mono font-bold ${
                 failedSyncItems.length > 0
                   ? 'text-red-400'
                   : syncQueueItems.length > 0
@@ -578,9 +578,25 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                     >
                       {v.brand} {v.model}
                     </Text>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={16} color="#FF5500" />
-                    )}
+                    <View className="flex-row items-center gap-1.5">
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedVehicleId(v.id);
+                          setIsEditVehicleOpen(true);
+                        }}
+                        className="flex-row items-center bg-white/10 px-2 py-0.5 rounded-full border border-white/20"
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="pencil-outline" size={10} color="#fff" />
+                        <Text className="text-[10px] font-mono text-white ml-1">
+                          {t('common.actions.edit')}
+                        </Text>
+                      </TouchableOpacity>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={16} color="#FF5500" />
+                      )}
+                    </View>
                   </View>
 
                   <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-white/[0.06]">
@@ -639,27 +655,6 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 {activeVehicle.fuel_type ? ` · ${activeVehicle.fuel_type}` : ''}
               </Text>
             </View>
-
-            {/* 右側：動作按鈕群組 (flex-shrink-0 確保按鈕絕不被擠壓或重疊) */}
-            <View className="flex-row items-center gap-1.5 flex-shrink-0">
-              <TouchableOpacity
-                onPress={() => setIsEditVehicleOpen(true)}
-                className="flex-row items-center bg-white/10 px-2.5 py-1.5 rounded-full border border-white/20"
-                activeOpacity={0.7}
-              >
-                <Ionicons name="pencil-outline" size={11} color="#fff" />
-                <Text className="text-[10px] font-mono text-white ml-1">編輯愛車</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleDeleteVehicle}
-                className="flex-row items-center bg-red-500/10 px-2.5 py-1.5 rounded-full border border-red-500/20"
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={11} color="#ef4444" />
-                <Text className="text-[10px] font-mono text-racing-red ml-1">刪除愛車</Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* 全域常駐快捷發送列 (Quick Action Deck - Visual Density 6) */}
@@ -671,7 +666,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.75}
               >
                 <Ionicons name="water" size={14} color="#007aff" />
-                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+加油</Text>
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">
+                  {t('common.quickActions.addRefuel')}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -680,7 +677,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.75}
               >
                 <Ionicons name="construct" size={14} color="#ff6b00" />
-                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+保養</Text>
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">
+                  {t('common.quickActions.addMaintenance')}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -689,7 +688,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.75}
               >
                 <Ionicons name="build" size={14} color="#ef4444" />
-                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+維修</Text>
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">
+                  {t('common.quickActions.addRepair')}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -698,7 +699,9 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.75}
               >
                 <MaterialCommunityIcons name="car-wrench" size={14} color="#c084fc" />
-                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+改裝</Text>
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">
+                  {t('common.quickActions.addModification')}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -707,17 +710,24 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 activeOpacity={0.75}
               >
                 <Ionicons name="pulse" size={14} color="#f59e0b" />
-                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">+提醒</Text>
+                <Text className="text-white font-mono font-bold text-[10px] mt-0.5">
+                  {t('common.quickActions.addReminder')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* 車輛座艙 6 大分頁導航 (Vehicle Hub Tabs - Visual Density 6) */}
-          <View className="flex-row bg-zinc-950 p-1 rounded-xl border border-white/10 mb-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="bg-zinc-950 p-1 rounded-xl border border-white/10 mb-4"
+            contentContainerStyle={{ gap: 4, flexGrow: 1 }}
+          >
             {/* Tab 1: 總覽 Overview */}
             <TouchableOpacity
               onPress={() => setActiveTab('overview')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'overview' ? 'bg-racing-orange/20 border border-racing-orange/40' : ''
               }`}
             >
@@ -733,7 +743,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 2: 歷程 Records */}
             <TouchableOpacity
               onPress={() => setActiveTab('records')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'records' ? 'bg-racing-blue/20 border border-racing-blue/40' : ''
               }`}
             >
@@ -749,7 +759,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 3: 改裝 Modifications */}
             <TouchableOpacity
               onPress={() => setActiveTab('modifications')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'modifications' ? 'bg-purple-500/20 border border-purple-500/40' : ''
               }`}
             >
@@ -765,7 +775,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 4: 媒體 Photos */}
             <TouchableOpacity
               onPress={() => setActiveTab('photos')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'photos' ? 'bg-amber-500/20 border border-amber-500/40' : ''
               }`}
             >
@@ -781,7 +791,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 5: 分析 Analytics */}
             <TouchableOpacity
               onPress={() => setActiveTab('analytics')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'analytics' ? 'bg-emerald-500/20 border border-emerald-500/40' : ''
               }`}
             >
@@ -797,7 +807,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             {/* Tab 6: 提醒 Reminders */}
             <TouchableOpacity
               onPress={() => setActiveTab('reminders')}
-              className={`flex-1 py-1.5 rounded-lg items-center justify-center ${
+              className={`px-3 py-1.5 rounded-lg items-center justify-center ${
                 activeTab === 'reminders' ? 'bg-racing-amber/20 border border-racing-amber/40' : ''
               }`}
             >
@@ -809,7 +819,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 {t('common.tabs.reminders', { count: reminders.length })}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
 
           {/* 6 大分頁內容渲染區塊 */}
           {activeTab === 'overview' && (
@@ -897,6 +907,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             visible={isEditVehicleOpen}
             vehicle={activeVehicle}
             onClose={() => setIsEditVehicleOpen(false)}
+            onDelete={handleDeleteVehicle}
           />
 
           <AddRefuelModal
