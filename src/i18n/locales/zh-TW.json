@@ -244,6 +244,21 @@
       "overdue": "已逾期",
       "unset": "未設定"
     },
+    "compliance": {
+      "currentYearOnly": "僅限本年度",
+      "paid": "已繳清",
+      "paidDesc": "稅費已結清",
+      "unpaid": "尚未繳清",
+      "pendingPayment": "待繳清",
+      "overduePayment": "逾期未繳",
+      "licenseTaxUpcoming": "將於四月徵收",
+      "licenseTaxNow": "四月徵收中",
+      "licenseTaxOverdue": "已逾四月徵收期",
+      "roadFeeUpcoming": "將於七月徵收",
+      "roadFeeNow": "七月徵收中",
+      "roadFeeOverdue": "已逾七月徵收期",
+      "commercialNotice": "* 規費時程以自用車為準，營業用車依監理通知為準"
+    },
     "labels": {
       "licenseTax": "牌照稅",
       "roadMaintenanceFee": "公路使用養護安全管理費（公路養管費）",

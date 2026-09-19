@@ -65,6 +65,35 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
         }
       }
 
+      if (s.category === 'license_tax' || s.category === 'road_maintenance_fee') {
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const levyMonth = s.category === 'license_tax' ? 4 : 7;
+
+        let isPaidThisYear = false;
+        if (s.status !== 'unset' && s.coverage_end_date) {
+          const parsedEnd = parseYMD(s.coverage_end_date);
+          if (parsedEnd && parsedEnd.year >= currentYear) {
+            isPaidThisYear = true;
+          }
+        }
+        if (s.last_paid_date) {
+          const parsedPaid = parseYMD(s.last_paid_date);
+          if (parsedPaid && parsedPaid.year >= currentYear) {
+            isPaidThisYear = true;
+          }
+        }
+
+        if (!isPaidThisYear) {
+          if (currentMonth > levyMonth) {
+            overdue++;
+          } else if (currentMonth === levyMonth) {
+            dueSoon++;
+          }
+        }
+        return;
+      }
+
       if (s.status === 'overdue') overdue++;
       else if (s.status === 'due_soon') dueSoon++;
     });
@@ -115,15 +144,19 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
             </Text>
           </DoubleBezelCard>
         ) : (
-          <View className="gap-2.5">
-            {recurringStatuses.map((item) => {
+          <>
+            <View className="gap-2.5">
+              {recurringStatuses.map((item) => {
               let statusBg = 'bg-white/[0.02] border-white/10';
               let badgeColor = 'text-metal-400';
               let badgeBg = 'bg-white/5 border-white/10';
               let statusText = t('recurring.status.unset');
 
               const isInspection = item.category === 'inspection';
-              const currentYear = new Date().getFullYear();
+              const isFixedFee = item.category === 'license_tax' || item.category === 'road_maintenance_fee';
+              const now = new Date();
+              const currentYear = now.getFullYear();
+              const currentMonth = now.getMonth() + 1;
               let mfgYear = currentYear;
               if (vehicle?.manufacture_date) {
                 const y = parseInt(vehicle.manufacture_date.slice(0, 4), 10);
@@ -138,10 +171,59 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
               const isCar = vehicle?.vehicle_type === 'car';
               const isFirstApproaching = isCar && carAge === 4;
 
-              if (isInspection && item.coverage_end_date) {
+              let fixedFeeDescription = '';
+
+              if (isFixedFee) {
+                const levyMonth = item.category === 'license_tax' ? 4 : 7;
+                let isPaidThisYear = false;
+                if (item.status !== 'unset' && item.coverage_end_date) {
+                  const parsedEnd = parseYMD(item.coverage_end_date);
+                  if (parsedEnd && parsedEnd.year >= currentYear) {
+                    isPaidThisYear = true;
+                  }
+                }
+                if (item.last_paid_date) {
+                  const parsedPaid = parseYMD(item.last_paid_date);
+                  if (parsedPaid && parsedPaid.year >= currentYear) {
+                    isPaidThisYear = true;
+                  }
+                }
+
+                if (isPaidThisYear) {
+                  badgeColor = 'text-racing-green';
+                  badgeBg = 'bg-racing-green/10 border-racing-green/30';
+                  statusText = t('recurring.compliance.paid');
+                  fixedFeeDescription = t('recurring.compliance.paidDesc');
+                } else if (currentMonth > levyMonth) {
+                  statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                  badgeColor = 'text-racing-red';
+                  badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                  statusText = t('recurring.compliance.overduePayment');
+                  fixedFeeDescription =
+                    item.category === 'license_tax'
+                      ? t('recurring.compliance.licenseTaxOverdue')
+                      : t('recurring.compliance.roadFeeOverdue');
+                } else if (currentMonth === levyMonth) {
+                  statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
+                  badgeColor = 'text-racing-amber';
+                  badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
+                  statusText = t('recurring.compliance.pendingPayment');
+                  fixedFeeDescription =
+                    item.category === 'license_tax'
+                      ? t('recurring.compliance.licenseTaxNow')
+                      : t('recurring.compliance.roadFeeNow');
+                } else {
+                  badgeColor = 'text-metal-400';
+                  badgeBg = 'bg-white/5 border-white/10';
+                  statusText = t('recurring.compliance.unpaid');
+                  fixedFeeDescription =
+                    item.category === 'license_tax'
+                      ? t('recurring.compliance.licenseTaxUpcoming')
+                      : t('recurring.compliance.roadFeeUpcoming');
+                }
+              } else if (isInspection && item.coverage_end_date) {
                 const parsedEnd = parseYMD(item.coverage_end_date);
                 if (parsedEnd) {
-                  const now = new Date();
                   const todayStr = formatYMD(now.getFullYear(), now.getMonth() + 1, now.getDate());
                   const baseObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
                   const baseDateStr = formatYMD(baseObj.year, baseObj.month, baseObj.day);
@@ -225,10 +307,23 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
                       <Ionicons name={iconName} size={16} color="#06b6d4" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white font-semibold text-sm" numberOfLines={1}>
-                        {label}
-                      </Text>
-                      {item.coverage_end_date ? (
+                      <View className="flex-row items-center flex-wrap">
+                        <Text className="text-white font-semibold text-sm" numberOfLines={1}>
+                          {label}
+                        </Text>
+                        {isFixedFee && (
+                          <View className="bg-metal-800/80 px-1.5 py-0.5 rounded border border-metal-700/50 ml-2">
+                            <Text className="text-[10px] text-metal-400 font-mono">
+                              {t('recurring.compliance.currentYearOnly')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {isFixedFee ? (
+                        <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
+                          {fixedFeeDescription}
+                        </Text>
+                      ) : item.coverage_end_date ? (
                         <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
                           有效至 {item.coverage_end_date}
                           {item.days_remaining !== null && item.days_remaining !== undefined && (
@@ -263,7 +358,11 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
                 </View>
               );
             })}
-          </View>
+            </View>
+            <Text className="text-[10px] text-metal-500 font-mono mt-1 px-1">
+              {t('recurring.compliance.commercialNotice')}
+            </Text>
+          </>
         )}
       </View>
 

@@ -244,6 +244,21 @@
       "overdue": "Overdue",
       "unset": "Not Configured"
     },
+    "compliance": {
+      "currentYearOnly": "Current Year Only",
+      "paid": "Paid",
+      "paidDesc": "Taxes & fees settled",
+      "unpaid": "Unpaid",
+      "pendingPayment": "Payment Pending",
+      "overduePayment": "Payment Overdue",
+      "licenseTaxUpcoming": "Levied in April",
+      "licenseTaxNow": "Levied in April",
+      "licenseTaxOverdue": "April levy period ended",
+      "roadFeeUpcoming": "Levied in July",
+      "roadFeeNow": "Levied in July",
+      "roadFeeOverdue": "July levy period ended",
+      "commercialNotice": "* Schedule applies to private vehicles; commercial vehicles follow official notices."
+    },
     "labels": {
       "licenseTax": "Vehicle License Tax",
       "roadMaintenanceFee": "Road Maintenance Fee",
