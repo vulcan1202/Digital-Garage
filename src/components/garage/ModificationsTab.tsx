@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { ModificationRow } from '../../types/database';
 
@@ -19,6 +20,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
   onDeleteModification,
   onNavigateToModDetail,
 }) => {
+  const { t } = useTranslation();
   const totalModInvestment = modifications.reduce(
     (sum, m) => sum + (Number(m.purchase_price) || 0) + (Number(m.install_price) || 0),
     0
@@ -35,12 +37,12 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
             </Text>
             <View className="bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/40">
               <Text className="text-[10px] font-mono text-purple-300 font-bold">
-                {modifications.length} ITEMS
+                {t('modifications.itemsCount', { count: modifications.length })}
               </Text>
             </View>
           </View>
           <Text className="text-[11px] text-metal-500 font-mono mt-0.5">
-            累計改裝投資 ${totalModInvestment.toLocaleString()}
+            {t('modifications.totalInvestment', { cost: totalModInvestment.toLocaleString() })}
           </Text>
         </View>
 
@@ -50,7 +52,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
         >
           <Ionicons name="add" size={14} color="#c084fc" />
           <Text className="text-xs text-purple-300 font-bold ml-1 font-mono">
-            新增改裝
+            {t('modifications.addModification')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -60,7 +62,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
         <DoubleBezelCard innerClassName="py-8 items-center">
           <MaterialCommunityIcons name="car-wrench" size={36} color="#a855f7" />
           <Text className="text-metal-400 text-xs mt-2 font-mono">
-            此車輛尚未登錄任何改裝品套件
+            {t('modifications.emptySubtitle')}
           </Text>
         </DoubleBezelCard>
       ) : (
@@ -79,7 +81,25 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
                     <View className="flex-row items-center gap-2 mb-1">
                       <View className="px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/30">
                         <Text className="text-[10px] font-mono text-purple-400 font-bold uppercase">
-                          {mod.category}
+                          {mod.category === 'suspension'
+                            ? t('modifications.categories.suspension')
+                            : mod.category === 'braking'
+                            ? t('modifications.categories.braking')
+                            : mod.category === 'engine'
+                            ? t('modifications.categories.engine')
+                            : mod.category === 'exhaust'
+                            ? t('modifications.categories.exhaust')
+                            : mod.category === 'intake'
+                            ? t('modifications.categories.intake')
+                            : mod.category === 'wheels_tires'
+                            ? t('modifications.categories.wheels_tires')
+                            : mod.category === 'exterior'
+                            ? t('modifications.categories.exterior')
+                            : mod.category === 'interior'
+                            ? t('modifications.categories.interior')
+                            : mod.category === 'electronics'
+                            ? t('modifications.categories.electronics')
+                            : t('modifications.categories.other')}
                         </Text>
                       </View>
                       {mod.shop_name ? (
@@ -105,7 +125,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
                       ${totalModCost.toLocaleString()}
                     </Text>
                     <Text className="text-[9px] text-metal-500 font-mono">
-                      {mod.install_date || mod.purchase_date || '未註記日期'}
+                      {mod.install_date || mod.purchase_date || t('modifications.noDate')}
                     </Text>
                   </View>
                 </View>
@@ -117,7 +137,9 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
                         @{mod.install_mileage.toLocaleString()} KM
                       </Text>
                     ) : (
-                      <Text className="text-[10px] font-mono text-metal-500">標準配置</Text>
+                      <Text className="text-[10px] font-mono text-metal-500">
+                        {t('modifications.stockConfig')}
+                      </Text>
                     )}
                   </View>
 
@@ -128,7 +150,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
                     >
                       <Ionicons name="pencil" size={11} color="#fff" />
                       <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
-                        編輯
+                        {t('common.actions.edit')}
                       </Text>
                     </TouchableOpacity>
 
@@ -138,7 +160,7 @@ export const ModificationsTab: React.FC<ModificationsTabProps> = ({
                     >
                       <MaterialCommunityIcons name="tune-vertical" size={11} color="#c084fc" />
                       <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
-                        調校設定
+                        {t('modifications.tuningConfig')}
                       </Text>
                     </TouchableOpacity>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { ReminderRow, VehicleWithCover } from '../../types/database';
 import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
@@ -36,6 +37,7 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
   onCompleteReminder,
   onDeleteReminder,
 }) => {
+  const { t } = useTranslation();
   const recurringAlertCounts = React.useMemo(() => {
     let overdue = 0;
     let dueSoon = 0;
@@ -53,7 +55,7 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
             <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
-              RECURRING EXPENSES & COMPLIANCE
+              {t('recurring.complianceTitle')}
             </Text>
             {recurringAlertCounts.overdue > 0 && (
               <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
@@ -77,7 +79,7 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
           >
             <Ionicons name="add" size={14} color="#06b6d4" />
             <Text className="text-xs text-cyan-400 font-bold ml-1 font-mono">
-              登記規費
+              {t('recurring.addExpense')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -95,26 +97,26 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
               let statusBg = 'bg-white/[0.02] border-white/10';
               let badgeColor = 'text-metal-400';
               let badgeBg = 'bg-white/5 border-white/10';
-              let statusText = '未設定';
+              let statusText = t('recurring.status.unset');
 
               if (item.status === 'overdue') {
                 statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
                 badgeColor = 'text-racing-red';
                 badgeBg = 'bg-racing-red/20 border-racing-red/40';
-                statusText = '已逾期';
+                statusText = t('recurring.status.overdue');
               } else if (item.status === 'due_soon') {
                 statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
                 badgeColor = 'text-racing-amber';
                 badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
-                statusText = '即將到期';
+                statusText = t('recurring.status.dueSoon');
               } else if (item.status === 'good') {
                 badgeColor = 'text-racing-green';
                 badgeBg = 'bg-racing-green/10 border-racing-green/30';
-                statusText = '正常';
+                statusText = t('recurring.status.good');
               }
 
               const iconName = CATEGORY_ICONS[item.category] || 'receipt-outline';
-              const label = RECURRING_CATEGORY_LABELS[item.category] || item.title;
+              const label = t(`recurring.labels.${item.category}` as any, { defaultValue: item.title });
 
               return (
                 <View
@@ -199,7 +201,7 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
         >
           <Ionicons name="add" size={14} color="#f59e0b" />
           <Text className="text-xs text-racing-amber font-bold ml-1 font-mono">
-            新增提醒
+            {t('common.actions.add')}
           </Text>
         </TouchableOpacity>
       </View>

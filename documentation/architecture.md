@@ -117,3 +117,42 @@ Vehicle B (ID: 202)
 
 * **查詢鍵獨立**：React Query Key 嚴格包含 `vehicleId`。
 * **儲存分區**：本地持久化鍵值以功能前綴加上車輛 ID（如 `DG_CACHE_MAINT_101`），確保 A 車快取的讀寫與截斷絕不影響 B 車。
+
+---
+
+## 5. 全域 i18n 國際化架構 (Global i18n Architecture - P2-2.8)
+
+為落實純展示層改造且維持 100% 型別約束，系統建構完整的 i18n 運作管道：
+
+```text
+┌────────────────────────────────────────────────────────┐
+│             Single JSON Locales (zh-TW & en-US)        │
+│  - Symmetric Keys / Strict No-Empty Leaves             │
+│  - Interpolation tokens: {{count}}, {{cost}}           │
+└──────────────────────────┬─────────────────────────────┘
+                           │ TypeScript Leaves<T, D>
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                 Compile-time Type Safety               │
+│  - CustomTypeOptions & TranslationKey IntelliSense     │
+│  - Safe getEnglishText(key, options) Helper            │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             LanguageContext & Provider (App Root)      │
+│  - expo-secure-store (DG_USER_LANGUAGE, BILINGUAL)     │
+│  - isHydrated Gate: 避免首屏語系跳轉與閃爍             │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│               Presentation Layer Components            │
+│  - BilingualText (5-Case Decision Matrix)              │
+│  - LanguageSwitcher ([ 繁中 | EN ] with hitSlop)       │
+└────────────────────────────────────────────────────────┘
+```
+
+* **表現層隔離原則**：後端與資料庫儲存純粹使用者業務資料，前端不更動資料庫 Schema，亦不對使用者自行輸入的車名、改裝品名或備註進行翻譯，確保車輛數位履歷原始真實。
+* **深度型別推導**：排除物件與陣列，只推導字串葉節點，產生如 `"recurring.labels.inspection"` 的完整字串聯集，在呼叫 `t(...)` 或 `<BilingualText translationKey="..." />` 時獲得即時程式碼補齊與型別校驗。
+

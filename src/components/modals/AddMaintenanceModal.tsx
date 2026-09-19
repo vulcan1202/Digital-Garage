@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { useCreateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordType } from '../../types/database';
@@ -35,6 +36,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
   initialRecordType,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const today = new Date().toISOString().split('T')[0];
   const [recordType, setRecordType] = useState<MaintenanceRecordType>(initialRecordType || 'maintenance');
   const [itemName, setItemName] = useState('');
@@ -81,19 +83,19 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
   const handleSubmit = async () => {
     if (!itemName.trim()) {
-      Alert.alert('資料不齊全', '請填寫保養或維修項目名稱 (Item Name)。');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.itemNameRequired'));
       return;
     }
 
     const mileageNum = parseInt(mileage, 10);
     if (isNaN(mileageNum) || mileageNum < 0) {
-      Alert.alert('里程數格式錯誤', '請輸入施作時的車輛總里程數 (公里)。');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.mileageRequired'));
       return;
     }
 
     const costNum = cost ? parseFloat(cost) : 0;
     if (isNaN(costNum) || costNum < 0) {
-      Alert.alert('費用格式錯誤', '費用必須大於或等於 0 元。');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.costInvalid'));
       return;
     }
 
@@ -147,14 +149,17 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
       }
 
       Alert.alert(
-        '紀錄儲存成功',
-        `已成功建立 ${recordType === 'maintenance' ? '定期保養' : '維修工單'}：「${itemName.trim()}」！`
+        t('common.status.success'),
+        t('maintenance.validation.saveSuccess', {
+          type: recordType === 'maintenance' ? t('maintenance.types.maintenance') : t('maintenance.types.repair'),
+          name: itemName.trim(),
+        })
       );
       resetForm();
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '保養紀錄新增失敗';
-      Alert.alert('新增失敗', message);
+      const message = err instanceof Error ? err.message : t('maintenance.validation.saveFailed');
+      Alert.alert(t('common.status.error'), message);
     } finally {
       setIsUploadingPhotos(false);
     }
@@ -170,7 +175,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   SERVICE & REPAIR LOG
                 </Text>
                 <Text className="text-xl font-bold text-white tracking-tight mt-0.5">
-                  登錄保養 / 維修日誌
+                  {recordType === 'maintenance' ? t('maintenance.addMaintenance') : t('maintenance.addRepair')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -200,7 +205,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                       recordType === 'maintenance' ? 'text-racing-orange' : 'text-metal-400'
                     }`}
                   >
-                    定期保養 (Maintenance)
+                    {t('maintenance.types.maintenanceTab')}
                   </Text>
                 </TouchableOpacity>
 
@@ -215,7 +220,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                       recordType === 'repair' ? 'text-racing-red' : 'text-metal-400'
                     }`}
                   >
-                    維修排除 (Repair)
+                    {t('maintenance.types.repairTab')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -223,12 +228,12 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               {/* 項目名稱 */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                  施作項目 ITEM NAME *
+                  {t('maintenance.fields.itemName')} *
                 </Text>
                 <TextInput
                   value={itemName}
                   onChangeText={setItemName}
-                  placeholder={recordType === 'maintenance' ? '例: 10,000 公里定期大保養 + 機油芯' : '例: 前三角架襯套異音更換'}
+                  placeholder={recordType === 'maintenance' ? t('maintenance.fields.itemNamePlaceholder') : '例: 前三角架襯套異音更換'}
                   placeholderTextColor="#52525b"
                   className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
                 />
@@ -237,7 +242,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               {/* 日期與里程 */}
               <View className="flex-row gap-3 mb-4">
                 <DatePickerInput
-                  label="工單日期 SERVICE DATE"
+                  label={t('maintenance.fields.serviceDate')}
                   required
                   value={serviceDate}
                   onChange={setServiceDate}
@@ -247,12 +252,12 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    施作里程 ODOMETER (KM) *
+                    {t('maintenance.fields.serviceMileage')} *
                   </Text>
                   <TextInput
                     value={mileage}
                     onChangeText={setMileage}
-                    placeholder="例: 20500"
+                    placeholder={t('maintenance.fields.serviceMileagePlaceholder')}
                     placeholderTextColor="#52525b"
                     keyboardType="numeric"
                     className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
@@ -264,7 +269,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <View className="flex-row gap-3 mb-4">
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    總花費 COST ($)
+                    {t('maintenance.fields.cost')}
                   </Text>
                   <TextInput
                     value={cost}
@@ -278,12 +283,12 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    施作店家 / 保養廠
+                    {t('maintenance.fields.shopName')}
                   </Text>
                   <TextInput
                     value={shopName}
                     onChangeText={setShopName}
-                    placeholder="例: 原廠授權中心"
+                    placeholder={t('maintenance.fields.shopNamePlaceholder')}
                     placeholderTextColor="#52525b"
                     className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
                   />
@@ -293,12 +298,12 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               {/* 備註 */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                  技師備註 / 工單內容 NOTE
+                  {t('maintenance.fields.notes')}
                 </Text>
                 <TextInput
                   value={note}
                   onChangeText={setNote}
-                  placeholder="更換 5W-40 全合成機油 4.5L、螺絲墊片更新、胎壓檢查 36 PSI"
+                  placeholder={t('maintenance.fields.notesPlaceholder')}
                   placeholderTextColor="#52525b"
                   multiline
                   numberOfLines={3}
@@ -319,10 +324,10 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                     </View>
                     <View className="flex-1">
                       <Text className="text-white font-mono font-bold text-xs">
-                        同步設定下次保養提醒
+                        {t('maintenance.reminderSettings.syncNext')}
                       </Text>
                       <Text className="text-[10px] text-metal-500 font-mono">
-                        依照里程數、時間月份或雙軌預警
+                        {t('maintenance.reminderSettings.subtitle')}
                       </Text>
                     </View>
                   </View>
@@ -342,7 +347,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                     {/* 里程間隔 */}
                     <View className="mb-3.5">
                       <Text className="text-[11px] font-mono text-metal-400 mb-1.5">
-                        下次保養間隔里程 (KM)
+                        {t('maintenance.reminderSettings.intervalKm')}
                       </Text>
                       <View className="flex-row gap-2 mb-2">
                         {['3000', '5000', '10000'].map((km) => (
@@ -368,7 +373,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                       <TextInput
                         value={intervalKm}
                         onChangeText={setIntervalKm}
-                        placeholder="例: 5000 (留空則不依里程)"
+                        placeholder={t('maintenance.reminderSettings.intervalKmPlaceholder')}
                         placeholderTextColor="#52525b"
                         keyboardType="numeric"
                         className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm"
@@ -378,7 +383,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                     {/* 時間間隔 */}
                     <View>
                       <Text className="text-[11px] font-mono text-metal-400 mb-1.5">
-                        下次保養間隔時間 (月份)
+                        {t('maintenance.reminderSettings.intervalMonths')}
                       </Text>
                       <View className="flex-row gap-2 mb-2">
                         {['3', '6', '12'].map((m) => (
@@ -404,7 +409,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                       <TextInput
                         value={intervalMonths}
                         onChangeText={setIntervalMonths}
-                        placeholder="例: 6 (留空則不依時間)"
+                        placeholder={t('maintenance.reminderSettings.intervalMonthsPlaceholder')}
                         placeholderTextColor="#52525b"
                         keyboardType="numeric"
                         className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm"
@@ -412,7 +417,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                     </View>
 
                     <Text className="text-[10px] text-metal-500 font-mono mt-3">
-                      * 雙軌提示：保養雷達將自動比對里程與月份，兩者先到者先進行即期/過期警示。
+                      {t('maintenance.reminderSettings.dualTrackNotice')}
                     </Text>
                   </View>
                 )}
@@ -423,8 +428,8 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 photos={selectedPhotos}
                 onChangePhotos={setSelectedPhotos}
                 maxPhotos={5}
-                title="維修工單/發票照片"
-                subtitle="上傳工單證明或零件施作照片（等比壓縮至1920px）"
+                title={t('maintenance.fields.photosTitle')}
+                subtitle={t('maintenance.fields.photosSubtitle')}
               />
 
               {/* Action Buttons */}
@@ -434,7 +439,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   disabled={createMaintenanceMutation.isPending || isUploadingPhotos}
                   className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
                 >
-                  <Text className="text-metal-300 font-mono text-xs">取消</Text>
+                  <Text className="text-metal-300 font-mono text-xs">{t('common.actions.cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -447,7 +452,7 @@ export const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   ) : (
                     <>
                       <Text className="text-black font-bold font-mono text-xs mr-2">
-                        儲存保修日誌
+                        {t('maintenance.fields.saveBtn')}
                       </Text>
                       <View className="w-5 h-5 rounded-full bg-black/20 items-center justify-center">
                         <Ionicons name="checkmark" size={12} color="#000" />

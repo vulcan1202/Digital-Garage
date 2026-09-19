@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useCreateRecurringExpenseMutation } from '../../hooks/queries/useRecurringExpenses';
 import { RecurringExpenseCategory } from '../../types/recurringExpense';
 import {
@@ -30,13 +31,15 @@ interface AddRecurringExpenseModalProps {
   onClose: () => void;
 }
 
-const CATEGORIES: { key: RecurringExpenseCategory; label: string; icon: string }[] = [
-  { key: 'license_tax', label: '牌照稅', icon: 'card-bulleted-outline' },
-  { key: 'road_maintenance_fee', label: '公路養管費', icon: 'road-variant' },
-  { key: 'inspection', label: '定期檢驗', icon: 'shield-check-outline' },
-  { key: 'compulsory_insurance', label: '強制險', icon: 'file-certificate-outline' },
-  { key: 'liability_insurance', label: '任意險', icon: 'security' },
-  { key: 'other', label: '其他規費', icon: 'dots-horizontal-circle-outline' },
+type MciIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+const CATEGORIES: { key: RecurringExpenseCategory; icon: MciIconName }[] = [
+  { key: 'license_tax', icon: 'card-bulleted-outline' },
+  { key: 'road_maintenance_fee', icon: 'road-variant' },
+  { key: 'inspection', icon: 'shield-check-outline' },
+  { key: 'compulsory_insurance', icon: 'file-certificate-outline' },
+  { key: 'liability_insurance', icon: 'security' },
+  { key: 'other', icon: 'dots-horizontal-circle-outline' },
 ];
 
 export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> = ({
@@ -44,6 +47,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   vehicle,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const vehicleId = vehicle ? vehicle.id : 0;
   const createMutation = useCreateRecurringExpenseMutation(vehicleId);
 
@@ -86,23 +90,23 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('資料不完整', '請輸入規費或檢驗項目名稱。');
+      Alert.alert(t('common.status.error'), t('recurring.validation.titleRequired'));
       return;
     }
 
     const amtNum = parseFloat(amount);
     if (isNaN(amtNum) || amtNum < 0) {
-      Alert.alert('金額無效', '請輸入合法的非負數金額 (0 元亦可)。');
+      Alert.alert(t('common.status.error'), t('recurring.validation.amountInvalid'));
       return;
     }
 
     if (!paidDate.trim() || !coverageStartDate.trim() || !coverageEndDate.trim()) {
-      Alert.alert('日期不完整', '付款日期與有效起訖日皆為必填。');
+      Alert.alert(t('common.status.error'), t('recurring.validation.dateRequired'));
       return;
     }
 
     if (coverageEndDate < coverageStartDate) {
-      Alert.alert('日期邏輯錯誤', '到期截止日不得早於生效起始日。');
+      Alert.alert(t('common.status.error'), t('recurring.validation.dateLogicError'));
       return;
     }
 
@@ -120,11 +124,11 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
           sync_as_registration_date: syncDate,
         });
 
-        Alert.alert('登記成功', `已成功新增「${title}」紀錄！`);
+        Alert.alert(t('common.status.success'), t('recurring.validation.saveSuccess', { name: title.trim() }));
         onClose();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '儲存失敗，請檢查資料輸入';
-        Alert.alert('登記失敗', msg);
+        const msg = err instanceof Error ? err.message : t('recurring.validation.saveFailed');
+        Alert.alert(t('common.status.error'), msg);
       }
     };
 
@@ -157,12 +161,15 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
         // 若該車輛已有 registration_date 且與目前計算出的日期不同，跳出 Alert 確認覆寫
         if (vehicle?.registration_date && vehicle.registration_date !== derivedRegDate) {
           Alert.alert(
-            '確認覆寫原發照日期',
-            `此車輛目前原發照日期為「${vehicle.registration_date}」，是否確認將其覆寫為「${derivedRegDate}」？\n此變更將影響未來的定期檢驗視窗推算。`,
+            t('recurring.fields.confirmOverwrite'),
+            t('recurring.fields.syncOverwriteWarning', {
+              existing: vehicle.registration_date,
+              newDate: derivedRegDate,
+            }),
             [
-              { text: '取消', style: 'cancel' },
+              { text: t('common.actions.cancel'), style: 'cancel' },
               {
-                text: '確認覆寫',
+                text: t('recurring.fields.confirmOverwrite'),
                 style: 'destructive',
                 onPress: () => doSubmit(derivedRegDate),
               },
@@ -195,7 +202,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 <Ionicons name="calendar-outline" size={18} color="#ff6b00" />
               </View>
               <View>
-                <Text className="text-white font-bold text-base">登記週期規費 / 定檢</Text>
+                <Text className="text-white font-bold text-base">{t('recurring.addExpense')}</Text>
                 <Text className="text-metal-400 text-xs font-mono">
                   {vehicle ? `${vehicle.brand} ${vehicle.model}` : ''}
                 </Text>
@@ -209,7 +216,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
           <ScrollView className="px-5 py-3" showsVerticalScrollIndicator={false}>
             {/* 類別選擇器 */}
             <Text className="text-metal-400 text-xs font-mono mb-2 uppercase tracking-wider">
-              規費與檢驗類別 (CATEGORIES)
+              {t('recurring.fields.categoriesHeader')}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
               <View className="flex-row gap-2">
@@ -226,7 +233,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                       }`}
                     >
                       <MaterialCommunityIcons
-                        name={c.icon as any}
+                        name={c.icon}
                         size={16}
                         color={isSelected ? '#ff6b00' : '#888'}
                       />
@@ -235,7 +242,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                           isSelected ? 'text-racing-orange' : 'text-metal-300'
                         }`}
                       >
-                        {c.label}
+                        {t(`recurring.labels.${c.key}`)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -255,11 +262,11 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
             {/* 標題欄位 */}
             <View className="mb-3.5">
-              <Text className="text-metal-400 text-xs font-mono mb-1.5">項目名稱 *</Text>
+              <Text className="text-metal-400 text-xs font-mono mb-1.5">{t('recurring.fields.title')} *</Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
-                placeholder="例: 2026年 牌照稅"
+                placeholder={t('recurring.fields.titlePlaceholder')}
                 placeholderTextColor="#555"
                 className="bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
               />
@@ -267,7 +274,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
             {/* 金額欄位 */}
             <View className="mb-3.5">
-              <Text className="text-metal-400 text-xs font-mono mb-1.5">繳納金額 (NTD) *</Text>
+              <Text className="text-metal-400 text-xs font-mono mb-1.5">{t('recurring.fields.amount')} *</Text>
               <TextInput
                 value={amount}
                 onChangeText={setAmount}
@@ -280,31 +287,31 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
             {/* 付款/檢驗日 */}
             <DatePickerInput
-              label="繳費 / 施作檢驗日期 (PAID DATE)"
+              label={t('recurring.fields.paidDateLabel')}
               required
               value={paidDate}
               onChange={setPaidDate}
               maximumDate={new Date()}
-              placeholder="點擊選取繳費/檢驗日"
+              placeholder={t('recurring.fields.paidDatePlaceholder')}
               containerClassName="mb-3.5"
             />
 
             {/* 有效起訖期間 */}
             <View className="flex-row gap-3 mb-3.5">
               <DatePickerInput
-                label="生效起始日"
+                label={t('recurring.fields.coverageStartDate')}
                 required
                 value={coverageStartDate}
                 onChange={setCoverageStartDate}
-                placeholder="生效起始日"
+                placeholder={t('recurring.fields.coverageStartDate')}
                 containerClassName="flex-1"
               />
               <DatePickerInput
-                label="到期截止日"
+                label={t('recurring.fields.coverageEndDate')}
                 required
                 value={coverageEndDate}
                 onChange={setCoverageEndDate}
-                placeholder="到期截止日"
+                placeholder={t('recurring.fields.coverageEndDate')}
                 containerClassName="flex-1"
               />
             </View>
@@ -323,10 +330,10 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 />
                 <View className="flex-1">
                   <Text className="text-white text-xs font-medium">
-                    同步設為行照原發照日期 (Registration Date)
+                    {t('recurring.fields.syncRegistrationDate')}
                   </Text>
                   <Text className="text-metal-400 text-[10px] mt-0.5">
-                    下次定檢將自動以此日期的月日為基準（前後各一個月窗口）
+                    {t('recurring.fields.syncRegistrationDesc')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -334,11 +341,11 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
             {/* 備註 */}
             <View className="mb-6">
-              <Text className="text-metal-400 text-xs font-mono mb-1.5">備註 (選填)</Text>
+              <Text className="text-metal-400 text-xs font-mono mb-1.5">{t('recurring.fields.notes')}</Text>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="繳費收據編號、代驗廠名稱等..."
+                placeholder={t('recurring.fields.notesPlaceholder')}
                 placeholderTextColor="#555"
                 multiline
                 numberOfLines={2}
@@ -357,7 +364,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 <ActivityIndicator color="#000" size="small" />
               ) : (
                 <Text className="text-black font-bold text-sm tracking-wider font-mono">
-                  確認登記規費 (SAVE RECORD)
+                  {t('recurring.fields.saveBtn')}
                 </Text>
               )}
             </TouchableOpacity>

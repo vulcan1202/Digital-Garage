@@ -16,6 +16,7 @@ import { useUpdateVehicle } from '../../hooks/queries/useVehicles';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { DatePickerInput } from '../common/DatePickerInput';
 import { VehicleType, FuelType, VehicleWithCover } from '../../types/database';
+import { useTranslation } from 'react-i18next';
 
 interface EditVehicleModalProps {
   visible: boolean;
@@ -39,6 +40,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
   vehicle,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType>('car');
@@ -395,7 +397,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               onPress={onClose}
               className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
             >
-              <Text className="text-metal-300 font-mono text-xs">取消</Text>
+              <Text className="text-metal-300 font-mono text-xs">{t('common.actions.cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -408,7 +410,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               ) : (
                 <>
                   <Text className="text-black font-bold font-mono text-xs mr-2">
-                    保存變更
+                    {t('common.actions.save')}
                   </Text>
                   <View className="w-5 h-5 rounded-full bg-black/20 items-center justify-center">
                     <Ionicons name="checkmark" size={12} color="#000" />

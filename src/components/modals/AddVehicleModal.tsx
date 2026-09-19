@@ -21,6 +21,7 @@ import { PhotoPickerSection, SelectedPhoto } from '../PhotoPickerSection';
 import { storageService } from '../../services/storageService';
 import { vehicleService } from '../../services/vehicleService';
 import { DatePickerInput } from '../common/DatePickerInput';
+import { useTranslation } from 'react-i18next';
 
 import { VehicleType, FuelType } from '../../types/database';
 
@@ -46,6 +47,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { t } = useTranslation();
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
@@ -82,18 +84,18 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
 
   const handleCreate = async () => {
     if (!brand.trim() || !model.trim()) {
-      Alert.alert('資料不齊全', '車輛廠牌 (Brand) 與車型名稱 (Model) 為必填。');
+      Alert.alert(t('common.status.error'), t('vehicle.validation.brandRequired'));
       return;
     }
 
     if (!vehicleType) {
-      Alert.alert('請選擇車輛類型', '車輛類型 (汽車 / 機車 / 其他) 為必填項目，不可留空。');
+      Alert.alert(t('common.status.error'), '請選擇車輛類型');
       return;
     }
 
     const mileageNum = parseInt(currentMileage, 10);
     if (currentMileage && (isNaN(mileageNum) || mileageNum < 0)) {
-      Alert.alert('里程數格式錯誤', '當前里程數必須為大於或等於 0 之整數。');
+      Alert.alert(t('common.status.error'), t('vehicle.validation.initialMileageRequired'));
       return;
     }
 
@@ -429,7 +431,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
               disabled={createVehicleMutation.isPending || isUploadingPhotos}
               className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
             >
-              <Text className="text-metal-300 font-mono text-xs">取消</Text>
+              <Text className="text-metal-300 font-mono text-xs">{t('common.actions.cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -442,7 +444,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
               ) : (
                 <>
                   <Text className="text-black font-bold font-mono text-xs mr-2">
-                    確認入庫
+                    {t('common.actions.confirm')}
                   </Text>
                   <View className="w-5 h-5 rounded-full bg-black/20 items-center justify-center">
                     <Ionicons name="checkmark" size={12} color="#000" />

@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../components/DoubleBezelCard';
 import { useTimeline } from '../hooks/queries/useTimeline';
 import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
@@ -41,6 +42,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   onBack,
   onNavigateToModDetail,
 }) => {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<FilterCategory>('ALL');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
@@ -86,7 +88,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <Ionicons name="water-outline" size={16} color="#007aff" />,
           color: 'text-racing-blue',
           bg: 'bg-racing-blue/10 border-racing-blue/30',
-          label: '加油紀錄',
+          label: t('fuel.logTitle'),
           border: 'blue' as const,
         };
       case 'maintenance':
@@ -94,7 +96,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <Ionicons name="construct-outline" size={16} color="#ff6b00" />,
           color: 'text-racing-orange',
           bg: 'bg-racing-orange/10 border-racing-orange/30',
-          label: '定期保養',
+          label: t('maintenance.types.maintenance'),
           border: 'orange' as const,
         };
       case 'repair':
@@ -102,7 +104,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <Ionicons name="warning-outline" size={16} color="#ef4444" />,
           color: 'text-racing-red',
           bg: 'bg-racing-red/10 border-racing-red/30',
-          label: '故障維修',
+          label: t('maintenance.types.repair'),
           border: 'red' as const,
         };
       case 'modification':
@@ -110,7 +112,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <MaterialCommunityIcons name="car-wrench" size={16} color="#a855f7" />,
           color: 'text-purple-400',
           bg: 'bg-purple-500/10 border-purple-500/30',
-          label: '改裝升級',
+          label: t('modifications.title'),
           border: 'none' as const,
         };
       case 'purchase':
@@ -118,7 +120,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <Ionicons name="key-outline" size={16} color="#10b981" />,
           color: 'text-emerald-400',
           bg: 'bg-emerald-500/10 border-emerald-500/30',
-          label: '購入入庫',
+          label: t('vehicle.timeline.purchaseEvent'),
           border: 'none' as const,
         };
       case 'recurring_expense':
@@ -126,7 +128,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           icon: <Ionicons name="document-text-outline" size={16} color="#06b6d4" />,
           color: 'text-cyan-400',
           bg: 'bg-cyan-500/10 border-cyan-500/30',
-          label: '週期規費',
+          label: t('recurring.title'),
           border: 'none' as const,
         };
     }
@@ -135,48 +137,52 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   const handleDeleteEvent = (item: VehicleTimelineRow) => {
     // 依 Guardrail: Purchase Event 不提供一般 Delete
     if (item.event_type === 'purchase') {
-      Alert.alert('提示', '購入入庫為愛車基本資料，請至車輛管理介面編輯或刪除整輛車。');
+      Alert.alert(t('common.status.error'), t('vehicle.timeline.purchaseDeleteNotice'));
       return;
     }
 
-    let typeName = '紀錄';
-    if (item.event_type === 'refuel') typeName = '加油紀錄';
-    else if (item.event_type === 'maintenance') typeName = '保養工單';
-    else if (item.event_type === 'repair') typeName = '維修工單';
-    else if (item.event_type === 'modification') typeName = '改裝品';
-    else if (item.event_type === 'recurring_expense') typeName = '週期規費';
+    let typeName = t('vehicle.title');
+    if (item.event_type === 'refuel') typeName = t('fuel.logTitle');
+    else if (item.event_type === 'maintenance') typeName = t('maintenance.logTitle');
+    else if (item.event_type === 'repair') typeName = t('maintenance.types.repair');
+    else if (item.event_type === 'modification') typeName = t('modifications.title');
+    else if (item.event_type === 'recurring_expense') typeName = t('recurring.title');
 
-    Alert.alert(`刪除${typeName}`, `確定要刪除「${item.title}」嗎？\n此操作無法復原。`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '確定刪除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (item.event_type === 'refuel') {
-              await deleteRefuelMutation.mutateAsync({ id: item.event_id, vehicleId });
-            } else if (item.event_type === 'maintenance' || item.event_type === 'repair') {
-              await deleteMaintenanceMutation.mutateAsync({ id: item.event_id, vehicleId });
-            } else if (item.event_type === 'modification') {
-              await deleteModMutation.mutateAsync({ id: item.event_id, vehicleId });
-            } else if (item.event_type === 'recurring_expense') {
-              await deleteRecurringMutation.mutateAsync({ id: item.event_id, vehicleId });
+    Alert.alert(
+      t('common.actions.delete'),
+      t('vehicle.timeline.deleteConfirm', { title: item.title }),
+      [
+        { text: t('common.actions.cancel'), style: 'cancel' },
+        {
+          text: t('common.actions.confirmDelete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (item.event_type === 'refuel') {
+                await deleteRefuelMutation.mutateAsync({ id: item.event_id, vehicleId });
+              } else if (item.event_type === 'maintenance' || item.event_type === 'repair') {
+                await deleteMaintenanceMutation.mutateAsync({ id: item.event_id, vehicleId });
+              } else if (item.event_type === 'modification') {
+                await deleteModMutation.mutateAsync({ id: item.event_id, vehicleId });
+              } else if (item.event_type === 'recurring_expense') {
+                await deleteRecurringMutation.mutateAsync({ id: item.event_id, vehicleId });
+              }
+              refetch();
+              Alert.alert(t('common.status.success'), t('vehicle.timeline.deleteSuccess', { type: typeName }));
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : t('common.status.error');
+              Alert.alert(t('common.status.error'), message);
             }
-            refetch();
-            Alert.alert('刪除成功', `已成功刪除該筆${typeName}。`);
-          } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : '刪除失敗';
-            Alert.alert('刪除失敗', message);
-          }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleEditEvent = (item: VehicleTimelineRow) => {
     // 依 Guardrail: 若需修改 Purchase 資訊，導向提示至車輛管理
     if (item.event_type === 'purchase') {
-      Alert.alert('車輛基本資料', '購入入庫為愛車基本資料，請至車輛管理介面（編輯愛車）進行修改。');
+      Alert.alert(t('vehicle.timeline.vehicleInfo'), t('vehicle.timeline.purchaseEditNotice'));
       return;
     }
 
@@ -313,7 +319,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
               <View className="flex-row items-center mb-1.5">
                 <Ionicons name="images-outline" size={12} color="#a1a1aa" />
                 <Text className="text-metal-400 text-[11px] font-mono ml-1">
-                  現場照片 ({maintenanceDetail.photos.length})
+                  {t('vehicle.timeline.sitePhotos', { count: maintenanceDetail.photos.length })}
                 </Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
@@ -365,7 +371,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
                 >
                   <MaterialCommunityIcons name="tune" size={12} color="#c084fc" />
                   <Text className="text-[10px] font-mono text-purple-300 ml-1 font-semibold">
-                    調校版本
+                    {t('vehicle.timeline.tuningVersion')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -379,7 +385,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
               >
                 <Ionicons name="pencil" size={11} color="#fff" />
                 <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
-                  {item.event_type === 'purchase' ? '車輛資訊' : '編輯'}
+                  {item.event_type === 'purchase' ? t('vehicle.timeline.vehicleInfo') : t('common.actions.edit')}
                 </Text>
               </TouchableOpacity>
 
@@ -411,10 +417,10 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
           </TouchableOpacity>
           <View>
             <Text className="text-[10px] font-mono tracking-[0.2em] text-racing-orange uppercase font-bold">
-              VIEW: VEHICLE_TIMELINE
+              {t('vehicle.timeline.subtitle')}
             </Text>
             <Text className="text-xl font-bold text-white tracking-tight">
-              愛車動態時序牆
+              {t('vehicle.timeline.title')}
             </Text>
           </View>
         </View>
@@ -436,12 +442,12 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
         >
           {(
             [
-              { id: 'ALL', label: '全部動態' },
-              { id: 'refuel', label: '加油紀錄' },
-              { id: 'maintenance', label: '定期保養' },
-              { id: 'repair', label: '故障維修' },
-              { id: 'modification', label: '改裝升級' },
-              { id: 'recurring_expense', label: '週期規費' },
+              { id: 'ALL', label: t('vehicle.timeline.allEvents') },
+              { id: 'refuel', label: t('fuel.logTitle') },
+              { id: 'maintenance', label: t('maintenance.types.maintenance') },
+              { id: 'repair', label: t('maintenance.types.repair') },
+              { id: 'modification', label: t('modifications.title') },
+              { id: 'recurring_expense', label: t('recurring.title') },
             ] as const
           ).map((tab) => {
             const isActive = filter === tab.id;
@@ -479,9 +485,9 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
       ) : filteredEvents.length === 0 ? (
         <View className="flex-1 items-center justify-center px-10">
           <MaterialCommunityIcons name="timeline-clock-outline" size={48} color="#3f3f46" />
-          <Text className="text-metal-300 font-semibold text-base mt-4">尚無時間軸事件</Text>
+          <Text className="text-metal-300 font-semibold text-base mt-4">{t('vehicle.timeline.emptyTitle')}</Text>
           <Text className="text-metal-500 text-xs text-center mt-1">
-            新增加油、保修紀錄或改裝品後，將自動匯聚於此時序牆。
+            {t('vehicle.timeline.emptySubtitle')}
           </Text>
         </View>
       ) : (

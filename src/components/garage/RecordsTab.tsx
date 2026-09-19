@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { MaintenanceRecordRow, RefuelRow } from '../../types/database';
 
@@ -31,18 +32,8 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
   onDeleteMaintenance,
   onPreviewImages,
 }) => {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<RecordsFilterType>('ALL');
-
-  const fuelLabelMap: Record<string, string> = {
-    gasoline_98: '98 無鉛',
-    gasoline_95: '95 無鉛',
-    gasoline_92: '92 無鉛',
-    diesel: '超級柴油',
-    premium_diesel: '頂級柴油',
-    electric: '純電充電',
-    hybrid: '油電複合',
-    other: '其他油品',
-  };
 
   // 統一項目規格以利混合或單獨列表排序呈現 (以時間降序)
   type UnifiedRecord =
@@ -82,7 +73,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
           className="flex-1 bg-racing-blue/15 border border-racing-blue/30 py-2.5 px-2 rounded-xl flex-row items-center justify-center gap-1.5"
         >
           <Ionicons name="water" size={14} color="#007aff" />
-          <Text className="text-xs font-mono font-bold text-racing-blue">+ 新增加油</Text>
+          <Text className="text-xs font-mono font-bold text-racing-blue">+ {t('fuel.addRefuel')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -90,7 +81,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
           className="flex-1 bg-racing-orange/15 border border-racing-orange/30 py-2.5 px-2 rounded-xl flex-row items-center justify-center gap-1.5"
         >
           <Ionicons name="construct" size={14} color="#ff6b00" />
-          <Text className="text-xs font-mono font-bold text-racing-orange">+ 定期保養</Text>
+          <Text className="text-xs font-mono font-bold text-racing-orange">+ {t('maintenance.addMaintenance')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -98,7 +89,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
           className="flex-1 bg-racing-red/15 border border-racing-red/30 py-2.5 px-2 rounded-xl flex-row items-center justify-center gap-1.5"
         >
           <Ionicons name="build" size={14} color="#ef4444" />
-          <Text className="text-xs font-mono font-bold text-racing-red">+ 故障維修</Text>
+          <Text className="text-xs font-mono font-bold text-racing-red">+ {t('maintenance.addRepair')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -115,7 +106,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
               filter === 'ALL' ? 'text-white' : 'text-metal-400'
             }`}
           >
-            全部 ({unifiedList.length})
+            {t('common.actions.all')} ({unifiedList.length})
           </Text>
         </TouchableOpacity>
 
@@ -130,7 +121,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
               filter === 'FUEL' ? 'text-racing-blue' : 'text-metal-400'
             }`}
           >
-            加油 ({refuels.length})
+            {t('fuel.title')} ({refuels.length})
           </Text>
         </TouchableOpacity>
 
@@ -145,7 +136,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
               filter === 'MAINTENANCE' ? 'text-racing-orange' : 'text-metal-400'
             }`}
           >
-            定保 ({maintenanceCount})
+            {t('maintenance.types.maintenance')} ({maintenanceCount})
           </Text>
         </TouchableOpacity>
 
@@ -160,7 +151,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
               filter === 'REPAIR' ? 'text-racing-red' : 'text-metal-400'
             }`}
           >
-            維修 ({repairCount})
+            {t('maintenance.types.repair')} ({repairCount})
           </Text>
         </TouchableOpacity>
       </View>
@@ -170,7 +161,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
         <DoubleBezelCard innerClassName="py-8 items-center">
           <Ionicons name="document-text-outline" size={36} color="#52525b" />
           <Text className="text-metal-400 text-xs mt-2 font-mono">
-            此篩選條件下無任何紀錄
+            {t('common.status.emptyFilter')}
           </Text>
         </DoubleBezelCard>
       ) : (
@@ -178,7 +169,22 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
           {filteredList.map((item) => {
             if (item.type === 'refuel') {
               const refuel = item.data;
-              const fuelLabel = fuelLabelMap[refuel.fuel_type] || refuel.fuel_type;
+              const fuelLabel =
+                refuel.fuel_type === 'gasoline_92'
+                  ? t('fuel.types.gasoline_92')
+                  : refuel.fuel_type === 'gasoline_95'
+                  ? t('fuel.types.gasoline_95')
+                  : refuel.fuel_type === 'gasoline_98'
+                  ? t('fuel.types.gasoline_98')
+                  : refuel.fuel_type === 'diesel'
+                  ? t('fuel.types.diesel')
+                  : refuel.fuel_type === 'premium_diesel'
+                  ? t('fuel.types.premium_diesel')
+                  : refuel.fuel_type === 'electric'
+                  ? t('fuel.types.electric')
+                  : refuel.fuel_type === 'hybrid'
+                  ? t('fuel.types.hybrid')
+                  : t('fuel.types.other');
 
               return (
                 <View
@@ -225,7 +231,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
                       >
                         <Ionicons name="pencil" size={11} color="#fff" />
                         <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
-                          編輯
+                          {t('common.actions.edit')}
                         </Text>
                       </TouchableOpacity>
 
@@ -242,7 +248,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
             } else {
               const record = item.data;
               const isRepair = record.record_type === 'repair';
-              const photos = (record as any).photos || [];
+              const photos = (record as MaintenanceRecordRow & { photos?: { id: number; url: string }[] }).photos || [];
 
               return (
                 <View
@@ -264,7 +270,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
                               isRepair ? 'text-racing-red' : 'text-racing-orange'
                             }`}
                           >
-                            {isRepair ? '維修故障' : '定期保養'}
+                            {isRepair ? t('maintenance.types.repair') : t('maintenance.types.maintenance')}
                           </Text>
                         </View>
                         {record.shop_name ? (
@@ -287,13 +293,13 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
                       {/* 工單相片縮圖列 */}
                       {photos.length > 0 && (
                         <View className="flex-row items-center mt-2 space-x-1.5">
-                          {photos.map((p: any) => (
+                          {photos.map((p) => (
                             <TouchableOpacity
                               key={p.id}
                               onPress={() => {
-                                const viewerImgs = photos.map((photo: any) => ({
+                                const viewerImgs = photos.map((photo) => ({
                                   uri: photo.url,
-                                  title: `${record.item_name} · 工單照片`,
+                                  title: `${record.item_name} · ${t('maintenance.workOrderPhoto')}`,
                                 }));
                                 onPreviewImages(viewerImgs);
                               }}
@@ -303,7 +309,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
                             </TouchableOpacity>
                           ))}
                           <Text className="text-[10px] text-metal-500 font-mono">
-                            共 {photos.length} 張
+                            {t('common.status.photoCount', { count: photos.length })}
                           </Text>
                         </View>
                       )}
@@ -334,7 +340,7 @@ export const RecordsTab: React.FC<RecordsTabProps> = ({
                       >
                         <Ionicons name="pencil" size={11} color="#fff" />
                         <Text className="text-[10px] font-mono text-white ml-1 font-semibold">
-                          編輯
+                          {t('common.actions.edit')}
                         </Text>
                       </TouchableOpacity>
 

@@ -4,10 +4,11 @@
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.86.3-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-57.0.22-000020?logo=expo&logoColor=white)](https://expo.dev/)
+[![Version](https://img.shields.io/badge/Version-v1.1.0-orange)](./package.json)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Google Cloud Run](https://img.shields.io/badge/Cloud%20Run-us--central1-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
-[![Tests](https://img.shields.io/badge/Tests-152%2F152%20Pass-brightgreen)](./documentation/testing-and-qa.md)
+[![Tests](https://img.shields.io/badge/Tests-158%2F158%20Pass-brightgreen)](./documentation/testing-and-qa.md)
 
 ---
 
@@ -88,15 +89,23 @@
 * **極簡 HTTP 204 HEAD 探活**：提供手動點擊即時刷新機制，後端回傳零 Payload 的 HTTP 204 No Content，極致輕量無負擔。
 * **Dark-Metal 狀態膠囊**：首頁座艙即時呈現伺服器連線狀態（在線/離線）、真實延遲毫秒（ms）與部署節點（`us-central1`），具備綠/黃/紅三段式健康色階與網路中斷自適應。
 
+### 8. 全域 i18n 雙語切換與雙語並陳 (Global i18n & Bilingual Presentation - P2-2.8)
+* **單一結構化字典與型別推導**：繁體中文 (`zh-TW.json`) 與美式英文 (`en-US.json`) 100% 鍵值結構對稱，以 TypeScript `Leaves<T, D>` 深度推導排除物件與陣列葉節點，實現編譯期強型別 IntelliSense 與零 `any`。
+* **Zero-Flash 開機水合門禁**：透過 `expo-secure-store` 安全持久化語系與雙語開關，於 App Root 設置 `LanguageProvider` 水合閘門，徹底杜絕啟動畫面閃爍。
+* **BilingualText 5 大決策矩陣**：核心 KPI 卡片與動態時序徽章支援繁中主標題＋英文副標題；英文模式下智慧消除重複副標題；其他互動元件與表單彈窗無縫雙語即時切換。
+* **原生無障礙切換器**：頂部膠囊切換鈕 `[ 繁中 | EN ]` 具備符合人體工學之 `hitSlop` 與 TalkBack/a11y 標籤。
+
 ---
 
 ## 核心技術棧 (Tech Stack)
 
 | 領域 | 技術 / 工具 | 版本 | 核心用途 |
 | :--- | :--- | :--- | :--- |
-| **前端框架** | React Native | `0.86.3` | 原生跨平台應用程式核心 |
+| **前端框架** | React Native | `0.86.3` | 原生跨平台應用程式核心 (Fabric New Architecture) |
 | **應用平台** | Expo SDK | `57.0.22` | 原生構建、字型、安全儲存、相機整合 |
 | **樣式系統** | NativeWind / Tailwind CSS | `4.1.23` | Dark-Metal 賽車氛圍沉浸式設計 |
+| **國際化架構** | i18next / react-i18next | `^24.2.3 / ^15.7.4` | 全域多語系解析、雙語並陳與參數動態插值 |
+| **動畫與工作線程** | react-native-worklets | `^0.10.1` | Reanimated 4.x / Fabric 原生 Worklet 編譯支援 |
 | **狀態管理** | TanStack React Query | `5.66.11` | 伺服器端狀態快取、樂觀更新與失效協調 |
 | **後端語言** | Go (Golang) | `1.26` | 高效能輕量後端微服務 |
 | **路由框架** | go-chi / chi | `v5.3.2` | 輕量化 RESTful API 路由分發 |
@@ -134,6 +143,7 @@
 | **P2-2.5** | Global DatePicker (全域 Dark-Metal 日期選擇器、出廠年份解析) | ✅ Completed |
 | **P2-2.6** | Statutory Alignment (原發照日 YYYY-MM-DD 與出廠年月 YYYY-MM 雙軌對齊、定檢推算、Cloud Run 部署至 us-central1) | ✅ Completed |
 | **P2-2.7** | Server Status & Latency Monitor (零成本附帶測速、極簡 HEAD 204 探活、Dark-Metal 狀態膠囊與節點可觀測性) | ✅ Completed |
+| **P2-2.8** | Global i18n & Bilingual Presentation (全域 i18n 繁中/英文切換、BilingualText 雙語並陳、Zero-Flash 開機水合門禁、單一結構化字典、158/158 單元測試通過) | ✅ Completed |
 
 ---
 
@@ -148,7 +158,7 @@ npm install
 # 執行靜態型別檢查
 npm run typecheck
 
-# 執行 Jest 單元測試套件 (26 Suites / 152 Tests)
+# 執行 Jest 單元測試套件 (27 Suites / 158 Tests)
 npm test -- --watchAll=false
 
 # 啟動 Expo 本地開發伺服器

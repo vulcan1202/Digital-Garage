@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard, Platform, UIManager, LayoutAnimation } from 'react-native';
 
-// Android 開啟實驗性 LayoutAnimation 支援
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+// Android 舊架構（Paper）開啟實驗性 LayoutAnimation 支援；新架構（Fabric）已原生支援，無須調用以避免警告
+const isFabric = typeof globalThis !== 'undefined' && 'nativeFabricUIManager' in globalThis;
+if (Platform.OS === 'android' && !isFabric && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

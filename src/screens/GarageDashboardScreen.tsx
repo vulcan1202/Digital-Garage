@@ -44,6 +44,8 @@ import { AnalyticsTab } from '../components/garage/AnalyticsTab';
 import { RemindersTab } from '../components/garage/RemindersTab';
 import { networkMonitor, ServerStatusInfo, SERVER_REGION_CODE } from '../services/networkMonitor';
 import { syncQueue } from '../services/syncQueue';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 
 export type VehicleHubTab = 'overview' | 'records' | 'modifications' | 'photos' | 'analytics' | 'reminders';
 
@@ -58,6 +60,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   onNavigateToModDetail,
   onSignOut,
 }) => {
+  const { t } = useTranslation();
   const { data: vehicles = [], isLoading: isLoadingVehicles } = useVehicles();
   const deleteVehicleMutation = useDeleteVehicle();
   const completeReminderMutation = useCompleteReminder();
@@ -114,61 +117,61 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
         .join('\n');
 
       Alert.alert(
-        '離線同步異常警報',
+        t('serverStatus.retryFailedAlert'),
         `偵測到 ${failedSyncItems.length} 筆操作同步失敗（已隔離避免卡死）：\n\n${details}${
           failedSyncItems.length > 5 ? '\n...及其他項目' : ''
         }`,
         [
           {
-            text: '全部重試',
+            text: t('common.actions.retry'),
             onPress: () => {
               failedSyncItems.forEach((item) => syncQueue.retryFailedMutation(item.id));
             },
           },
           {
-            text: '清除警報',
+            text: t('common.actions.clear'),
             style: 'destructive',
             onPress: () => syncQueue.clearFailedMutations(),
           },
-          { text: '稍後處理', style: 'cancel' },
+          { text: t('common.actions.later'), style: 'cancel' },
         ]
       );
     } else if (!serverStatus.isOnline) {
       Alert.alert(
-        '🔴 離線模式',
-        `目前處於離線狀態。\n待同步佇列：${syncQueueItems.length} 筆操作\n恢復連線後將自動於背景上傳。`,
+        t('serverStatus.dialogOffline'),
+        t('serverStatus.offlineDetail', { count: syncQueueItems.length }),
         [
           {
-            text: '手動探活重試',
+            text: t('serverStatus.manualProbe'),
             onPress: async () => {
               const updated = await networkMonitor.checkHealthZeroCost();
               if (updated.isOnline) {
-                Alert.alert('🟢 恢復連線', `已重新連線至 ${updated.region}\n延遲：${updated.latencyMs ?? '--'} ms`);
+                Alert.alert(t('serverStatus.online'), `${t('serverStatus.nodeRegion')}：${updated.region}\n${t('serverStatus.pingLatency')}：${updated.latencyMs ?? '--'} ms`);
               } else {
-                Alert.alert('無法連線', '伺服器仍未回應，請檢查網路環境');
+                Alert.alert(t('serverStatus.error'), '伺服器仍未回應，請檢查網路環境');
               }
             },
           },
-          { text: '確定', style: 'cancel' },
+          { text: t('common.actions.confirm'), style: 'cancel' },
         ]
       );
     } else if (syncQueueItems.length > 0) {
-      Alert.alert('佇列同步中', `正在同步 ${syncQueueItems.length} 筆離線操作至車庫雲端伺服器...`);
+      Alert.alert(t('serverStatus.syncing'), t('serverStatus.syncingDetail', { count: syncQueueItems.length }));
     } else {
       Alert.alert(
-        '🟢 雲端連線正常',
-        `節點位置：${serverStatus.region}\nPing(延遲)：${
-          serverStatus.latencyMs !== null ? `${serverStatus.latencyMs} ms` : '計算中 (等待業務請求)'
+        t('serverStatus.dialogOnline'),
+        `${t('serverStatus.nodeRegion')}：${serverStatus.region}\n${t('serverStatus.pingLatency')}：${
+          serverStatus.latencyMs !== null ? `${serverStatus.latencyMs} ms` : t('common.status.calculating')
         }`,
         [
           {
-            text: '手動探活測速',
+            text: t('serverStatus.manualProbe'),
             onPress: async () => {
               const updated = await networkMonitor.checkHealthZeroCost();
-              Alert.alert('探活結果', `節點：${updated.region}\nPing(延遲)：${updated.latencyMs ?? '--'} ms (HEAD 0 封包傳輸)`);
+              Alert.alert(t('serverStatus.probeResult'), `${t('serverStatus.nodeRegion')}：${updated.region}\n${t('serverStatus.pingLatency')}：${updated.latencyMs ?? '--'} ms (${t('serverStatus.headPacket')})`);
             },
           },
-          { text: '關閉', style: 'cancel' },
+          { text: t('common.actions.close'), style: 'cancel' },
         ]
       );
     }
@@ -248,12 +251,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const handleDeleteVehicle = () => {
     if (!activeVehicle) return;
     Alert.alert(
-      '確認移除愛車？',
-      `此操作將永久刪除「${activeVehicle.brand} ${activeVehicle.model}」及其所有加油、保修、改裝紀錄（SQL 級聯刪除），無法還原！`,
+      t('vehicle.deleteVehicle'),
+      t('vehicle.deleteVehicleConfirm', { name: `${activeVehicle.brand} ${activeVehicle.model}` }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.actions.cancel'), style: 'cancel' },
         {
-          text: '確認刪除',
+          text: t('common.actions.confirmDelete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -323,12 +326,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const handleDeleteMod = (modId: number, itemName: string) => {
     if (!activeVehicle) return;
     Alert.alert(
-      '刪除改裝品',
-      `確定要刪除「${itemName}」及其所有調校設定嗎？此操作無法還原。`,
+      t('modifications.deleteModification'),
+      t('modifications.deleteConfirm', { name: itemName }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.actions.cancel'), style: 'cancel' },
         {
-          text: '刪除',
+          text: t('common.actions.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -336,10 +339,10 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 id: modId,
                 vehicleId: activeVehicle.id,
               });
-              Alert.alert('已刪除', '改裝品已自車庫中移除。');
+              Alert.alert(t('common.status.success'), t('common.status.success'));
             } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : '刪除失敗';
-              Alert.alert('刪除失敗', msg);
+              const msg = err instanceof Error ? err.message : t('common.status.error');
+              Alert.alert(t('common.status.error'), msg);
             }
           },
         },
@@ -347,15 +350,15 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
     );
   };
 
-  const handleDeleteRefuel = (refuelId: number, refuelDate: string) => {
+  const handleDeleteRefuel = (refuelId: number, _refuelDate: string) => {
     if (!activeVehicle) return;
     Alert.alert(
-      '刪除加油紀錄',
-      `確定要刪除 ${refuelDate} 的加油紀錄嗎？\n此操作無法復原。`,
+      t('fuel.deleteRefuel'),
+      t('fuel.deleteRefuelConfirm'),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.actions.cancel'), style: 'cancel' },
         {
-          text: '確定刪除',
+          text: t('common.actions.confirmDelete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -363,10 +366,10 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 id: refuelId,
                 vehicleId: activeVehicle.id,
               });
-              Alert.alert('已刪除', '加油紀錄已自車庫中移除。');
+              Alert.alert(t('common.status.success'), t('common.status.success'));
             } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : '刪除失敗';
-              Alert.alert('刪除失敗', msg);
+              const msg = err instanceof Error ? err.message : t('common.status.error');
+              Alert.alert(t('common.status.error'), msg);
             }
           },
         },
@@ -377,12 +380,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const handleDeleteMaintenance = (recordId: number, itemName: string) => {
     if (!activeVehicle) return;
     Alert.alert(
-      '刪除保修工單',
-      `確定要刪除「${itemName}」保修工單嗎？\n此操作無法復原。`,
+      t('maintenance.deleteRecord'),
+      t('maintenance.deleteRecordConfirm', { name: itemName }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.actions.cancel'), style: 'cancel' },
         {
-          text: '確定刪除',
+          text: t('common.actions.confirmDelete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -390,10 +393,10 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 id: recordId,
                 vehicleId: activeVehicle.id,
               });
-              Alert.alert('已刪除', '保修工單已自車庫中移除。');
+              Alert.alert(t('common.status.success'), t('common.status.success'));
             } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : '刪除失敗';
-              Alert.alert('刪除失敗', msg);
+              const msg = err instanceof Error ? err.message : t('common.status.error');
+              Alert.alert(t('common.status.error'), msg);
             }
           },
         },
@@ -412,7 +415,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
       <View className="flex-1 bg-garage-bg items-center justify-center">
         <ActivityIndicator size="large" color="#ff6b00" />
         <Text className="text-metal-400 mt-4 text-xs tracking-widest uppercase">
-          Initializing Digital Garage...
+          {t('common.status.initializing')}
         </Text>
       </View>
     );
@@ -430,16 +433,18 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
           />
           <View>
             <Text className="text-[10px] font-mono tracking-[0.25em] text-racing-orange uppercase font-bold">
-              DIGITAL GARAGE TELEMETRY
+              {t('common.telemetryHeader')}
             </Text>
             <Text className="text-2xl font-bold text-white tracking-tight mt-0.5">
-              數位車庫座艙
+              {t('common.cockpitTitle')}
             </Text>
           </View>
         </View>
 
-        {/* 狀態指示燈與登出按鈕 */}
+        {/* 狀態指示燈、語系切換器與登出按鈕 */}
         <View className="flex-row items-center gap-2">
+          <LanguageSwitcher />
+
           <TouchableOpacity
             onPress={handleStatusBadgePress}
             activeOpacity={0.7}
@@ -480,8 +485,8 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 : syncQueueItems.length > 0
                 ? `SYNC (${syncQueueItems.length})`
                 : serverStatus.isOnline
-                ? '連線正常'
-                : '離線模式 (暫存本機)'}
+                ? t('serverStatus.online')
+                : t('serverStatus.offline')}
             </Text>
           </TouchableOpacity>
 
@@ -500,7 +505,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
       <View className="mt-5">
         <View className="px-5 mb-3 flex-row items-center justify-between">
           <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase">
-            ACTIVE FLEET ({vehicles.length})
+            {t('vehicle.activeFleet', { count: vehicles.length })}
           </Text>
           <TouchableOpacity
             onPress={() => setIsAddVehicleOpen(true)}
@@ -508,7 +513,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
           >
             <Ionicons name="add" size={13} color="#ff6b00" />
             <Text className="text-[11px] text-racing-orange font-bold ml-1 font-mono">
-              新增愛車
+              {t('vehicle.addVehicle')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -721,7 +726,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'overview' ? 'text-racing-orange' : 'text-metal-400'
                 }`}
               >
-                總覽
+                {t('common.tabs.overview')}
               </Text>
             </TouchableOpacity>
 
@@ -737,7 +742,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'records' ? 'text-racing-blue' : 'text-metal-400'
                 }`}
               >
-                歷程 ({refuels.length + maintenanceRecords.length})
+                {t('common.tabs.records', { count: refuels.length + maintenanceRecords.length })}
               </Text>
             </TouchableOpacity>
 
@@ -753,7 +758,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'modifications' ? 'text-purple-300' : 'text-metal-400'
                 }`}
               >
-                改裝 ({modifications.length})
+                {t('common.tabs.modifications', { count: modifications.length })}
               </Text>
             </TouchableOpacity>
 
@@ -769,7 +774,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'photos' ? 'text-amber-300' : 'text-metal-400'
                 }`}
               >
-                媒體 ({vehiclePhotos.length})
+                {t('common.tabs.photos', { count: vehiclePhotos.length })}
               </Text>
             </TouchableOpacity>
 
@@ -785,7 +790,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'analytics' ? 'text-emerald-400' : 'text-metal-400'
                 }`}
               >
-                分析
+                {t('common.tabs.analytics')}
               </Text>
             </TouchableOpacity>
 
@@ -801,7 +806,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                   activeTab === 'reminders' ? 'text-racing-amber' : 'text-metal-400'
                 }`}
               >
-                提醒 ({reminders.length})
+                {t('common.tabs.reminders', { count: reminders.length })}
               </Text>
             </TouchableOpacity>
           </View>

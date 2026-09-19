@@ -121,3 +121,29 @@
     $$\Delta\text{Mileage} = \text{current\_mileage} - \text{initial\_mileage}$$
     $$\Delta\text{Mileage} \le 0 \implies \text{cost\_per\_km} = \text{null},\ \text{fuel\_cost\_per\_km} = \text{null}$$
     回傳 `null` 明確表達「尚無足夠里程資料以利計算」，防止除以零產生 `NaN` 或誤植為 0 元。
+
+---
+
+## 10. 伺服器狀態與延遲監測 (Server Status & Piggyback Latency - P2-2.7)
+
+* **零成本附帶測速 (Zero-Cost Piggyback)**：完全捨棄背景無端輪詢（No Polling），不產生額外 Cloud Run vCPU 與網路流量計費；透過前端網路攔截層於使用者正常業務操作時附帶測量真實 RTT 往返延遲。
+* **極簡 HTTP 204 HEAD 探活**：提供手動點擊即時刷新機制，後端回傳零 Payload 的 HTTP 204 No Content，極致輕量無負擔。
+* **Dark-Metal 狀態膠囊**：首頁座艙即時呈現伺服器連線狀態（在線/離線）、真實延遲毫秒（ms）與部署節點（`us-central1`），具備綠/黃/紅三段式健康色階與網路中斷自適應。
+
+---
+
+## 11. 全域 i18n 雙語切換與雙語並陳 (Global i18n & Bilingual Presentation - P2-2.8)
+
+* **單一結構化字典架構**：
+  * 繁體中文：`src/i18n/locales/zh-TW.json`
+  * 美式英文：`src/i18n/locales/en-US.json`
+  * 雙向結構 100% 鍵值對稱，零空白葉節點，變數插值參數格式統一。
+* **純前端表現層隔離**：完全不更動資料庫與後端 Go API，車主自行輸入之品牌、車型、零件名稱與備註皆原樣保留，不進行機器翻譯污染。
+* **Zero-Flash 開機水合門禁**：以 `expo-secure-store` 持久化語系與雙語開關，於 App Root 設置 `LanguageProvider` 水合閘門，避免啟動畫面與主介面語系跳轉閃爍。
+* **BilingualText 5 大決策矩陣**：
+  1. `zh-TW` 且 `isBilingual: true` -> 繁中主標題＋英文副標題
+  2. `zh-TW` 且 `isBilingual: false` -> 僅繁中主標題
+  3. `en-US` 且 `isBilingual: true` -> 僅英文主標題（智慧防自我重複）
+  4. `en-US` 且 `isBilingual: false` -> 僅英文主標題
+  5. 英文鍵缺失 -> 不顯示空白或 `undefined` 副標題，安全降級
+* **原生無障礙切換膠囊**：`[ 繁中 | EN ]` 配置符合人體工學之 `hitSlop` 與 Android TalkBack 無障礙宣告。

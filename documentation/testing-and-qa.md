@@ -11,14 +11,14 @@
 測試項目                                    測試規模 / 結果
 ======================================================================
 TypeScript Static Typecheck (tsc)          PASS (0 Errors, 全專案型別零錯誤)
-Frontend Jest Test Suites (npm test)       PASS (26 Suites / 152 Tests 全數通過)
+Frontend Jest Test Suites (npm test)       PASS (27 Suites / 158 Tests 全數通過)
 Backend Go Test Suites (go test)           PASS (100% Passed)
 Android Release APK Build                  PASS (數位車庫_DigitalGarage.apk, 82.08 MB)
 Cloud Run API Health Endpoint              PASS (GET 200 OK / HEAD 204 No Content)
 ======================================================================
 ```
 
-### P1-7 & P2-2 & P2-2.5 & P2-2.7 QA 16 大維度審查涵蓋範圍
+### P1-7 & P2-2 & P2-2.5 & P2-2.7 & P2-2.8 QA 17 大維度審查涵蓋範圍
 1. **Database Integrity**：外鍵串聯、唯一約束、檢查約束及觸發器完整性。
 2. **RLS / Multi-tenant Security**：跨用戶與跨階層資料隔離驗證。
 3. **API Contract / Validation**：400/401/403/404/409 錯誤狀態碼合約與欄位防禦。
@@ -35,6 +35,7 @@ Cloud Run API Health Endpoint              PASS (GET 200 OK / HEAD 204 No Conten
 14. **Recurring Expenses & Month Clamping**：規費生命週期、智慧預填、出廠日交易連動與月末天數防溢位截斷。
 15. **Global DatePicker & Vehicle Date Sync**：Dark-Metal 日期挑選器封裝、出廠年份自動解析、西元前導補零與未來日期防護邊界。
 16. **Server Status & Piggyback Latency**：零輪詢附帶測速、極簡 HEAD 204 探活、即時 RTT 延遲計算與網路中斷離線自適應。
+17. **Global i18n & Dictionary Matrix**：雙向 100% 鍵值對稱、禁止空字串葉節點、動態插值參數對齊、不可變技術標記保留與英文純度校驗。
 
 ---
 
@@ -53,6 +54,16 @@ Cloud Run API Health Endpoint              PASS (GET 200 OK / HEAD 204 No Conten
 ### ISS-03：工單表單重繪之使用者狀態保持 (Modal State Preservation)
 * **問題描述**：`AddMaintenanceModal` 在父層組件觸發背景更新或重新渲染時，容易導致表單內部狀態被預設屬性重置。
 * **防禦實作**：使用 `prevVisibleRef` 偵測 `visible` 由關閉轉為開啟的瞬間，僅在開啟時載入預設值；彈窗開啟期間的父層重繪絕不覆寫車主手動切換之「保養 / 維修（`recordType`）」選擇。
+
+### ISS-04：Reanimated 4.x 與 react-native-worklets 相依脫鉤修復
+* **問題復現**：在 React Native 0.86 / Reanimated 4.5.1 下，Worklet Babel 插件抽離至獨立套件 `react-native-worklets`，若專案未顯式安裝該 peer dependency，Metro Bundling 會引發 `Cannot find module 'react-native-worklets/plugin'` 致命錯誤。
+* **防禦實作**：安裝對應版本 `react-native-worklets@0.10.1`，使 Babel 外掛鏈順利閉環，1,377 個模組全數成功轉譯。
+
+### ISS-05：Fabric 新架構 LayoutAnimation 與 SafeAreaView 棄用警告清理
+* **問題描述**：在開啟 New Architecture (`newArchEnabled=true`) 環境下，`UIManager.setLayoutAnimationEnabledExperimental` 已為 `no-op` 並產生警告；且 `react-native` 核心之 `SafeAreaView` 已被官方宣告 Deprecated。
+* **防禦實作**：
+  1. 於 `useKeyboardBottomInset.ts` 引入 `globalThis.nativeFabricUIManager` 雙軌架構偵測，於 Fabric 環境略過實驗性調用。
+  2. 全面改由全域 `react-native-safe-area-context` 引入 `SafeAreaView`，根除執行期 Deprecation 警告。
 
 ---
 

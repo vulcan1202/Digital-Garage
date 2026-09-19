@@ -13,6 +13,8 @@ import { networkMonitor } from './src/services/networkMonitor';
 import { errorReporter } from './src/services/errorReporter';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AppError } from './src/services/errors/AppError';
+import { LanguageProvider } from './src/context/LanguageContext';
+import { useLanguage } from './src/hooks/useLanguage';
 
 import './global.css';
 
@@ -114,6 +116,23 @@ function MainNavigator() {
   );
 }
 
+function AppContent() {
+  const { isHydrated } = useLanguage();
+
+  if (!isHydrated) {
+    return (
+      <View className="flex-1 bg-garage-bg items-center justify-center">
+        <ActivityIndicator size="large" color="#ff6b00" />
+        <Text className="text-metal-400 mt-4 text-xs font-mono tracking-widest uppercase">
+          Initializing Language Engine...
+        </Text>
+      </View>
+    );
+  }
+
+  return <MainNavigator />;
+}
+
 export default function App() {
   useEffect(() => {
     // 啟動時初始化錯誤回報服務、水合離線佇列並檢查後端連線
@@ -135,7 +154,9 @@ export default function App() {
         <SafeAreaView className="flex-1 bg-garage-bg" edges={['top', 'left', 'right']}>
           <StatusBar style="light" />
           <ErrorBoundary>
-            <MainNavigator />
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
           </ErrorBoundary>
         </SafeAreaView>
       </SafeAreaProvider>

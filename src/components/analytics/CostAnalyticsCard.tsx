@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { useCostAnalytics } from '../../hooks/queries/useCostAnalytics';
 
@@ -9,6 +10,7 @@ interface CostAnalyticsCardProps {
 }
 
 export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId }) => {
+  const { t } = useTranslation();
   const [selectedMonths, setSelectedMonths] = useState<number>(12);
   const { data: analytics, isLoading, isError } = useCostAnalytics(vehicleId, selectedMonths);
 
@@ -16,7 +18,9 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
     return (
       <DoubleBezelCard innerClassName="p-4 items-center justify-center min-h-[160px]">
         <ActivityIndicator color="#ff4d00" size="small" />
-        <Text className="text-xs font-mono text-metal-400 mt-2">載入成本分析數據中...</Text>
+        <Text className="text-xs font-mono text-metal-400 mt-2">
+          {t('analytics.loading')}
+        </Text>
       </DoubleBezelCard>
     );
   }
@@ -52,7 +56,7 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
         <View className="flex-row items-center gap-2">
           <View className="w-2 h-2 rounded-full bg-racing-orange" />
           <Text className="text-xs font-mono font-bold tracking-wider text-metal-200 uppercase">
-            COST ANALYTICS
+            {t('analytics.costAnalytics')}
           </Text>
         </View>
         <View className="flex-row items-center gap-1 bg-white/[0.05] p-0.5 rounded-lg border border-white/[0.08]">
@@ -82,16 +86,22 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
       <View className="flex-row gap-2 mb-4">
         {/* 營運持有花費 */}
         <View className="flex-1 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.04]">
-          <Text className="text-[10px] font-mono text-metal-400 uppercase">OPERATIONAL</Text>
+          <Text className="text-[10px] font-mono text-metal-400 uppercase">
+            {t('analytics.totalOperationalCost')}
+          </Text>
           <Text className="text-sm font-bold text-white font-mono mt-0.5" numberOfLines={1}>
             ${Math.round(total_operational_cost).toLocaleString()}
           </Text>
-          <Text className="text-[9px] font-mono text-metal-500 mt-0.5">全期運作支出</Text>
+          <Text className="text-[9px] font-mono text-metal-500 mt-0.5">
+            {t('analytics.operationalCostSubtitle')}
+          </Text>
         </View>
 
         {/* 總擁有成本 (TCO) */}
         <View className="flex-1 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.04]">
-          <Text className="text-[10px] font-mono text-metal-400 uppercase">TOTAL TCO</Text>
+          <Text className="text-[10px] font-mono text-metal-400 uppercase">
+            {t('analytics.totalTco')}
+          </Text>
           <Text
             className={`text-sm font-bold font-mono mt-0.5 ${
               total_ownership_cost !== null ? 'text-racing-blue' : 'text-metal-500'
@@ -100,14 +110,18 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
           >
             {total_ownership_cost !== null
               ? `$${Math.round(total_ownership_cost).toLocaleString()}`
-              : '未設定購車價'}
+              : t('vehicle.overview.noPurchasePrice')}
           </Text>
-          <Text className="text-[9px] font-mono text-metal-500 mt-0.5">車價+營運總和</Text>
+          <Text className="text-[9px] font-mono text-metal-500 mt-0.5">
+            {t('analytics.tcoSubtitle')}
+          </Text>
         </View>
 
         {/* 每公里成本 */}
         <View className="flex-1 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.04]">
-          <Text className="text-[10px] font-mono text-metal-400 uppercase">PER KM</Text>
+          <Text className="text-[10px] font-mono text-metal-400 uppercase">
+            {t('analytics.costPerKm')}
+          </Text>
           <Text
             className={`text-sm font-bold font-mono mt-0.5 ${
               cost_per_km !== null ? 'text-emerald-400' : 'text-metal-500'
@@ -117,7 +131,9 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
             {cost_per_km !== null ? `$${cost_per_km}/km` : '--'}
           </Text>
           <Text className="text-[9px] font-mono text-metal-500 mt-0.5" numberOfLines={1}>
-            {fuel_cost_per_km !== null ? `油資 $${fuel_cost_per_km}` : '累計里程無差'}
+            {fuel_cost_per_km !== null
+              ? `${t('analytics.fuelCostPrefix')} $${fuel_cost_per_km}`
+              : t('analytics.noMileageDiff')}
           </Text>
         </View>
       </View>
@@ -125,9 +141,13 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
       {/* 四大維度費用佔比色條 (Stacked Progress Bar) */}
       <View className="mb-4">
         <View className="flex-row items-center justify-between mb-1.5">
-          <Text className="text-[10px] font-mono text-metal-400 uppercase">EXPENSE BREAKDOWN</Text>
+          <Text className="text-[10px] font-mono text-metal-400 uppercase">
+            {t('analytics.categoryStructure')}
+          </Text>
           <Text className="text-[10px] font-mono text-metal-500">
-            {total_distance_km > 0 ? `${total_distance_km.toLocaleString()} KM 累積` : '基準里程'}
+            {total_distance_km > 0
+              ? t('analytics.accumulatedDistance', { distance: total_distance_km.toLocaleString() })
+              : t('analytics.baseMileage')}
           </Text>
         </View>
 
@@ -151,7 +171,7 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
           <View className="flex-row items-center gap-1.5 min-w-[22%]">
             <View className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             <Text className="text-[10px] font-mono text-metal-300">
-              加油 ${Math.round(category_breakdown.fuel).toLocaleString()}
+              {t('fuel.title')} ${Math.round(category_breakdown.fuel).toLocaleString()}
             </Text>
           </View>
 
@@ -159,7 +179,7 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
           <View className="flex-row items-center gap-1.5 min-w-[22%]">
             <View className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             <Text className="text-[10px] font-mono text-metal-300">
-              保養 ${Math.round(category_breakdown.maintenance).toLocaleString()}
+              {t('maintenance.title')} ${Math.round(category_breakdown.maintenance).toLocaleString()}
             </Text>
           </View>
 
@@ -167,7 +187,7 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
           <View className="flex-row items-center gap-1.5 min-w-[22%]">
             <View className="w-1.5 h-1.5 rounded-full bg-red-500" />
             <Text className="text-[10px] font-mono text-metal-300">
-              維修 ${Math.round(category_breakdown.repair).toLocaleString()}
+              {t('maintenance.types.repair')} ${Math.round(category_breakdown.repair).toLocaleString()}
             </Text>
           </View>
 
@@ -175,7 +195,7 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
           <View className="flex-row items-center gap-1.5 min-w-[22%]">
             <View className="w-1.5 h-1.5 rounded-full bg-purple-500" />
             <Text className="text-[10px] font-mono text-metal-300">
-              改裝 ${Math.round(category_breakdown.modification).toLocaleString()}
+              {t('modifications.title')} ${Math.round(category_breakdown.modification).toLocaleString()}
             </Text>
           </View>
         </View>
@@ -185,10 +205,10 @@ export const CostAnalyticsCard: React.FC<CostAnalyticsCardProps> = ({ vehicleId 
       <View className="mt-1 pt-3 border-t border-white/[0.05]">
         <View className="flex-row items-center justify-between mb-2">
           <Text className="text-[10px] font-mono text-metal-400 uppercase">
-            MONTHLY TREND ({selectedMonths}M)
+            {t('analytics.monthlyTrend')} ({selectedMonths}M)
           </Text>
           <Text className="text-[9px] font-mono text-metal-500">
-            最高 ${Math.round(maxMonthly).toLocaleString()}
+            {t('analytics.highestMonthly', { cost: Math.round(maxMonthly).toLocaleString() })}
           </Text>
         </View>
 

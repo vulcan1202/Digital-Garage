@@ -1,7 +1,9 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
+import { BilingualText } from '../common/BilingualText';
 import { VehicleRow, ReminderRow } from '../../types/database';
 import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
 import { FuelEconomyResult } from '../../utils/calculators/fuelCalculator';
@@ -42,23 +44,27 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onNavigateToReminders,
   onNavigateToTimeline,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <View className="gap-5">
-      {/* 4 核心數據儀表 (2x2 Grid) */}
+      {/* 4 核心數據儀表 (2x2 Grid) - 採用 BilingualText 雙語並陳 */}
       <View className="flex-row flex-wrap gap-2.5">
         {/* 總花費 / 總擁有成本 */}
         <View className="flex-1 min-w-[45%]">
           <DoubleBezelCard innerClassName="p-3.5">
-            <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
-              TOTAL RECORDED COST
-            </Text>
+            <BilingualText
+              translationKey="vehicle.overview.totalCost"
+              titleClassName="text-sm font-bold text-white font-mono"
+              subClassName="text-[9px] font-mono tracking-wider text-metal-400 uppercase"
+            />
             <Text className="text-xl font-bold text-white font-mono mt-1">
               ${costStats.operationalCost.toLocaleString()}
             </Text>
             <Text className="text-[10px] text-metal-500 mt-1" numberOfLines={1}>
               {costStats.totalOwnershipCost !== null
-                ? `含車價總持有: $${costStats.totalOwnershipCost.toLocaleString()}`
-                : '未設定購車價格'}
+                ? t('vehicle.overview.withPurchasePrice', { cost: costStats.totalOwnershipCost.toLocaleString() })
+                : t('vehicle.overview.noPurchasePrice')}
             </Text>
           </DoubleBezelCard>
         </View>
@@ -66,16 +72,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* 每公里運作成本 */}
         <View className="flex-1 min-w-[45%]">
           <DoubleBezelCard innerClassName="p-3.5">
-            <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
-              COST PER KM
-            </Text>
+            <BilingualText
+              translationKey="vehicle.overview.costPerKm"
+              titleClassName="text-sm font-bold text-racing-orange font-mono"
+              subClassName="text-[9px] font-mono tracking-wider text-metal-400 uppercase"
+            />
             <Text className="text-xl font-bold text-racing-orange font-mono mt-1">
               {averageCostPerKm !== null ? `$${averageCostPerKm}` : '--'}
             </Text>
             <Text className="text-[10px] text-metal-500 mt-1" numberOfLines={1}>
               {ownershipCostPerKm !== null
-                ? `含車價: $${ownershipCostPerKm}/km`
-                : '運作公里攤提 (距基準)'}
+                ? t('vehicle.overview.ownershipPerKm', { cost: ownershipCostPerKm })
+                : t('vehicle.overview.amortizedDistance')}
             </Text>
           </DoubleBezelCard>
         </View>
@@ -83,16 +91,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* 平均油耗 */}
         <View className="flex-1 min-w-[45%]">
           <DoubleBezelCard innerClassName="p-3.5">
-            <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
-              FUEL ECONOMY
-            </Text>
+            <BilingualText
+              translationKey="vehicle.overview.fuelEconomy"
+              titleClassName="text-sm font-bold text-racing-blue font-mono"
+              subClassName="text-[9px] font-mono tracking-wider text-metal-400 uppercase"
+            />
             <Text className="text-xl font-bold text-racing-blue font-mono mt-1">
               {fuelStats.latestEconomy
                 ? `${fuelStats.latestEconomy.kmPerLiter} km/L`
                 : '--'}
             </Text>
             <Text className="text-[10px] text-metal-500 mt-1">
-              {fuelStats.avgCostKm !== null ? `平均 $${fuelStats.avgCostKm}/km` : '需至少兩筆加油'}
+              {fuelStats.avgCostKm !== null
+                ? t('vehicle.overview.avgFuelCostKm', { cost: fuelStats.avgCostKm })
+                : t('vehicle.overview.needTwoRefuels')}
             </Text>
           </DoubleBezelCard>
         </View>
@@ -100,14 +112,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* 改裝品項數量 */}
         <View className="flex-1 min-w-[45%]">
           <DoubleBezelCard innerClassName="p-3.5">
-            <Text className="text-[10px] font-mono tracking-wider text-metal-400 uppercase">
-              MODIFICATIONS
-            </Text>
+            <BilingualText
+              translationKey="vehicle.overview.modifications"
+              titleClassName="text-sm font-bold text-white font-mono"
+              subClassName="text-[9px] font-mono tracking-wider text-metal-400 uppercase"
+            />
             <Text className="text-xl font-bold text-white font-mono mt-1">
-              {modificationsCount} <Text className="text-xs text-metal-400 font-normal">ITEMS</Text>
+              {modificationsCount} <Text className="text-xs text-metal-400 font-normal">{t('vehicle.overview.items')}</Text>
             </Text>
             <Text className="text-[10px] text-metal-500 mt-1">
-              改裝投資 ${costStats.modificationPurchaseCost.toLocaleString()}
+              {t('vehicle.overview.modInvestment', { cost: costStats.modificationPurchaseCost.toLocaleString() })}
             </Text>
           </DoubleBezelCard>
         </View>
@@ -123,15 +137,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <View className="flex-row items-center gap-1.5 mb-1">
             <Ionicons name="bar-chart" size={14} color="#ff4d00" />
             <Text className="text-xs font-mono font-bold text-white uppercase tracking-wider">
-              多維度成本分析中樞
+              {t('vehicle.overview.analyticsHubTitle')}
             </Text>
           </View>
           <Text className="text-[11px] text-metal-400 font-mono">
-            查看月度連續支出趨勢 (6M/12M/24M)、工單細分類別佔比與持有成本攤提
+            {t('vehicle.overview.analyticsHubDesc')}
           </Text>
         </View>
         <View className="flex-row items-center bg-racing-orange/15 px-3 py-1.5 rounded-full border border-racing-orange/30">
-          <Text className="text-xs font-mono text-racing-orange font-bold mr-1">查看分析</Text>
+          <Text className="text-xs font-mono text-racing-orange font-bold mr-1">{t('vehicle.overview.viewAnalytics')}</Text>
           <Ionicons name="chevron-forward" size={14} color="#ff4d00" />
         </View>
       </TouchableOpacity>
@@ -141,7 +155,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center">
             <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
-              MAINTENANCE RADAR
+              {t('vehicle.overview.maintenanceRadar')}
             </Text>
             {alertCounts.overdue > 0 && (
               <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
@@ -160,14 +174,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </View>
 
           <TouchableOpacity onPress={onNavigateToReminders}>
-            <Text className="text-[11px] font-mono text-metal-400">全部 ({reminderEvals.length}) &gt;</Text>
+            <Text className="text-[11px] font-mono text-metal-400">{t('vehicle.overview.allReminders', { count: reminderEvals.length })}</Text>
           </TouchableOpacity>
         </View>
 
         {reminderEvals.length === 0 ? (
           <DoubleBezelCard innerClassName="py-5 items-center">
             <Ionicons name="shield-checkmark-outline" size={28} color="#10b981" />
-            <Text className="text-metal-400 text-xs mt-1.5 font-mono">所有保養項目均在健康範圍內</Text>
+            <Text className="text-metal-400 text-xs mt-1.5 font-mono">{t('vehicle.overview.allHealthy')}</Text>
           </DoubleBezelCard>
         ) : (
           <View className="gap-2">
@@ -197,11 +211,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </Text>
                     <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
                       {evaluation.remainingMileage !== null
-                        ? `剩餘 ${evaluation.remainingMileage.toLocaleString()} km`
+                        ? t('vehicle.overview.remainingKm', { count: evaluation.remainingMileage })
                         : ''}
                       {evaluation.remainingMileage !== null && evaluation.remainingDays !== null ? ' · ' : ''}
                       {evaluation.remainingDays !== null
-                        ? `剩餘 ${evaluation.remainingDays} 天`
+                        ? t('vehicle.overview.remainingDays', { count: evaluation.remainingDays })
                         : ''}
                     </Text>
                   </View>
@@ -211,7 +225,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       onPress={() => onCompleteReminder(reminder.id, reminder.item_name)}
                       className="px-2 py-1 bg-white/10 rounded border border-white/20"
                     >
-                      <Text className="text-[10px] font-mono text-white font-semibold">完成</Text>
+                      <Text className="text-[10px] font-mono text-white font-semibold">{t('common.actions.confirm')}</Text>
                     </TouchableOpacity>
 
                     <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
@@ -238,11 +252,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <View className="flex-row items-center gap-1.5 mb-0.5">
               <Ionicons name="time" size={16} color="#000" />
               <Text className="text-black font-bold text-base tracking-tight">
-                進入愛車動態時間軸牆
+                {t('vehicle.overview.enterTimeline')}
               </Text>
             </View>
             <Text className="text-black/70 text-[11px] font-medium">
-              即時串接 SQL View 混合動態流（加油、保養、改裝）
+              {t('vehicle.overview.timelineDesc')}
             </Text>
           </View>
 

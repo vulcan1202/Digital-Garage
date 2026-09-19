@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { useUpdateMaintenanceRecord } from '../../hooks/queries/useMaintenance';
 import { MaintenanceRecordRow, MaintenanceRecordType } from '../../types/database';
@@ -30,6 +31,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
   record,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const updateMaintenance = useUpdateMaintenanceRecord();
   const rawKeyboardInset = useKeyboardBottomInset();
   const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
@@ -62,15 +64,15 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
     const parsedCost = parseFloat(cost);
 
     if (!trimmedItemName) {
-      Alert.alert('錯誤', '請輸入保修項目名稱');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.itemNameRequired'));
       return;
     }
     if (isNaN(parsedMileage) || parsedMileage < 0) {
-      Alert.alert('錯誤', '請輸入正確的里程數');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.mileageRequired'));
       return;
     }
     if (isNaN(parsedCost) || parsedCost < 0) {
-      Alert.alert('錯誤', '請輸入正確的費用金額');
+      Alert.alert(t('common.status.error'), t('maintenance.validation.costInvalid'));
       return;
     }
 
@@ -90,8 +92,9 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
       onSuccess?.();
       onClose();
-    } catch (err: any) {
-      Alert.alert('更新失敗', err.message || '無法更新保修紀錄');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('maintenance.validation.updateFailed');
+      Alert.alert(t('common.status.error'), msg);
     }
   };
 
@@ -104,7 +107,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center mr-3">
                 <Ionicons name="construct-outline" size={20} color="#3B82F6" />
               </View>
-              <Text className="text-xl font-bold text-white">編輯保修紀錄</Text>
+              <Text className="text-xl font-bold text-white">{t('maintenance.editRecord')}</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -140,7 +143,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                     recordType === 'maintenance' ? 'text-blue-400' : 'text-slate-400'
                   }`}
                 >
-                  定期保養
+                  {t('maintenance.types.maintenance')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -161,18 +164,18 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                     recordType === 'repair' ? 'text-amber-400' : 'text-slate-400'
                   }`}
                 >
-                  維修故障
+                  {t('maintenance.types.repair')}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* 項目名稱 */}
             <View className="mb-4">
-              <Text className="text-xs font-semibold text-slate-400 mb-1.5">保修項目名稱 *</Text>
+              <Text className="text-xs font-semibold text-slate-400 mb-1.5">{t('maintenance.fields.itemName')} *</Text>
               <TextInput
                 value={itemName}
                 onChangeText={setItemName}
-                placeholder="例如: 10,000公里定期保養、換機油"
+                placeholder={t('maintenance.fields.itemNamePlaceholder')}
                 placeholderTextColor="#64748B"
                 className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
               />
@@ -181,7 +184,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
             {/* 日期與里程 */}
             <View className="flex-row gap-3 mb-4">
               <DatePickerInput
-                label="施作日期 SERVICE DATE"
+                label={t('maintenance.fields.serviceDate')}
                 required
                 value={serviceDate}
                 onChange={setServiceDate}
@@ -189,12 +192,12 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                 containerClassName="flex-1"
               />
               <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-400 mb-1.5">當前里程 (KM) *</Text>
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">{t('maintenance.fields.serviceMileage')} *</Text>
                 <TextInput
                   value={mileage}
                   onChangeText={setMileage}
                   keyboardType="numeric"
-                  placeholder="例如: 12500"
+                  placeholder={t('maintenance.fields.serviceMileagePlaceholder')}
                   placeholderTextColor="#64748B"
                   className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
                 />
@@ -204,22 +207,22 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
             {/* 費用與店家 */}
             <View className="flex-row gap-3 mb-4">
               <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-400 mb-1.5">施作費用 ($) *</Text>
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">{t('maintenance.fields.cost')} *</Text>
                 <TextInput
                   value={cost}
                   onChangeText={setCost}
                   keyboardType="numeric"
-                  placeholder="例如: 3500"
+                  placeholder="0"
                   placeholderTextColor="#64748B"
                   className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
                 />
               </View>
               <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-400 mb-1.5">施作店家 (選填)</Text>
+                <Text className="text-xs font-semibold text-slate-400 mb-1.5">{t('maintenance.fields.shopName')}</Text>
                 <TextInput
                   value={shopName}
                   onChangeText={setShopName}
-                  placeholder="例如: 原廠保養廠"
+                  placeholder={t('maintenance.fields.shopNamePlaceholder')}
                   placeholderTextColor="#64748B"
                   className="bg-slate-800/80 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm"
                 />
@@ -228,11 +231,11 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
             {/* 備註 */}
             <View className="mb-6">
-              <Text className="text-xs font-semibold text-slate-400 mb-1.5">備註 (選填)</Text>
+              <Text className="text-xs font-semibold text-slate-400 mb-1.5">{t('maintenance.fields.notes')}</Text>
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="更換了機油芯、煞車油等..."
+                placeholder={t('maintenance.fields.notesPlaceholder')}
                 placeholderTextColor="#64748B"
                 multiline
                 numberOfLines={3}
@@ -246,7 +249,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                 onPress={onClose}
                 className="flex-1 py-3.5 rounded-xl bg-slate-800 border border-slate-700 items-center justify-center"
               >
-                <Text className="text-slate-300 font-semibold">取消</Text>
+                <Text className="text-slate-300 font-semibold">{t('common.actions.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSubmit}
@@ -258,7 +261,7 @@ export const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-                    <Text className="text-white font-bold">儲存變更</Text>
+                    <Text className="text-white font-bold">{t('maintenance.fields.saveChanges')}</Text>
                   </>
                 )}
               </TouchableOpacity>

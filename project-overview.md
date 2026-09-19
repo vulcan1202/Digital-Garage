@@ -52,6 +52,8 @@ Vehicle (單一車輛生命週期核心主體)
    在地下停車場或山區訊號不佳時，支援加油、保養與提醒狀態本機安全快取（`expo-secure-store`），連線恢復自動循序同步，具備 4xx 永久錯誤隔離防塞車與 App 異常重啟復原機制。
 6. **建立零信任端到端可觀測性鏈路 (P2-1)**：
    前後端由校驗之 `X-Request-ID` 串聯，後端全面採用 Google Cloud Logging 結構化日誌（`log/slog`）並對敏感金鑰進行深度脫敏，前端提供 Dark-Metal 全域錯誤邊界（`ErrorBoundary`）。
+7. **全域 i18n 雙語切換與雙語並陳顯示 (P2-2.8)**：
+   完整支援繁體中文（`zh-TW`）與美式英文（`en-US`），具備單一結構化 JSON 字典架構、TypeScript `Leaves<T, D>` 深度型別約束、Zero-Flash 開機水合門禁，以及核心卡片 `BilingualText` 5 大決策矩陣之雙語並陳呈現。
 
 ---
 
@@ -70,6 +72,7 @@ Vehicle (單一車輛生命週期核心主體)
 | **調校版本** | 單一零件多版本調校參數（如跑山、通勤、賽道）；生效版本唯一性；版本一鍵複製 Snapshot | Partial Unique Index；Map-based 跨版本參數差異比對演算法 |
 | **動態時序牆** | 整合全生命週期 6 大事件；支援分類切換檢視；純淨購車入庫事件防偽造 | PostgreSQL View (`security_invoker = true`)；4 級確定性排序 |
 | **成本統計** | 6 / 12 / 24 個月歷程圖表；總擁有成本（TCO）與總營運成本；每公里平均花費 | 月份自動填零保護；里程不足時安全回傳 `null` 防止除以零 |
+| **全域雙語** | 繁體中文與美式英文即時切換；核心 KPI 卡片與動態時序徽章支援雙語並陳顯示 | `BilingualText` 5 大決策矩陣；`Leaves<T>` 深度型別推導；`LanguageProvider` Zero-Flash 水合門禁 |
 
 ---
 

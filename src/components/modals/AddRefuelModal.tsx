@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAddRefuel } from '../../hooks/queries/useFuel';
 import { DatePickerInput } from '../common/DatePickerInput';
 import { FuelType } from '../../types/database';
@@ -24,15 +25,15 @@ interface AddRefuelModalProps {
   onClose: () => void;
 }
 
-const FUEL_TYPES: { label: string; value: FuelType }[] = [
-  { label: '98 無鉛', value: 'gasoline_98' },
-  { label: '95 無鉛', value: 'gasoline_95' },
-  { label: '92 無鉛', value: 'gasoline_92' },
-  { label: '超級柴油', value: 'diesel' },
-  { label: '頂級柴油', value: 'premium_diesel' },
-  { label: '純電充電', value: 'electric' },
-  { label: '油電複合', value: 'hybrid' },
-  { label: '其他', value: 'other' },
+const FUEL_TYPES: FuelType[] = [
+  'gasoline_98',
+  'gasoline_95',
+  'gasoline_92',
+  'diesel',
+  'premium_diesel',
+  'electric',
+  'hybrid',
+  'other',
 ];
 
 export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
@@ -41,6 +42,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
   currentVehicleMileage,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const today = new Date().toISOString().split('T')[0];
   const [refuelDate, setRefuelDate] = useState(today);
   const [mileage, setMileage] = useState(currentVehicleMileage ? String(currentVehicleMileage) : '');
@@ -88,17 +90,17 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
     const unitPriceNum = pricePerUnit ? parseFloat(pricePerUnit) : null;
 
     if (isNaN(mileageNum) || mileageNum < 0) {
-      Alert.alert('里程數格式錯誤', '請輸入加油時的車輛總里程數 (公里)。');
+      Alert.alert(t('common.status.error'), t('fuel.validation.mileageRequired'));
       return;
     }
 
     if (isNaN(volumeNum) || volumeNum <= 0) {
-      Alert.alert('加油量格式錯誤', '加油量必須大於 0 公升。');
+      Alert.alert(t('common.status.error'), t('fuel.validation.volumePositive'));
       return;
     }
 
     if (isNaN(totalCostNum) || totalCostNum < 0) {
-      Alert.alert('總金額格式錯誤', '總金額必須大於或等於 0 元。');
+      Alert.alert(t('common.status.error'), t('fuel.validation.costPositive'));
       return;
     }
 
@@ -113,12 +115,12 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
         fuel_type: selectedFuelType,
       });
 
-      Alert.alert('加油紀錄已儲存', `已成功建立 ${volumeNum}L 加油遙測數據！`);
+      Alert.alert(t('common.status.success'), t('fuel.validation.saveSuccess', { volume: volumeNum }));
       resetForm();
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '加油紀錄新增失敗';
-      Alert.alert('新增失敗', message);
+      const message = err instanceof Error ? err.message : t('fuel.validation.saveFailed');
+      Alert.alert(t('common.status.error'), message);
     }
   };
 
@@ -132,7 +134,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
                   TELEMETRY LOG
                 </Text>
                 <Text className="text-xl font-bold text-white tracking-tight mt-0.5">
-                  登錄加油日誌
+                  {t('fuel.addRefuel')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -152,15 +154,15 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
               {/* 油品選擇器 (Horizontal Pill Selector) */}
               <View className="mb-4">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-2">
-                  燃料種類 FUEL TYPE
+                  {t('fuel.fields.fuelType')}
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {FUEL_TYPES.map((t) => {
-                    const isSelected = selectedFuelType === t.value;
+                  {FUEL_TYPES.map((fType) => {
+                    const isSelected = selectedFuelType === fType;
                     return (
                       <TouchableOpacity
-                        key={t.value}
-                        onPress={() => setSelectedFuelType(t.value)}
+                        key={fType}
+                        onPress={() => setSelectedFuelType(fType)}
                         className={`px-3 py-1.5 rounded-lg border ${
                           isSelected
                             ? 'bg-racing-blue/20 border-racing-blue'
@@ -172,7 +174,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
                             isSelected ? 'text-racing-blue' : 'text-metal-400'
                           }`}
                         >
-                          {t.label}
+                          {t(`fuel.types.${fType}`)}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -183,7 +185,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
               {/* 日期與加油當前里程 */}
               <View className="flex-row gap-3 mb-4">
                 <DatePickerInput
-                  label="加油日期 DATE"
+                  label={t('fuel.fields.date')}
                   required
                   value={refuelDate}
                   onChange={setRefuelDate}
@@ -193,12 +195,12 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油當下里程 ODOMETER (KM) *
+                    {t('fuel.fields.odometer')} *
                   </Text>
                   <TextInput
                     value={mileage}
                     onChangeText={setMileage}
-                    placeholder="例: 15420"
+                    placeholder={t('fuel.fields.odometerPlaceholder')}
                     placeholderTextColor="#52525b"
                     keyboardType="numeric"
                     className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
@@ -210,12 +212,12 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
               <View className="flex-row gap-3 mb-4">
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    加油容量 VOLUME (L) *
+                    {t('fuel.fields.volume')} *
                   </Text>
                   <TextInput
                     value={volume}
                     onChangeText={handleVolumeChange}
-                    placeholder="例: 45.2"
+                    placeholder={t('fuel.fields.volumePlaceholder')}
                     placeholderTextColor="#52525b"
                     keyboardType="decimal-pad"
                     className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
@@ -224,12 +226,12 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
 
                 <View className="flex-1">
                   <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                    每公升單價 PRICE/L
+                    {t('fuel.fields.pricePerUnit')}
                   </Text>
                   <TextInput
                     value={pricePerUnit}
                     onChangeText={handlePricePerUnitChange}
-                    placeholder="例: 34.5"
+                    placeholder={t('fuel.fields.pricePerUnitPlaceholder')}
                     placeholderTextColor="#52525b"
                     keyboardType="decimal-pad"
                     className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm"
@@ -240,12 +242,12 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
               {/* 總費用 */}
               <View className="mb-6">
                 <Text className="text-[11px] font-mono text-metal-400 uppercase tracking-wider mb-1.5">
-                  總花費 TOTAL COST ($) *
+                  {t('fuel.fields.totalCost')} *
                 </Text>
                 <TextInput
                   value={totalCost}
                   onChangeText={setTotalCost}
-                  placeholder="例: 1560"
+                  placeholder={t('fuel.fields.totalCostPlaceholder')}
                   placeholderTextColor="#52525b"
                   keyboardType="decimal-pad"
                   className="bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-racing-blue font-mono font-bold text-base"
@@ -258,7 +260,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
                   onPress={onClose}
                   className="flex-1 py-3.5 rounded-full bg-white/[0.06] border border-white/10 items-center justify-center"
                 >
-                  <Text className="text-metal-300 font-mono text-xs">取消</Text>
+                  <Text className="text-metal-300 font-mono text-xs">{t('common.actions.cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -271,7 +273,7 @@ export const AddRefuelModal: React.FC<AddRefuelModalProps> = ({
                   ) : (
                     <>
                       <Text className="text-white font-bold font-mono text-xs mr-2">
-                        儲存加油紀錄
+                        {t('fuel.actions.saveRefuel')}
                       </Text>
                       <View className="w-5 h-5 rounded-full bg-white/20 items-center justify-center">
                         <Ionicons name="checkmark" size={12} color="#fff" />
