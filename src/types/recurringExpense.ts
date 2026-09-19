@@ -22,12 +22,15 @@ export interface SmartPreFillResult {
   coverageStartDate: string;  // YYYY-MM-DD
   coverageEndDate: string;    // YYYY-MM-DD
   notice?: string;
+  nextInspectionDate?: string; // YYYY-MM-DD (下次指定定檢基準日，專供 inspection)
+  isIncompleteData?: boolean; // 是否為無原發照日之資料不全
+  isFirstInspectionApproaching?: boolean; // 是否即將邁入第 5 年首檢預警
 }
 
 export const RECURRING_CATEGORY_LABELS: Record<RecurringExpenseCategory, string> = {
   license_tax: '牌照稅',
   road_maintenance_fee: '公路使用養護安全管理費（公路養管費）',
-  inspection: '定期檢驗 / 排氣定檢',
+  inspection: '定期檢驗',
   compulsory_insurance: '強制汽車責任保險',
   liability_insurance: '任意第三人責任保險',
   other: '其他規費',

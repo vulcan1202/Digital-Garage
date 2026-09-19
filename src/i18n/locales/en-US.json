@@ -259,7 +259,19 @@
     },
     "inspectionDetails": {
       "window": "Statutory Window: {{start}} ~ {{end}}",
-      "fallbackNotice": "Original registration date not set. Window estimated from manufacture month."
+      "fallbackNotice": "Original registration date not set. Window estimated from manufacture month.",
+      "thisInspectionDate": "Inspection Date",
+      "thisInspectionDatePlaceholder": "Select actual inspection date",
+      "nextInspectionDate": "Next Inspection Date (Stamp)",
+      "nextInspectionDatePlaceholder": "Select stamped next inspection date",
+      "gracePeriodHeader": "Inspection Window (+/- 1 Month)",
+      "gracePeriodDesc": "{{start}} ~ {{end}}",
+      "statusCanInspect": "Can Inspect",
+      "statusNeedInspect": "Inspection Needed",
+      "statusIncomplete": "Incomplete Data",
+      "statusFirstApproaching": "1st Inspection Due",
+      "incompletePrompt": "No registration date; reminders activate after 1st inspection",
+      "firstInspectionNotice": "Vehicle approaching 5 years; prepare for first periodic inspection"
     },
     "fields": {
       "category": "Expense Category",

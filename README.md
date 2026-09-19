@@ -4,11 +4,11 @@
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.86.3-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-57.0.22-000020?logo=expo&logoColor=white)](https://expo.dev/)
-[![Version](https://img.shields.io/badge/Version-v1.1.0-orange)](./package.json)
+[![Version](https://img.shields.io/badge/Version-v1.1.1-orange)](./package.json)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Google Cloud Run](https://img.shields.io/badge/Cloud%20Run-us--central1-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
-[![Tests](https://img.shields.io/badge/Tests-158%2F158%20Pass-brightgreen)](./documentation/testing-and-qa.md)
+[![Tests](https://img.shields.io/badge/Tests-160%2F160%20Pass-brightgreen)](./documentation/testing-and-qa.md)
 
 ---
 
@@ -60,10 +60,12 @@
 
 ## 核心功能與工程亮點 (Key Highlights)
 
-### 1. 法規對齊與雙軌日期分流 (P2-2.6)
-* **行照出廠年月 (`manufacture_date`)**：採用純前端 Dark-Metal 3x4 月份矩陣選擇器（`mode="month"`，輸出 `YYYY-MM`），自動解析西元年份，專門做為車齡推估與定檢頻率依據。
-* **行照原發照日 (`registration_date`)**：採用標準日曆選擇器（`mode="date"`，格式 `YYYY-MM-DD`），做為台灣監理法定定期檢驗的基準日。
-* **智慧定檢視窗推算**：依原發照日的月日推算前後各 1 個月（共 2 個月）驗車視窗，落實月底夾取防溢位（Month Clamping），並提供 Fallback 容錯降級機制與防誤觸覆寫警示對話框。
+### 1. 法規對齊與定期檢驗實務體驗重構 (P2-2.6 & P2-2.9)
+* **雙軌日期分流**：行照出廠年月（`manufacture_date` YYYY-MM）作為車齡推估依據；行照原發照日（`registration_date` YYYY-MM-DD）作為法定定檢基準日。
+* **簡化填寫與寬限期自動推算**：車主僅需填寫「此次檢驗日」（實際受檢日）與「下次定檢日」（行照印章日期），系統自動以下次定檢日推算前後各 1 個月（`±1 個月`）法定寬限期，徹底解決驗畢當場過期或數週後誤報 `OVERDUE` 的問題。
+* **寬限期前後月雙階即時提示**：寬限期前一個月標籤顯示黃色「可驗車」，後一個月改為紅色警告「需要驗車」；未到期顯示綠色「合格」，逾期顯示紅色「逾期未驗」。
+* **汽機車統一定檢標題**：移除「排氣」字樣，汽機車（含黃紅牌大型重型機車）一律統一預設為「{{年份}}年 定期檢驗」。
+* **首檢預警與資料不全引導**：車齡 4 年（即將邁入第 5 年首檢）提供「首檢即將到來」預警；無登記發照日則標記「資料不全」，待首次驗車登記後啟動通知。
 
 ### 2. 伺服器端唯一里程權威 (Server-Authoritative Mileage)
 * 車輛主表 `current_mileage` 由資料庫層級強制約束 `current_mileage >= initial_mileage`。
@@ -144,6 +146,7 @@
 | **P2-2.6** | Statutory Alignment (原發照日 YYYY-MM-DD 與出廠年月 YYYY-MM 雙軌對齊、定檢推算、Cloud Run 部署至 us-central1) | ✅ Completed |
 | **P2-2.7** | Server Status & Latency Monitor (零成本附帶測速、極簡 HEAD 204 探活、Dark-Metal 狀態膠囊與節點可觀測性) | ✅ Completed |
 | **P2-2.8** | Global i18n & Bilingual Presentation (全域 i18n 繁中/英文切換、BilingualText 雙語並陳、Zero-Flash 開機水合門禁、單一結構化字典、158/158 單元測試通過) | ✅ Completed |
+| **P2-2.9** | Inspection UX & Grace Period Enhancement (定期檢驗實務體驗重構、下次定檢日推算、寬限期前後月雙階提示、汽機車統一定檢標題、160/160 單元測試通過) | ✅ Completed |
 
 ---
 
@@ -158,7 +161,7 @@ npm install
 # 執行靜態型別檢查
 npm run typecheck
 
-# 執行 Jest 單元測試套件 (27 Suites / 158 Tests)
+# 執行 Jest 單元測試套件 (27 Suites / 160 Tests)
 npm test -- --watchAll=false
 
 # 啟動 Expo 本地開發伺服器

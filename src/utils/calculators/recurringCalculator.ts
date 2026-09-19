@@ -195,13 +195,33 @@ export function getSmartPreFill(
 }
 
 /**
- * 台灣定期檢驗 / 排氣檢驗推算演算法 (法規對齊版)
- * - 檢驗基準日：依據「行照原發照日期 (registration_date)」的月與日為基準。
- * - 檢驗窗口：基準日前 1 個月至後 1 個月 (前後各 1 個月，共 2 個月有效視窗)。
- * - 車齡計算：依據「行照出廠年月 (manufacture_date)」或「年份 (year)」推算。
- *   - 汽車：未滿 5 年免定檢；滿 5 年未滿 10 年每年 1 次；滿 10 年每年 2 次 (每半年 1 次)。
- *   - 機車：滿 5 年每年排氣定檢 1 次。
- * - Fallback 機制：若無 registration_date，暫退回以出廠年月 1 日為預估基準，並提示車主儘速補填。
+ * 依據下次定檢日，自動推算前後各 1 個月之法定檢驗寬限期
+ */
+export function deriveInspectionWindow(nextInspectionDateStr: string): {
+  coverageStartDate: string;
+  coverageEndDate: string;
+} {
+  const parsed = parseYMD(nextInspectionDateStr);
+  if (!parsed) {
+    return {
+      coverageStartDate: nextInspectionDateStr,
+      coverageEndDate: nextInspectionDateStr,
+    };
+  }
+  const startObj = addMonthsClamped(parsed.year, parsed.month, parsed.day, -1);
+  const endObj = addMonthsClamped(parsed.year, parsed.month, parsed.day, 1);
+  return {
+    coverageStartDate: formatYMD(startObj.year, startObj.month, startObj.day),
+    coverageEndDate: formatYMD(endObj.year, endObj.month, endObj.day),
+  };
+}
+
+/**
+ * 台灣定期檢驗 / 排氣檢驗推算演算法 (實務車主習性對齊版)
+ * - 車主僅需填寫：此次檢驗日（不論是否逾期）與 下次定檢日（行照蓋印）。
+ * - 寬限期：由系統根據「下次定檢日」自動前後推 1 個月（共 2 個月有效視窗）。
+ * - 第 5 年首檢預警：汽車在出廠第 4 年（即邁入第 5 年首檢前）即時給予提前提示。
+ * - 無原發照日期：標記為資料不全 (isIncompleteData)，待首次驗車登記後啟動通知。
  */
 export function calculateInspectionPreFill(
   vehicle: {
@@ -230,16 +250,7 @@ export function calculateInspectionPreFill(
     }
   }
 
-  // 2. Fallback 降級：若無 registration_date，使用 manufacture_date 之月份 (日預設為 1 號)
-  if (!hasRegistrationDate && vehicle.manufacture_date) {
-    const parsedMfg = parseYMD(vehicle.manufacture_date);
-    if (parsedMfg) {
-      baseMonth = parsedMfg.month;
-      baseDay = 1;
-    }
-  }
-
-  // 3. 車齡推估（優先取用出廠年月，次選原發照年，最後取 year）
+  // 2. 車齡推估（優先取用出廠年月，次選原發照年，最後取 year）
   let mfgYear = currentYear;
   if (vehicle.manufacture_date) {
     const parsedMfg = parseYMD(vehicle.manufacture_date);
@@ -262,61 +273,80 @@ export function calculateInspectionPreFill(
   const age = currentYear - mfgYear;
   const isCar = vehicle.vehicle_type === 'car';
 
-  // 4. 判定當年度定檢次數
+  // 3. 若車主無登記原發照日期無法判斷：回傳「資料不全」提示，直到車主第一次驗車填入資料
+  if (!hasRegistrationDate) {
+    const fallbackNext = addMonthsClamped(currentYear, currentMonth, today.getDate(), 12);
+    const fallbackNextStr = formatYMD(fallbackNext.year, fallbackNext.month, fallbackNext.day);
+    const window = deriveInspectionWindow(fallbackNextStr);
+
+    return {
+      category: 'inspection',
+      title: `${currentYear}年 定期檢驗`,
+      defaultAmount: isCar ? 450 : 0,
+      paidDate: todayYMD,
+      nextInspectionDate: fallbackNextStr,
+      coverageStartDate: window.coverageStartDate,
+      coverageEndDate: window.coverageEndDate,
+      notice: '尚未設定行照發照日期，資料不全無法精準推算定檢排程，請對照行照蓋印填寫下次定檢日。',
+      isIncompleteData: true,
+      isFirstInspectionApproaching: false,
+    };
+  }
+
+  // 4. 有原發照日期：判斷是否邁入第 5 年首檢前夕 (汽車出廠第 4 年即將邁入第 5 年)
+  const isFirstInspectionApproaching = isCar && age === 4;
+
+  // 5. 判定當年度定檢次數 (滿 10 年汽車每半年一驗)
   let timesPerYear = 1;
   if (isCar && age >= 10) {
-    timesPerYear = 2; // 滿 10 年每年 2 驗
+    timesPerYear = 2;
   }
 
-  // 5. 決定當期檢驗基準月份
-  let targetMonth = baseMonth;
-  let targetYear = currentYear;
-  let isSecondHalf = false;
+  // 6. 計算預設下次定檢基準日 (Next Inspection Date)
+  let nextYear = currentYear;
+  let nextMonth = baseMonth;
 
-  if (timesPerYear === 2) {
-    // 下半期基準月為 baseMonth + 6
-    const secondMonth = ((baseMonth + 6 - 1) % 12) + 1;
-    // 檢查當前月份離哪個窗口較近：若已過上半期窗口（baseMonth + 1），則切換至下半期
-    const firstHalfEndMonth = ((baseMonth + 1 - 1) % 12) + 1;
-    if (baseMonth <= secondMonth) {
-      if (currentMonth > firstHalfEndMonth) {
-        targetMonth = secondMonth;
-        isSecondHalf = true;
-      }
+  if (isCar && age < 5) {
+    // 未滿 5 年新車：首次定檢年為出廠第 5 年
+    nextYear = mfgYear + 5;
+    nextMonth = baseMonth;
+  } else if (timesPerYear === 2) {
+    // 滿 10 年老車：每半年一驗 (兩次基準分別為 earlyMonth 與 lateMonth)
+    const m1 = baseMonth;
+    const m2 = ((baseMonth + 6 - 1) % 12) + 1;
+    const [earlyMonth, lateMonth] = m1 < m2 ? [m1, m2] : [m2, m1];
+
+    if (currentMonth <= earlyMonth) {
+      nextMonth = earlyMonth;
+      nextYear = currentYear;
+    } else if (currentMonth <= lateMonth) {
+      nextMonth = lateMonth;
+      nextYear = currentYear;
     } else {
-      // 跨年週期
-      if (currentMonth > firstHalfEndMonth && currentMonth <= secondMonth + 1) {
-        targetMonth = secondMonth;
-        isSecondHalf = true;
-      }
-    }
-  }
-
-  // 6. 基準日當天（經月底夾取處理）
-  const baseClamped = addMonthsClamped(targetYear, targetMonth, baseDay, 0);
-
-  // 7. 檢驗視窗：基準日前 1 個月至後 1 個月
-  const startObj = addMonthsClamped(baseClamped.year, baseClamped.month, baseClamped.day, -1);
-  const endObj = addMonthsClamped(baseClamped.year, baseClamped.month, baseClamped.day, 1);
-
-  const startDateStr = formatYMD(startObj.year, startObj.month, startObj.day);
-  const endDateStr = formatYMD(endObj.year, endObj.month, endObj.day);
-
-  let title = `${currentYear}年 `;
-  if (isCar) {
-    title += timesPerYear === 2 ? `第${isSecondHalf ? '二' : '一'}次 定期檢驗` : '定期檢驗';
-  } else {
-    title += '機車排氣定期檢驗';
-  }
-
-  let notice = '';
-  if (hasRegistrationDate) {
-    notice = `依行照原發照日 (${vehicle.registration_date}) 推算，法定檢驗窗口為基準日前後各 1 個月內有效。`;
-    if (isCar && age < 5) {
-      notice = `出廠未滿 5 年新車依法免定檢。此處為預估屆滿 5 年之首次檢驗窗口。`;
+      nextMonth = earlyMonth;
+      nextYear = currentYear + 1;
     }
   } else {
-    notice = '尚未設定行照原發照日，目前為預估窗口，請儘速補填。';
+    // 5~10 年汽車或 5 年以上機車：每年一驗 (+1 年)
+    if (currentMonth < baseMonth - 1) {
+      nextYear = currentYear;
+    } else {
+      nextYear = currentYear + 1;
+    }
+    nextMonth = baseMonth;
+  }
+
+  const nextBaseClamped = addMonthsClamped(nextYear, nextMonth, baseDay, 0);
+  const nextInspectionDate = formatYMD(nextBaseClamped.year, nextBaseClamped.month, nextBaseClamped.day);
+  const window = deriveInspectionWindow(nextInspectionDate);
+
+  const title = `${currentYear}年 定期檢驗`;
+
+  let notice = `依行照推算，下次指定定檢日為 ${nextInspectionDate}。前後各 1 個月（${window.coverageStartDate} ～ ${window.coverageEndDate}）皆可前往代檢廠驗車。`;
+  if (isFirstInspectionApproaching) {
+    notice = `車輛即將邁入第 5 年，將迎來首次法定定期檢驗！預估首檢基準日為 ${nextInspectionDate}，前後 1 個月皆可驗車。`;
+  } else if (isCar && age < 4) {
+    notice = `出廠未滿 5 年新車依法免定檢。系統預估首次定檢日為 ${nextInspectionDate}。`;
   }
 
   return {
@@ -324,8 +354,12 @@ export function calculateInspectionPreFill(
     title,
     defaultAmount: isCar ? 450 : 0,
     paidDate: todayYMD,
-    coverageStartDate: startDateStr,
-    coverageEndDate: endDateStr,
+    nextInspectionDate,
+    coverageStartDate: window.coverageStartDate,
+    coverageEndDate: window.coverageEndDate,
     notice,
+    isIncompleteData: false,
+    isFirstInspectionApproaching,
   };
 }
+

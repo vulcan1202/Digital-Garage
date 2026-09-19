@@ -6,6 +6,7 @@ import { DoubleBezelCard } from '../DoubleBezelCard';
 import { ReminderRow, VehicleWithCover } from '../../types/database';
 import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
 import { RecurringStatusSummary, RECURRING_CATEGORY_LABELS, RecurringExpenseCategory } from '../../types/recurringExpense';
+import { parseYMD, formatYMD, addMonthsClamped } from '../../utils/calculators/recurringCalculator';
 
 interface RemindersTabProps {
   vehicle: VehicleWithCover | null;
@@ -41,7 +42,29 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
   const recurringAlertCounts = React.useMemo(() => {
     let overdue = 0;
     let dueSoon = 0;
+    const now = new Date();
+    const todayStr = formatYMD(now.getFullYear(), now.getMonth() + 1, now.getDate());
+
     recurringStatuses.forEach((s) => {
+      if (s.category === 'inspection' && s.coverage_end_date) {
+        const parsedEnd = parseYMD(s.coverage_end_date);
+        if (parsedEnd) {
+          const baseObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
+          const baseDateStr = formatYMD(baseObj.year, baseObj.month, baseObj.day);
+          const startObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -2);
+          const startDateStr = formatYMD(startObj.year, startObj.month, startObj.day);
+
+          if (todayStr > s.coverage_end_date) {
+            overdue++;
+          } else if (todayStr >= baseDateStr) {
+            overdue++; // 後一個月（需要驗車，紅色警告）
+          } else if (todayStr >= startDateStr) {
+            dueSoon++; // 前一個月（可驗車，黃色標記）
+          }
+          return;
+        }
+      }
+
       if (s.status === 'overdue') overdue++;
       else if (s.status === 'due_soon') dueSoon++;
     });
@@ -99,24 +122,98 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
               let badgeBg = 'bg-white/5 border-white/10';
               let statusText = t('recurring.status.unset');
 
-              if (item.status === 'overdue') {
-                statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
-                badgeColor = 'text-racing-red';
-                badgeBg = 'bg-racing-red/20 border-racing-red/40';
-                statusText = t('recurring.status.overdue');
-              } else if (item.status === 'due_soon') {
-                statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
-                badgeColor = 'text-racing-amber';
-                badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
-                statusText = t('recurring.status.dueSoon');
-              } else if (item.status === 'good') {
-                badgeColor = 'text-racing-green';
-                badgeBg = 'bg-racing-green/10 border-racing-green/30';
-                statusText = t('recurring.status.good');
+              const isInspection = item.category === 'inspection';
+              const currentYear = new Date().getFullYear();
+              let mfgYear = currentYear;
+              if (vehicle?.manufacture_date) {
+                const y = parseInt(vehicle.manufacture_date.slice(0, 4), 10);
+                if (!isNaN(y)) mfgYear = y;
+              } else if (vehicle?.registration_date) {
+                const y = parseInt(vehicle.registration_date.slice(0, 4), 10);
+                if (!isNaN(y)) mfgYear = y;
+              } else if (vehicle?.year) {
+                mfgYear = vehicle.year;
+              }
+              const carAge = currentYear - mfgYear;
+              const isCar = vehicle?.vehicle_type === 'car';
+              const isFirstApproaching = isCar && carAge === 4;
+
+              if (isInspection && item.coverage_end_date) {
+                const parsedEnd = parseYMD(item.coverage_end_date);
+                if (parsedEnd) {
+                  const now = new Date();
+                  const todayStr = formatYMD(now.getFullYear(), now.getMonth() + 1, now.getDate());
+                  const baseObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
+                  const baseDateStr = formatYMD(baseObj.year, baseObj.month, baseObj.day);
+                  const startObj = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -2);
+                  const startDateStr = formatYMD(startObj.year, startObj.month, startObj.day);
+
+                  if (todayStr > item.coverage_end_date) {
+                    // 已過寬限期截止日 -> 逾期未驗（紅色）
+                    statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                    badgeColor = 'text-racing-red';
+                    badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                    statusText = t('recurring.status.overdue');
+                  } else if (todayStr >= baseDateStr) {
+                    // 寬限期後一個月 -> 需要驗車（改為紅色警告）
+                    statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                    badgeColor = 'text-racing-red';
+                    badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                    statusText = t('recurring.inspectionDetails.statusNeedInspect');
+                  } else if (todayStr >= startDateStr) {
+                    // 寬限期前一個月 -> 可驗車（使用黃色標記）
+                    statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
+                    badgeColor = 'text-racing-amber';
+                    badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
+                    statusText = t('recurring.inspectionDetails.statusCanInspect');
+                  } else {
+                    // 尚未進入寬限期 -> 合格（綠色）
+                    badgeColor = 'text-racing-green';
+                    badgeBg = 'bg-racing-green/10 border-racing-green/30';
+                    statusText = t('recurring.status.good');
+                  }
+                }
+              } else {
+                if (item.status === 'overdue') {
+                  statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
+                  badgeColor = 'text-racing-red';
+                  badgeBg = 'bg-racing-red/20 border-racing-red/40';
+                  statusText = t('recurring.status.overdue');
+                } else if (item.status === 'due_soon') {
+                  statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
+                  badgeColor = 'text-racing-amber';
+                  badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
+                  statusText = t('recurring.status.dueSoon');
+                } else if (item.status === 'good') {
+                  badgeColor = 'text-racing-green';
+                  badgeBg = 'bg-racing-green/10 border-racing-green/30';
+                  statusText = t('recurring.status.good');
+                } else if (item.status === 'unset') {
+                  if (isInspection) {
+                    if (!vehicle?.registration_date) {
+                      statusText = t('recurring.inspectionDetails.statusIncomplete');
+                      badgeColor = 'text-amber-400';
+                      badgeBg = 'bg-amber-500/10 border-amber-500/30';
+                    } else if (isFirstApproaching) {
+                      statusText = t('recurring.inspectionDetails.statusFirstApproaching');
+                      badgeColor = 'text-cyan-400';
+                      badgeBg = 'bg-cyan-500/10 border-cyan-500/30';
+                    }
+                  }
+                }
               }
 
               const iconName = CATEGORY_ICONS[item.category] || 'receipt-outline';
               const label = t(`recurring.labels.${item.category}` as any, { defaultValue: item.title });
+
+              let unsetDescription = '尚未登記最新繳納與覆蓋期';
+              if (isInspection) {
+                if (!vehicle?.registration_date) {
+                  unsetDescription = t('recurring.inspectionDetails.incompletePrompt');
+                } else if (isFirstApproaching) {
+                  unsetDescription = t('recurring.inspectionDetails.firstInspectionNotice');
+                }
+              }
 
               return (
                 <View
@@ -152,7 +249,7 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
                         </Text>
                       ) : (
                         <Text className="text-[11px] text-metal-500 font-mono mt-0.5">
-                          尚未登記最新繳納與覆蓋期
+                          {unsetDescription}
                         </Text>
                       )}
                     </View>

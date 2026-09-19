@@ -17,9 +17,7 @@ import { useCreateRecurringExpenseMutation } from '../../hooks/queries/useRecurr
 import { RecurringExpenseCategory } from '../../types/recurringExpense';
 import {
   getSmartPreFill,
-  parseYMD,
-  formatYMD,
-  addMonthsClamped,
+  deriveInspectionWindow,
 } from '../../utils/calculators/recurringCalculator';
 import { useKeyboardBottomInset } from '../../hooks/useKeyboardBottomInset';
 import { VehicleWithCover } from '../../types/database';
@@ -31,15 +29,13 @@ interface AddRecurringExpenseModalProps {
   onClose: () => void;
 }
 
-type MciIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-const CATEGORIES: { key: RecurringExpenseCategory; icon: MciIconName }[] = [
-  { key: 'license_tax', icon: 'card-bulleted-outline' },
+const CATEGORIES: { key: RecurringExpenseCategory; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { key: 'license_tax', icon: 'card-text-outline' },
   { key: 'road_maintenance_fee', icon: 'road-variant' },
   { key: 'inspection', icon: 'shield-check-outline' },
-  { key: 'compulsory_insurance', icon: 'file-certificate-outline' },
-  { key: 'liability_insurance', icon: 'security' },
-  { key: 'other', icon: 'dots-horizontal-circle-outline' },
+  { key: 'compulsory_insurance', icon: 'shield-car' },
+  { key: 'liability_insurance', icon: 'shield-account' },
+  { key: 'other', icon: 'receipt' },
 ];
 
 export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> = ({
@@ -57,9 +53,9 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   const [paidDate, setPaidDate] = useState('');
   const [coverageStartDate, setCoverageStartDate] = useState('');
   const [coverageEndDate, setCoverageEndDate] = useState('');
+  const [nextInspectionDate, setNextInspectionDate] = useState('');
   const [notes, setNotes] = useState('');
   const [notice, setNotice] = useState<string | undefined>('');
-  const [syncAsRegistrationDate, setSyncAsRegistrationDate] = useState(false);
 
   const rawKeyboardInset = useKeyboardBottomInset();
   const androidKeyboardInset = Platform.OS === 'android' ? rawKeyboardInset : 0;
@@ -73,8 +69,15 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     setPaidDate(prefill.paidDate);
     setCoverageStartDate(prefill.coverageStartDate);
     setCoverageEndDate(prefill.coverageEndDate);
+    setNextInspectionDate(prefill.nextInspectionDate || '');
     setNotice(prefill.notice);
-    setSyncAsRegistrationDate(false);
+  };
+
+  const handleNextInspectionDateChange = (dateStr: string) => {
+    setNextInspectionDate(dateStr);
+    const window = deriveInspectionWindow(dateStr);
+    setCoverageStartDate(window.coverageStartDate);
+    setCoverageEndDate(window.coverageEndDate);
   };
 
   useEffect(() => {
@@ -110,79 +113,25 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       return;
     }
 
-    const doSubmit = async (syncDate: string | null) => {
-      try {
-        await createMutation.mutateAsync({
-          vehicle_id: vehicleId,
-          category,
-          title: title.trim(),
-          amount: amtNum,
-          paid_date: paidDate.trim(),
-          coverage_start_date: coverageStartDate.trim(),
-          coverage_end_date: coverageEndDate.trim(),
-          notes: notes.trim() ? notes.trim() : null,
-          sync_as_registration_date: syncDate,
-        });
+    try {
+      await createMutation.mutateAsync({
+        vehicle_id: vehicleId,
+        category,
+        title: title.trim(),
+        amount: amtNum,
+        paid_date: paidDate.trim(),
+        coverage_start_date: coverageStartDate.trim(),
+        coverage_end_date: coverageEndDate.trim(),
+        notes: notes.trim() ? notes.trim() : null,
+        sync_as_registration_date: null,
+      });
 
-        Alert.alert(t('common.status.success'), t('recurring.validation.saveSuccess', { name: title.trim() }));
-        onClose();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : t('recurring.validation.saveFailed');
-        Alert.alert(t('common.status.error'), msg);
-      }
-    };
-
-    if (category === 'inspection' && syncAsRegistrationDate) {
-      // 依 coverageStartDate (+1 month) 推算檢驗基準日
-      let derivedRegDate: string | null = null;
-      const parsedStart = parseYMD(coverageStartDate);
-      if (parsedStart) {
-        const baseObj = addMonthsClamped(parsedStart.year, parsedStart.month, parsedStart.day, 1);
-        let regYear = baseObj.year;
-        if (vehicle?.manufacture_date) {
-          const pMfg = parseYMD(vehicle.manufacture_date);
-          if (pMfg) regYear = pMfg.year;
-        } else if (vehicle?.registration_date) {
-          const pReg = parseYMD(vehicle.registration_date);
-          if (pReg) regYear = pReg.year;
-        } else if (vehicle?.year) {
-          regYear = vehicle.year;
-        }
-
-        const todayYear = new Date().getFullYear();
-        if (regYear > todayYear) {
-          regYear = todayYear;
-        }
-        const targetObj = addMonthsClamped(regYear, baseObj.month, baseObj.day, 0);
-        derivedRegDate = formatYMD(targetObj.year, targetObj.month, targetObj.day);
-      }
-
-      if (derivedRegDate) {
-        // 若該車輛已有 registration_date 且與目前計算出的日期不同，跳出 Alert 確認覆寫
-        if (vehicle?.registration_date && vehicle.registration_date !== derivedRegDate) {
-          Alert.alert(
-            t('recurring.fields.confirmOverwrite'),
-            t('recurring.fields.syncOverwriteWarning', {
-              existing: vehicle.registration_date,
-              newDate: derivedRegDate,
-            }),
-            [
-              { text: t('common.actions.cancel'), style: 'cancel' },
-              {
-                text: t('recurring.fields.confirmOverwrite'),
-                style: 'destructive',
-                onPress: () => doSubmit(derivedRegDate),
-              },
-            ]
-          );
-          return;
-        }
-        await doSubmit(derivedRegDate);
-        return;
-      }
+      Alert.alert(t('common.status.success'), t('recurring.validation.saveSuccess', { name: title.trim() }));
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('recurring.validation.saveFailed');
+      Alert.alert(t('common.status.error'), msg);
     }
-
-    await doSubmit(null);
   };
 
   return (
@@ -285,58 +234,79 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
               />
             </View>
 
-            {/* 付款/檢驗日 */}
-            <DatePickerInput
-              label={t('recurring.fields.paidDateLabel')}
-              required
-              value={paidDate}
-              onChange={setPaidDate}
-              maximumDate={new Date()}
-              placeholder={t('recurring.fields.paidDatePlaceholder')}
-              containerClassName="mb-3.5"
-            />
-
-            {/* 有效起訖期間 */}
-            <View className="flex-row gap-3 mb-3.5">
-              <DatePickerInput
-                label={t('recurring.fields.coverageStartDate')}
-                required
-                value={coverageStartDate}
-                onChange={setCoverageStartDate}
-                placeholder={t('recurring.fields.coverageStartDate')}
-                containerClassName="flex-1"
-              />
-              <DatePickerInput
-                label={t('recurring.fields.coverageEndDate')}
-                required
-                value={coverageEndDate}
-                onChange={setCoverageEndDate}
-                placeholder={t('recurring.fields.coverageEndDate')}
-                containerClassName="flex-1"
-              />
-            </View>
-
-            {/* 若為定期檢驗，顯示同步發照日 Checkbox */}
-            {category === 'inspection' && vehicle && (
-              <TouchableOpacity
-                onPress={() => setSyncAsRegistrationDate(!syncAsRegistrationDate)}
-                activeOpacity={0.7}
-                className="flex-row items-center gap-2.5 p-3 rounded-xl bg-zinc-800/80 border border-white/10 mb-3.5"
-              >
-                <Ionicons
-                  name={syncAsRegistrationDate ? 'checkbox' : 'square-outline'}
-                  size={20}
-                  color={syncAsRegistrationDate ? '#ff6b00' : '#888'}
+            {/* 依類別區分日期輸入欄位 */}
+            {category === 'inspection' ? (
+              <>
+                {/* 此次檢驗日（不論是否逾期，實際受檢日） */}
+                <DatePickerInput
+                  label={t('recurring.inspectionDetails.thisInspectionDate')}
+                  required
+                  value={paidDate}
+                  onChange={setPaidDate}
+                  maximumDate={new Date()}
+                  placeholder={t('recurring.inspectionDetails.thisInspectionDatePlaceholder')}
+                  containerClassName="mb-3.5"
                 />
-                <View className="flex-1">
-                  <Text className="text-white text-xs font-medium">
-                    {t('recurring.fields.syncRegistrationDate')}
-                  </Text>
-                  <Text className="text-metal-400 text-[10px] mt-0.5">
-                    {t('recurring.fields.syncRegistrationDesc')}
-                  </Text>
+
+                {/* 下次定檢日（行照蓋印） */}
+                <DatePickerInput
+                  label={t('recurring.inspectionDetails.nextInspectionDate')}
+                  required
+                  value={nextInspectionDate}
+                  onChange={handleNextInspectionDateChange}
+                  placeholder={t('recurring.inspectionDetails.nextInspectionDatePlaceholder')}
+                  containerClassName="mb-3.5"
+                />
+
+                {/* 法定檢驗寬限期即時提示卡片（前後各 1 個月） */}
+                <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
+                  <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
+                  <View className="flex-1">
+                    <Text className="text-white text-xs font-medium">
+                      {t('recurring.inspectionDetails.gracePeriodHeader')}
+                    </Text>
+                    <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
+                      {t('recurring.inspectionDetails.gracePeriodDesc', {
+                        start: coverageStartDate,
+                        end: coverageEndDate,
+                      })}
+                    </Text>
+                  </View>
                 </View>
-              </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* 一般規費：付款日 */}
+                <DatePickerInput
+                  label={t('recurring.fields.paidDateLabel')}
+                  required
+                  value={paidDate}
+                  onChange={setPaidDate}
+                  maximumDate={new Date()}
+                  placeholder={t('recurring.fields.paidDatePlaceholder')}
+                  containerClassName="mb-3.5"
+                />
+
+                {/* 一般規費：有效起訖期間 */}
+                <View className="flex-row gap-3 mb-3.5">
+                  <DatePickerInput
+                    label={t('recurring.fields.coverageStartDate')}
+                    required
+                    value={coverageStartDate}
+                    onChange={setCoverageStartDate}
+                    placeholder={t('recurring.fields.coverageStartDate')}
+                    containerClassName="flex-1"
+                  />
+                  <DatePickerInput
+                    label={t('recurring.fields.coverageEndDate')}
+                    required
+                    value={coverageEndDate}
+                    onChange={setCoverageEndDate}
+                    placeholder={t('recurring.fields.coverageEndDate')}
+                    containerClassName="flex-1"
+                  />
+                </View>
+              </>
             )}
 
             {/* 備註 */}

@@ -259,7 +259,19 @@
     },
     "inspectionDetails": {
       "window": "法定驗車期間：{{start}} ~ {{end}}",
-      "fallbackNotice": "尚未設定行照原發照日，目前為出廠月預估視窗，請儘速補填"
+      "fallbackNotice": "尚未設定行照原發照日，目前為出廠月預估視窗，請儘速補填",
+      "thisInspectionDate": "此次檢驗日",
+      "thisInspectionDatePlaceholder": "選取實際受檢日期",
+      "nextInspectionDate": "下次定檢日 (行照蓋印)",
+      "nextInspectionDatePlaceholder": "選取行照蓋印之指定定檢日",
+      "gracePeriodHeader": "法定檢驗寬限期 (前後各 1 個月皆可受檢)",
+      "gracePeriodDesc": "{{start}} ～ {{end}}",
+      "statusCanInspect": "可驗車",
+      "statusNeedInspect": "需要驗車",
+      "statusIncomplete": "資料不全",
+      "statusFirstApproaching": "首檢即將到來",
+      "incompletePrompt": "未登記行照發照日期，待首次驗車登記後啟動通知",
+      "firstInspectionNotice": "車輛即將屆滿 5 年，請留意首次定期檢驗"
     },
     "fields": {
       "category": "規費類別",

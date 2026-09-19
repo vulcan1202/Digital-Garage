@@ -5,6 +5,7 @@ import {
   formatYMD,
   getSmartPreFill,
   calculateInspectionPreFill,
+  deriveInspectionWindow,
 } from '../recurringCalculator';
 
 describe('recurringCalculator', () => {
@@ -113,56 +114,85 @@ describe('recurringCalculator', () => {
       expect(res.paidDate).toBe('2026-07-15');
     });
 
-    it('TC-REC-04: 車齡 7 年汽車（5~10 年）依 registration_date 月日為基準，前後 1 個月檢驗窗口', () => {
+    it('deriveInspectionWindow: 正確以指定日期前後各推 1 個月計算寬限期', () => {
+      const window = deriveInspectionWindow('2027-09-15');
+      expect(window.coverageStartDate).toBe('2027-08-15');
+      expect(window.coverageEndDate).toBe('2027-10-15');
+    });
+
+    it('TC-REC-04: 車齡 7 年汽車（5~10 年）依 registration_date 月日推算下次定檢日與前後 1 個月寬限期', () => {
       const today = new Date(2026, 4, 1); // 2026-05-01
       const res = calculateInspectionPreFill(car7Years, today);
 
       expect(res.category).toBe('inspection');
       expect(res.title).toBe('2026年 定期檢驗');
       expect(res.defaultAmount).toBe(450);
-      // 原發照日為 06-20，基準日前後各 1 個月為 05-20 至 07-20
-      expect(res.coverageStartDate).toBe('2026-05-20');
-      expect(res.coverageEndDate).toBe('2026-07-20');
-      expect(res.notice).toContain('2019-06-20');
+      expect(res.paidDate).toBe('2026-05-01');
+      // 下次定檢日為 2027-06-20，寬限期為 2027-05-20 至 2027-07-20
+      expect(res.nextInspectionDate).toBe('2027-06-20');
+      expect(res.coverageStartDate).toBe('2027-05-20');
+      expect(res.coverageEndDate).toBe('2027-07-20');
+      expect(res.isIncompleteData).toBe(false);
+      expect(res.notice).toContain('2027-06-20');
+      expect(res.notice).toContain('前後各 1 個月');
     });
 
-    it('TC-REC-04-FALLBACK: 若車輛無 registration_date，退回出廠年月 1 日並顯示補填警示', () => {
+    it('TC-REC-04-FALLBACK: 若車輛無 registration_date，標記資料不全並提示待首次驗車登記', () => {
       const today = new Date(2026, 4, 1);
       const res = calculateInspectionPreFill(carFallback, today);
 
       expect(res.category).toBe('inspection');
       expect(res.title).toBe('2026年 定期檢驗');
-      expect(res.coverageStartDate).toBe('2026-05-01');
-      expect(res.coverageEndDate).toBe('2026-07-01');
-      expect(res.notice).toContain('尚未設定行照原發照日');
+      expect(res.isIncompleteData).toBe(true);
+      expect(res.notice).toContain('尚未設定行照發照日期');
+      expect(res.notice).toContain('資料不全');
     });
 
-    it('TC-REC-04-NEW: 未滿 5 年之新車顯示免定檢及預估 5 年檢驗窗口提示', () => {
+    it('TC-REC-04-NEW: 未滿 5 年之新車顯示免定檢及預估 5 年檢驗日', () => {
       const today = new Date(2026, 4, 1);
       const res = calculateInspectionPreFill(carUnder5, today);
 
       expect(res.notice).toContain('出廠未滿 5 年新車依法免定檢');
+      expect(res.nextInspectionDate).toBe('2029-05-15');
+    });
+
+    it('TC-REC-04-APPROACHING: 車輛邁入第 5 年（4 年車）提前提示即將迎來首檢', () => {
+      const car4Years = {
+        year: 2022,
+        manufacture_date: '2022-08',
+        registration_date: '2022-08-15',
+        vehicle_type: 'car',
+      };
+      const today = new Date(2026, 7, 1); // 2026-08-01 (4 年車)
+      const res = calculateInspectionPreFill(car4Years, today);
+
+      expect(res.isFirstInspectionApproaching).toBe(true);
+      expect(res.notice).toContain('車輛即將邁入第 5 年');
+      expect(res.nextInspectionDate).toBe('2027-08-15');
+      expect(res.coverageStartDate).toBe('2027-07-15');
+      expect(res.coverageEndDate).toBe('2027-09-15');
     });
 
     it('TC-REC-05: 車齡 11 年汽車（滿 10 年）每年兩驗，下半期窗口自動切換', () => {
-      // 5 月出廠/發照，上半期窗口 04-10 ~ 06-10。若今日為 8 月，切換至下半期 11 月 (10-10 ~ 12-10)
+      // 5 月出廠/發照，若今日為 8 月，下次定檢為下半期 11 月 (10-10 ~ 12-10)
       const todayInAugust = new Date(2026, 7, 20); // 2026-08-20
       const res = calculateInspectionPreFill(car11Years, todayInAugust);
 
       expect(res.category).toBe('inspection');
-      expect(res.title).toBe('2026年 第二次 定期檢驗');
+      expect(res.nextInspectionDate).toBe('2026-11-10');
       expect(res.coverageStartDate).toBe('2026-10-10');
       expect(res.coverageEndDate).toBe('2026-12-10');
     });
 
-    it('機車出廠滿 5 年預填每年排氣定檢，預設規費 0 元', () => {
+    it('機車出廠滿 5 年預填每年定期檢驗，預設規費 0 元', () => {
       const today = new Date(2026, 7, 1);
       const res = calculateInspectionPreFill(motorcycle, today);
 
-      expect(res.title).toBe('2026年 機車排氣定期檢驗');
+      expect(res.title).toBe('2026年 定期檢驗');
       expect(res.defaultAmount).toBe(0);
-      expect(res.coverageStartDate).toBe('2026-07-10');
-      expect(res.coverageEndDate).toBe('2026-09-10');
+      expect(res.nextInspectionDate).toBe('2027-08-10');
+      expect(res.coverageStartDate).toBe('2027-07-10');
+      expect(res.coverageEndDate).toBe('2027-09-10');
     });
 
     it('強制汽車責任險：預設 1 年期日曆覆蓋', () => {
