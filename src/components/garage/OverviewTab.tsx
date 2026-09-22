@@ -4,8 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
 import { BilingualText } from '../common/BilingualText';
-import { VehicleRow, ReminderRow } from '../../types/database';
-import { ReminderCalculationResult } from '../../utils/calculators/reminderCalculator';
+import { VehicleRow } from '../../types/database';
 import { FuelEconomyResult } from '../../utils/calculators/fuelCalculator';
 
 interface OverviewTabProps {
@@ -22,11 +21,7 @@ interface OverviewTabProps {
     avgCostKm: number | null;
   };
   modificationsCount: number;
-  reminderEvals: { reminder: ReminderRow; evaluation: ReminderCalculationResult }[];
-  alertCounts: { overdue: number; dueSoon: number };
-  onCompleteReminder: (id: number, name: string) => void;
   onNavigateToAnalytics: () => void;
-  onNavigateToReminders: () => void;
   onNavigateToTimeline: () => void;
 }
 
@@ -37,11 +32,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   ownershipCostPerKm,
   fuelStats,
   modificationsCount,
-  reminderEvals,
-  alertCounts,
-  onCompleteReminder,
   onNavigateToAnalytics,
-  onNavigateToReminders,
   onNavigateToTimeline,
 }) => {
   const { t } = useTranslation();
@@ -149,97 +140,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <Ionicons name="chevron-forward" size={14} color="#ff4d00" />
         </View>
       </TouchableOpacity>
-
-      {/* 保養提醒雷達摘要 (Maintenance Radar Preview) */}
-      <View>
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center">
-            <Text className="text-xs font-mono tracking-wider text-metal-400 uppercase mr-2">
-              {t('vehicle.overview.maintenanceRadar')}
-            </Text>
-            {alertCounts.overdue > 0 && (
-              <View className="bg-racing-red/20 px-2 py-0.5 rounded-full border border-racing-red/40 mr-1.5">
-                <Text className="text-[10px] font-mono text-racing-red font-bold">
-                  {alertCounts.overdue} OVERDUE
-                </Text>
-              </View>
-            )}
-            {alertCounts.dueSoon > 0 && (
-              <View className="bg-racing-amber/20 px-2 py-0.5 rounded-full border border-racing-amber/40">
-                <Text className="text-[10px] font-mono text-racing-amber font-bold">
-                  {alertCounts.dueSoon} DUE SOON
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity onPress={onNavigateToReminders}>
-            <Text className="text-[11px] font-mono text-metal-400">{t('vehicle.overview.allReminders', { count: reminderEvals.length })}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {reminderEvals.length === 0 ? (
-          <DoubleBezelCard innerClassName="py-5 items-center">
-            <Ionicons name="shield-checkmark-outline" size={28} color="#10b981" />
-            <Text className="text-metal-400 text-xs mt-1.5 font-mono">{t('vehicle.overview.allHealthy')}</Text>
-          </DoubleBezelCard>
-        ) : (
-          <View className="gap-2">
-            {reminderEvals.slice(0, 3).map(({ reminder, evaluation }) => {
-              let statusBg = 'bg-white/[0.02] border-white/10';
-              let badgeColor = 'text-racing-green';
-              let badgeBg = 'bg-racing-green/10 border-racing-green/30';
-
-              if (evaluation.status === 'OVERDUE') {
-                statusBg = 'bg-racing-red/[0.05] border-racing-red/30';
-                badgeColor = 'text-racing-red';
-                badgeBg = 'bg-racing-red/20 border-racing-red/40';
-              } else if (evaluation.status === 'DUE_SOON') {
-                statusBg = 'bg-racing-amber/[0.05] border-racing-amber/30';
-                badgeColor = 'text-racing-amber';
-                badgeBg = 'bg-racing-amber/20 border-racing-amber/40';
-              }
-
-              return (
-                <View
-                  key={reminder.id}
-                  className={`p-3 rounded-xl border flex-row items-center justify-between ${statusBg}`}
-                >
-                  <View className="flex-1 mr-3">
-                    <Text className="text-white font-semibold text-sm">
-                      {reminder.item_name}
-                    </Text>
-                    <Text className="text-[11px] text-metal-400 font-mono mt-0.5">
-                      {evaluation.remainingMileage !== null
-                        ? t('vehicle.overview.remainingKm', { count: evaluation.remainingMileage })
-                        : ''}
-                      {evaluation.remainingMileage !== null && evaluation.remainingDays !== null ? ' · ' : ''}
-                      {evaluation.remainingDays !== null
-                        ? t('vehicle.overview.remainingDays', { count: evaluation.remainingDays })
-                        : ''}
-                    </Text>
-                  </View>
-
-                  <View className="flex-row items-center gap-1.5">
-                    <TouchableOpacity
-                      onPress={() => onCompleteReminder(reminder.id, reminder.item_name)}
-                      className="px-2 py-1 bg-white/10 rounded border border-white/20"
-                    >
-                      <Text className="text-[10px] font-mono text-white font-semibold">{t('common.actions.confirm')}</Text>
-                    </TouchableOpacity>
-
-                    <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
-                      <Text className={`text-[10px] font-mono font-bold ${badgeColor}`}>
-                        {evaluation.status}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
 
       {/* 最近動態導航至全螢幕時間軸 (Recent Activity Preview & Timeline CTA) */}
       <View>

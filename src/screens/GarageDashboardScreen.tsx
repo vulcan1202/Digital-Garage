@@ -13,13 +13,14 @@ import { DoubleBezelCard } from '../components/DoubleBezelCard';
 import { useVehicles, useDeleteVehicle, useVehiclePhotos } from '../hooks/queries/useVehicles';
 import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
 import { useReminders, useCompleteReminder, useDeleteReminder } from '../hooks/queries/useReminders';
-import { useRecurringStatus } from '../hooks/queries/useRecurringExpenses';
+import { useRecurringStatus, useDeleteRecurringExpense } from '../hooks/queries/useRecurringExpenses';
 import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
 import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
 import { calculateVehicleTotalCost, calculateAverageCostPerKm } from '../utils/calculators/costCalculator';
 import { calculateAverageFuelCostPerKm, calculateFuelEconomy } from '../utils/calculators/fuelCalculator';
 import { evaluateReminderStatus } from '../utils/calculators/reminderCalculator';
-import { ModificationRow, RefuelRow, MaintenanceRecordRow, MaintenanceRecordType } from '../types/database';
+import { ModificationRow, RefuelRow, MaintenanceRecordRow, MaintenanceRecordType, RecurringExpenseRow } from '../types/database';
+import { recurringExpenseService } from '../services/recurringExpenseService';
 
 // 模態窗群組
 import { AddVehicleModal } from '../components/modals/AddVehicleModal';
@@ -30,6 +31,7 @@ import { AddMaintenanceModal } from '../components/modals/AddMaintenanceModal';
 import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal';
 import { AddReminderModal } from '../components/modals/AddReminderModal';
 import { AddRecurringExpenseModal } from '../components/modals/AddRecurringExpenseModal';
+import { EditRecurringExpenseModal } from '../components/modals/EditRecurringExpenseModal';
 import { AddModificationModal } from '../components/modals/AddModificationModal';
 import { EditModificationModal } from '../components/modals/EditModificationModal';
 import { VehiclePhotoGalleryModal } from '../components/modals/VehiclePhotoGalleryModal';
@@ -68,6 +70,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const deleteModMutation = useDeleteModification();
   const deleteRefuelMutation = useDeleteRefuel();
   const deleteMaintenanceMutation = useDeleteMaintenanceRecord();
+  const deleteRecurringMutation = useDeleteRecurringExpense();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
@@ -89,6 +92,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
   const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
   const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringExpenseRow | null>(null);
 
   // 離線與同步狀態管理
   const [serverStatus, setServerStatus] = useState<ServerStatusInfo>(networkMonitor.getServerStatus());
@@ -394,6 +398,48 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
                 vehicleId: activeVehicle.id,
               });
               Alert.alert(t('common.status.success'), t('common.status.success'));
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : t('common.status.error');
+              Alert.alert(t('common.status.error'), msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditRecurring = async (recordId: number) => {
+    if (!activeVehicle) return;
+    try {
+      const record = await recurringExpenseService.getRecurringExpenseById(recordId);
+      if (record) {
+        setEditingRecurring(record);
+      } else {
+        Alert.alert(t('common.status.error'), t('recurring.validation.recordNotFound'));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('recurring.validation.recordNotFound');
+      Alert.alert(t('common.status.error'), msg);
+    }
+  };
+
+  const handleDeleteRecurring = (recordId: number, title: string) => {
+    if (!activeVehicle) return;
+    Alert.alert(
+      t('recurring.fields.deleteExpense'),
+      t('recurring.fields.deleteConfirm', { title }),
+      [
+        { text: t('common.actions.cancel'), style: 'cancel' },
+        {
+          text: t('common.actions.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRecurringMutation.mutateAsync({
+                id: recordId,
+                vehicleId: activeVehicle.id,
+              });
+              Alert.alert(t('common.status.success'), t('recurring.validation.deleteSuccess'));
             } catch (err: unknown) {
               const msg = err instanceof Error ? err.message : t('common.status.error');
               Alert.alert(t('common.status.error'), msg);
@@ -830,11 +876,7 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
               ownershipCostPerKm={ownershipCostPerKm}
               fuelStats={fuelStats}
               modificationsCount={modifications.length}
-              reminderEvals={reminderEvals}
-              alertCounts={alertCounts}
-              onCompleteReminder={handleCompleteReminder}
               onNavigateToAnalytics={() => setActiveTab('analytics')}
-              onNavigateToReminders={() => setActiveTab('reminders')}
               onNavigateToTimeline={() => onNavigateToTimeline(activeVehicle.id)}
             />
           )}
@@ -889,6 +931,8 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
               onAddRecurringExpense={() => setIsAddRecurringOpen(true)}
               onCompleteReminder={handleCompleteReminder}
               onDeleteReminder={handleDeleteReminder}
+              onEditRecurring={handleEditRecurring}
+              onDeleteRecurring={handleDeleteRecurring}
             />
           )}
         </View>
@@ -936,6 +980,12 @@ export const GarageDashboardScreen: React.FC<GarageDashboardScreenProps> = ({
             visible={isAddRecurringOpen}
             vehicle={activeVehicle}
             onClose={() => setIsAddRecurringOpen(false)}
+          />
+
+          <EditRecurringExpenseModal
+            visible={!!editingRecurring}
+            record={editingRecurring}
+            onClose={() => setEditingRecurring(null)}
           />
 
           <AddModificationModal

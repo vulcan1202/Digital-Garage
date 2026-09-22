@@ -331,7 +331,11 @@
       "confirmOverwrite": "Confirm Overwrite",
       "notes": "Notes (Optional)",
       "notesPlaceholder": "Receipt number, inspection station, etc...",
-      "saveBtn": "Save Record"
+      "saveBtn": "Save Record",
+      "saveChanges": "Save Changes",
+      "editExpense": "Edit Statutory Expense",
+      "deleteExpense": "Delete Expense Record",
+      "deleteConfirm": "Delete \"{{title}}\" record? This action cannot be undone."
     },
     "validation": {
       "titleRequired": "Please enter an item name",
@@ -339,7 +343,10 @@
       "dateRequired": "Payment date and coverage duration are required",
       "dateLogicError": "End date cannot be earlier than start date",
       "saveSuccess": "Successfully saved \"{{name}}\"!",
-      "saveFailed": "Failed to save, please verify your input"
+      "updateSuccess": "Successfully updated \"{{name}}\"!",
+      "deleteSuccess": "Successfully deleted expense record!",
+      "saveFailed": "Failed to save, please verify your input",
+      "recordNotFound": "Expense record not found, please refresh"
     },
     "smartPreFill": {
       "badge": "Smart Pre-fill",

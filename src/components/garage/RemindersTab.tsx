@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { DoubleBezelCard } from '../DoubleBezelCard';
@@ -17,6 +17,8 @@ interface RemindersTabProps {
   onAddRecurringExpense: () => void;
   onCompleteReminder: (id: number, name: string) => void;
   onDeleteReminder: (id: number, name: string) => void;
+  onEditRecurring?: (recordId: number) => void;
+  onDeleteRecurring?: (recordId: number, title: string) => void;
 }
 
 const CATEGORY_ICONS: Record<RecurringExpenseCategory, keyof typeof Ionicons.glyphMap> = {
@@ -37,6 +39,8 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
   onAddRecurringExpense,
   onCompleteReminder,
   onDeleteReminder,
+  onEditRecurring,
+  onDeleteRecurring,
 }) => {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = React.useState<'compliance' | 'maintenance'>('compliance');
@@ -342,10 +346,44 @@ export const RemindersTab: React.FC<RemindersTabProps> = ({
                     </View>
                   </View>
 
-                  <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
-                    <Text className={`text-[10px] font-mono font-bold ${badgeColor}`}>
-                      {statusText}
-                    </Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <View className={`px-2 py-1 rounded-md border ${badgeBg}`}>
+                      <Text className={`text-[10px] font-mono font-bold ${badgeColor}`}>
+                        {statusText}
+                      </Text>
+                    </View>
+
+                    {Boolean(item.latest_record_id && item.latest_record_id > 0) && (
+                      <View className="flex-row items-center gap-1">
+                        <TouchableOpacity
+                          onPress={() => onEditRecurring?.(item.latest_record_id!)}
+                          className="p-1.5 rounded-lg bg-white/5 border border-white/10"
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="pencil" size={13} color="#a1a1aa" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Alert.alert(
+                              t('recurring.fields.deleteExpense'),
+                              t('recurring.fields.deleteConfirm', { title: label }),
+                              [
+                                { text: t('common.actions.cancel'), style: 'cancel' },
+                                {
+                                  text: t('common.actions.delete'),
+                                  style: 'destructive',
+                                  onPress: () => onDeleteRecurring?.(item.latest_record_id!, label),
+                                },
+                              ]
+                            );
+                          }}
+                          className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20"
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 </View>
               );

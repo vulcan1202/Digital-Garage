@@ -17,17 +17,20 @@ import { useTimeline } from '../hooks/queries/useTimeline';
 import { useRefuels, useDeleteRefuel } from '../hooks/queries/useFuel';
 import { useMaintenanceRecords, useDeleteMaintenanceRecord } from '../hooks/queries/useMaintenance';
 import { useModifications, useDeleteModification } from '../hooks/queries/useModifications';
-import { useDeleteRecurringExpense } from '../hooks/queries/useRecurringExpenses';
+import { useDeleteRecurringExpense, useRecurringExpenses } from '../hooks/queries/useRecurringExpenses';
+import { recurringExpenseService } from '../services/recurringExpenseService';
 import {
   VehicleTimelineRow,
   TimelineEventType,
   RefuelRow,
   MaintenanceRecordRow,
   ModificationRow,
+  RecurringExpenseRow,
 } from '../types/database';
 import { EditRefuelModal } from '../components/modals/EditRefuelModal';
 import { EditMaintenanceModal } from '../components/modals/EditMaintenanceModal';
 import { EditModificationModal } from '../components/modals/EditModificationModal';
+import { EditRecurringExpenseModal } from '../components/modals/EditRecurringExpenseModal';
 
 interface VehicleTimelineScreenProps {
   vehicleId: number;
@@ -49,6 +52,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   const { data: refuels = [] } = useRefuels(vehicleId);
   const { data: maintenanceRecords = [] } = useMaintenanceRecords(vehicleId);
   const { data: modifications = [] } = useModifications(vehicleId);
+  const { data: recurringExpenses = [] } = useRecurringExpenses(vehicleId);
 
   const deleteRefuelMutation = useDeleteRefuel();
   const deleteMaintenanceMutation = useDeleteMaintenanceRecord();
@@ -58,6 +62,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
   const [editingRefuel, setEditingRefuel] = useState<RefuelRow | null>(null);
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecordRow | null>(null);
   const [editingMod, setEditingMod] = useState<ModificationRow | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringExpenseRow | null>(null);
 
   const {
     data,
@@ -179,7 +184,7 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
     );
   };
 
-  const handleEditEvent = (item: VehicleTimelineRow) => {
+  const handleEditEvent = async (item: VehicleTimelineRow) => {
     // 依 Guardrail: 若需修改 Purchase 資訊，導向提示至車輛管理
     if (item.event_type === 'purchase') {
       Alert.alert(t('vehicle.timeline.vehicleInfo'), t('vehicle.timeline.purchaseEditNotice'));
@@ -227,6 +232,24 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
       const found = modifications.find((m) => m.id === item.event_id);
       if (found) {
         setEditingMod(found);
+      }
+    } else if (item.event_type === 'recurring_expense') {
+      const found = recurringExpenses.find((r) => r.id === item.event_id);
+      if (found) {
+        setEditingRecurring(found);
+      } else {
+        // 嚴格依規範：cache miss 時調用 getRecurringExpenseById 取得真實資料，絕不建構假資料
+        try {
+          const record = await recurringExpenseService.getRecurringExpenseById(item.event_id);
+          if (record) {
+            setEditingRecurring(record);
+          } else {
+            Alert.alert(t('common.status.error'), t('recurring.validation.recordNotFound'));
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : t('recurring.validation.recordNotFound');
+          Alert.alert(t('common.status.error'), msg);
+        }
       }
     }
   };
@@ -560,6 +583,15 @@ export const VehicleTimelineScreen: React.FC<VehicleTimelineScreenProps> = ({
         modification={editingMod}
         onClose={() => {
           setEditingMod(null);
+          refetch();
+        }}
+      />
+
+      <EditRecurringExpenseModal
+        visible={!!editingRecurring}
+        record={editingRecurring}
+        onClose={() => {
+          setEditingRecurring(null);
           refetch();
         }}
       />

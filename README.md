@@ -8,7 +8,7 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Google Cloud Run](https://img.shields.io/badge/Cloud%20Run-us--central1-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
-[![Tests](https://img.shields.io/badge/Tests-181%2F181%20Pass-brightgreen)](./documentation/testing-and-qa.md)
+[![Tests](https://img.shields.io/badge/Tests-193%2F193%20Pass-brightgreen)](./documentation/testing-and-qa.md)
 
 ---
 
@@ -122,6 +122,12 @@
 * **嚴格正規金額驗證純函式**：採用正則 `/^\d+(\.\d+)?$/` 進行全字串完整匹配，嚴格杜絕 `2000abc`、負數、`NaN` 等非法字元。
 * **部分成功（Partial Success）防重複機制**：批次寫入若中途發生單筆失敗，系統自動從表單中移除已成功的項目，僅保留失敗的項目供車主修正重試，徹底防止重複提交。
 * **離線相片安全防護與提醒獨立容錯**：離線時主動提示相片限制並支援僅文字同步，避免相片無聲遺失；首筆失敗時照片動態順延歸屬於次筆成功項目；提醒失敗不回滾工單紀錄。
+
+### 12. 規費保險生命週期補齊與總覽版面最佳化 (Expense Lifecycle & Dashboard Optimization - P2-2.13)
+* **規費與保險紀錄編輯 (Update) 補齊**：新增 `EditRecurringExpenseModal`，支援完整修改規費/定檢/保險之類別、名稱、金額、繳費日、有效涵蓋起訖日與備註；具備起訖日防呆與金額非負數檢驗，送出時鎖定按鈕防止連點重複寫入。
+* **週期規費紀錄刪除 (Delete) 與原生防呆確認**：狀態卡片右側支援垃圾桶刪除操作，點擊跳出原生二次確認對話框，刪除後自動連動使快取失效並刷新車籍時序與總體費用統計。
+* **愛車時序牆（Timeline）無縫編輯整合**：時序牆規費項目直接掛載編輯入口，精準依據 `item.event_id` 與快取/API 查找真實紀錄，嚴禁使用假資料覆蓋真實資料，查無資料時防呆提示阻擋。
+* **總覽儀表（Overview）保險提醒雷達移除**：徹底清除總覽頁面下方重複之保險提醒雷達區塊與 4 個 dead props，回歸簡潔之車輛運營成本與能耗關鍵數據看板。
 
 ---
 

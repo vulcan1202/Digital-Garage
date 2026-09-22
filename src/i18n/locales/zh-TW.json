@@ -331,7 +331,11 @@
       "confirmOverwrite": "確認覆寫",
       "notes": "備註 (選填)",
       "notesPlaceholder": "繳費收據編號、代驗廠名稱等...",
-      "saveBtn": "確認登記規費"
+      "saveBtn": "確認登記規費",
+      "saveChanges": "儲存變更",
+      "editExpense": "編輯規費 / 定檢",
+      "deleteExpense": "刪除規費紀錄",
+      "deleteConfirm": "確定要刪除「{{title}}」紀錄嗎？此操作無法復原。"
     },
     "validation": {
       "titleRequired": "請輸入規費或檢驗項目名稱",
@@ -339,7 +343,10 @@
       "dateRequired": "付款日期與有效起訖日皆為必填",
       "dateLogicError": "到期截止日不得早於生效起始日",
       "saveSuccess": "已成功新增「{{name}}」紀錄！",
-      "saveFailed": "儲存失敗，請檢查資料輸入"
+      "updateSuccess": "已成功更新「{{name}}」紀錄！",
+      "deleteSuccess": "已成功刪除規費紀錄！",
+      "saveFailed": "儲存失敗，請檢查資料輸入",
+      "recordNotFound": "查無此規費紀錄，請重新整理"
     },
     "smartPreFill": {
       "badge": "智慧預填",
