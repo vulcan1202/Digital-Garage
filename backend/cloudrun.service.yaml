@@ -1,0 +1,40 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: digital-garage-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # 執行個體數量下限 0：無流量時完全縮容為零以節省預算
+        autoscaling.knative.dev/minScale: '0'
+        # 執行個體數量上限 2：最大僅允許 2 個實例，嚴格防範費用暴衝
+        autoscaling.knative.dev/maxScale: '2'
+        # 僅在處理請求時分配 CPU (降低計費)
+        run.googleapis.com/cpu-throttling: 'true'
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/digital-garage/backend:latest
+        resources:
+          limits:
+            # 限制 CPU: 1
+            cpu: '1'
+            # 限制 RAM: 256MB (256Mi)
+            memory: 256Mi
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: PORT
+          value: '8080'
+        - name: APP_ENV
+          value: 'production'
+        - name: TZ
+          value: 'Asia/Taipei'
