@@ -8,7 +8,7 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Google Cloud Run](https://img.shields.io/badge/Cloud%20Run-us--central1-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
-[![Tests](https://img.shields.io/badge/Tests-160%2F160%20Pass-brightgreen)](./documentation/testing-and-qa.md)
+[![Tests](https://img.shields.io/badge/Tests-181%2F181%20Pass-brightgreen)](./documentation/testing-and-qa.md)
 
 ---
 
@@ -115,6 +115,14 @@
   - 「編輯愛車」直接配置於車庫車隊的愛車卡片右上角，便於直覺管理。
   - 主畫面座艙抬頭移除紅色刪除按鈕；車輛刪除收納於編輯彈窗底部，並具備 SQL 級聯刪除二次確認對話框。
 
+### 11. 保養維修單據多項目獨立輸入與即時合計總價 (Multi-Item Service Order & Live Total - P2-2.12)
+* **單一工單動態多項目擴充**：支援車主在單張保修工單下動態點擊「＋ 新增施作項目」，每一列具備獨立之「項目名稱」與「NT$ 個別金額」輸入欄位；大於 1 筆時提供垃圾桶刪除。
+* **即時總金額看板 (Live Total Cost)**：介面即時響應有效項目之金額累計（`NT$ X,XXX`），方便比對保養廠紙本或電子工單總價。
+* **共用工單基礎屬性**：施作日期、施作里程、保養廠、備註與工單/發票照片全單共用，避免重複輸入。
+* **嚴格正規金額驗證純函式**：採用正則 `/^\d+(\.\d+)?$/` 進行全字串完整匹配，嚴格杜絕 `2000abc`、負數、`NaN` 等非法字元。
+* **部分成功（Partial Success）防重複機制**：批次寫入若中途發生單筆失敗，系統自動從表單中移除已成功的項目，僅保留失敗的項目供車主修正重試，徹底防止重複提交。
+* **離線相片安全防護與提醒獨立容錯**：離線時主動提示相片限制並支援僅文字同步，避免相片無聲遺失；首筆失敗時照片動態順延歸屬於次筆成功項目；提醒失敗不回滾工單紀錄。
+
 ---
 
 ## 核心技術棧 (Tech Stack)
@@ -166,6 +174,8 @@
 | **P2-2.8** | Global i18n & Bilingual Presentation (全域 i18n 繁中/英文切換、BilingualText 雙語並陳、Zero-Flash 開機水合門禁、單一結構化字典、158/158 單元測試通過) | ✅ Completed |
 | **P2-2.9** | Inspection UX & Grace Period Enhancement (定期檢驗實務體驗重構、下次定檢日推算、寬限期前後月雙階提示、汽機車統一定檢標題、160/160 單元測試通過) | ✅ Completed |
 | **P2-2.10** | Annual Taxes & Fees Refinement (牌照稅與養管費年度徵收實務微調、統一移除「本年度」贅字、固定規費提示「僅限本年度」、月份自適應時程、無日期化卡片設計、營業用車獨立備註) | ✅ Completed |
+| **P2-2.11** | UI Refinement & Vehicle Safety (頂部 Header 防溢位、快捷列雙語切換、提醒雙次分頁、愛車防呆管理升級) | ✅ Completed |
+| **P2-2.12** | Multi-Item Maintenance & Live Total (保養與維修多項目獨立輸入、個別金額、即時總計、嚴格正則校驗、部分成功防重複、181/181 測試通過) | ✅ Completed |
 
 ---
 
@@ -180,7 +190,7 @@ npm install
 # 執行靜態型別檢查
 npm run typecheck
 
-# 執行 Jest 單元測試套件 (27 Suites / 160 Tests)
+# 執行 Jest 單元測試套件 (29 Suites / 181 Tests)
 npm test -- --watchAll=false
 
 # 啟動 Expo 本地開發伺服器
@@ -219,8 +229,9 @@ subst X: /d
 
 ### 產出發布安裝包
 * **專案根目錄直接存取**：
-  * `數位車庫_DigitalGarage.apk`（約 `82.1 MB`）
-  * `app-release.apk`（約 `82.1 MB`）
+  * `數位車庫_DigitalGarage.apk`（約 `82.2 MB`）
+  * `DigitalGarage-Release.apk`（約 `82.2 MB`）
+  * `app-release.apk`（約 `82.2 MB`）
 * **Gradle 原始建置路徑**：`android/app/build/outputs/apk/release/app-release.apk`
 * **封裝架構**：整合 `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` 原生函式庫
 * **安裝方式**：可直接傳輸至 Android 手機點擊安裝，或透過 ADB 安裝：
