@@ -212,7 +212,12 @@
       "saveBtn": "儲存保修日誌",
       "saveChanges": "儲存變更",
       "photosTitle": "維修工單/發票照片",
-      "photosSubtitle": "上傳工單證明或零件施作照片（等比壓縮至1920px）"
+      "photosSubtitle": "上傳工單證明或零件施作照片（等比壓縮至1920px）",
+      "addItem": "＋ 新增施作項目",
+      "removeItem": "移除",
+      "itemIndex": "項目 #{{index}}",
+      "totalEstimatedCost": "工單合計總金額",
+      "photosSharedNotice": "* 所上傳之工單或發票照片為整張工單共用佐證"
     },
     "types": {
       "maintenance": "定期保養",
@@ -239,7 +244,14 @@
       "saveSuccess": "已成功建立 {{type}}：「{{name}}」！",
       "saveFailed": "保養紀錄新增失敗",
       "updateSuccess": "保修紀錄更新成功",
-      "updateFailed": "無法更新保修紀錄"
+      "updateFailed": "無法更新保修紀錄",
+      "emptyItems": "請至少填寫一個有效的保修項目與金額",
+      "itemError": "項目 #{{index}} 格式錯誤：{{reason}}",
+      "offlinePhotoWarning": "目前處於離線狀態，工單文字將排入同步佇列，但照片無法離線上傳。\n是否僅儲存文字紀錄？",
+      "batchAllSuccess": "已成功建立 {{count}} 筆保修項目！",
+      "batchPartialSuccess": "已儲存 {{successCount}} 筆項目，另有 {{failCount}} 筆失敗。\n未完成項目已保留於畫面中，請檢查後再次儲存。",
+      "batchOfflineQueued": "目前為離線狀態，已將 {{count}} 筆項目加入本機同步佇列。",
+      "reminderFailedNotice": "保修項目已成功建立，但下次提醒建立失敗，您可稍後手動設定。"
     }
   },
   "recurring": {

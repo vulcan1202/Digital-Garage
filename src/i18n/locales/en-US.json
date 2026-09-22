@@ -212,7 +212,12 @@
       "saveBtn": "Save Service Log",
       "saveChanges": "Save Changes",
       "photosTitle": "Service Invoices / Work Order Photos",
-      "photosSubtitle": "Upload invoices or parts proof (compressed to 1920px max)"
+      "photosSubtitle": "Upload invoices or parts proof (compressed to 1920px max)",
+      "addItem": "+ Add Service Item",
+      "removeItem": "Remove",
+      "itemIndex": "Item #{{index}}",
+      "totalEstimatedCost": "Total Work Order Cost",
+      "photosSharedNotice": "* Uploaded invoice/photos serve as shared proof for this entire work order"
     },
     "types": {
       "maintenance": "Scheduled Maintenance",
@@ -239,7 +244,14 @@
       "saveSuccess": "Successfully created {{type}}: \"{{name}}\"!",
       "saveFailed": "Failed to add service record",
       "updateSuccess": "Service record updated successfully",
-      "updateFailed": "Failed to update service record"
+      "updateFailed": "Failed to update service record",
+      "emptyItems": "Please enter at least one valid item name and cost",
+      "itemError": "Item #{{index}} error: {{reason}}",
+      "offlinePhotoWarning": "You are currently offline. Text records will be added to the sync queue, but photos cannot be uploaded offline.\nDo you want to save text records only?",
+      "batchAllSuccess": "Successfully created {{count}} service items!",
+      "batchPartialSuccess": "Saved {{successCount}} items, {{failCount}} failed.\nUnfinished items are preserved on screen for you to review and retry.",
+      "batchOfflineQueued": "Currently offline. Added {{count}} items to local sync queue.",
+      "reminderFailedNotice": "Service items saved successfully, but next reminder failed to create. You can set it manually later."
     }
   },
   "recurring": {
