@@ -78,6 +78,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     const window = deriveInspectionWindow(dateStr);
     setCoverageStartDate(window.coverageStartDate);
     setCoverageEndDate(window.coverageEndDate);
+    setPaidDate(dateStr);
   };
 
   useEffect(() => {
@@ -103,7 +104,9 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       return;
     }
 
-    if (!paidDate.trim() || !coverageStartDate.trim() || !coverageEndDate.trim()) {
+    const finalPaidDate = category === 'inspection' ? (nextInspectionDate.trim() || paidDate.trim()) : paidDate.trim();
+
+    if (!finalPaidDate || !coverageStartDate.trim() || !coverageEndDate.trim()) {
       Alert.alert(t('common.status.error'), t('recurring.validation.dateRequired'));
       return;
     }
@@ -119,7 +122,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
         category,
         title: title.trim(),
         amount: amtNum,
-        paid_date: paidDate.trim(),
+        paid_date: finalPaidDate,
         coverage_start_date: coverageStartDate.trim(),
         coverage_end_date: coverageEndDate.trim(),
         notes: notes.trim() ? notes.trim() : null,
@@ -237,42 +240,33 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             {/* 依類別區分日期輸入欄位 */}
             {category === 'inspection' ? (
               <>
-                {/* 此次檢驗日（不論是否逾期，實際受檢日） */}
+                {/* 規定定檢日期 */}
                 <DatePickerInput
-                  label={t('recurring.inspectionDetails.thisInspectionDate')}
-                  required
-                  value={paidDate}
-                  onChange={setPaidDate}
-                  maximumDate={new Date()}
-                  placeholder={t('recurring.inspectionDetails.thisInspectionDatePlaceholder')}
-                  containerClassName="mb-3.5"
-                />
-
-                {/* 下次定檢日（行照蓋印） */}
-                <DatePickerInput
-                  label={t('recurring.inspectionDetails.nextInspectionDate')}
+                  label={t('recurring.inspectionDetails.statutoryInspectionDate')}
                   required
                   value={nextInspectionDate}
                   onChange={handleNextInspectionDateChange}
-                  placeholder={t('recurring.inspectionDetails.nextInspectionDatePlaceholder')}
+                  placeholder={t('recurring.inspectionDetails.statutoryInspectionDatePlaceholder')}
                   containerClassName="mb-3.5"
                 />
 
                 {/* 法定檢驗寬限期即時提示卡片（前後各 1 個月） */}
-                <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
-                  <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
-                  <View className="flex-1">
-                    <Text className="text-white text-xs font-medium">
-                      {t('recurring.inspectionDetails.gracePeriodHeader')}
-                    </Text>
-                    <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
-                      {t('recurring.inspectionDetails.gracePeriodDesc', {
-                        start: coverageStartDate,
-                        end: coverageEndDate,
-                      })}
-                    </Text>
+                {Boolean(coverageStartDate && coverageEndDate) && (
+                  <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
+                    <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
+                    <View className="flex-1">
+                      <Text className="text-white text-xs font-medium">
+                        {t('recurring.inspectionDetails.gracePeriodHeader')}
+                      </Text>
+                      <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
+                        {t('recurring.inspectionDetails.gracePeriodDesc', {
+                          start: coverageStartDate,
+                          end: coverageEndDate,
+                        })}
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                )}
               </>
             ) : (
               <>

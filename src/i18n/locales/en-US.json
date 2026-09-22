@@ -305,6 +305,8 @@
       "thisInspectionDatePlaceholder": "Select actual inspection date",
       "nextInspectionDate": "Next Inspection Date (Stamp)",
       "nextInspectionDatePlaceholder": "Select stamped next inspection date",
+      "statutoryInspectionDate": "Statutory Inspection Date",
+      "statutoryInspectionDatePlaceholder": "Select stamped statutory inspection date",
       "gracePeriodHeader": "Inspection Window (+/- 1 Month)",
       "gracePeriodDesc": "{{start}} ~ {{end}}",
       "statusCanInspect": "Can Inspect",

@@ -217,6 +217,27 @@ export function deriveInspectionWindow(nextInspectionDateStr: string): {
 }
 
 /**
+ * 由檢驗起訖涵蓋日（寬限期前後各 1 個月）反推規定定檢基準日
+ */
+export function deriveInspectionDateFromWindow(coverageStartDate?: string | null, coverageEndDate?: string | null): string {
+  if (coverageEndDate) {
+    const parsedEnd = parseYMD(coverageEndDate);
+    if (parsedEnd) {
+      const derived = addMonthsClamped(parsedEnd.year, parsedEnd.month, parsedEnd.day, -1);
+      return formatYMD(derived.year, derived.month, derived.day);
+    }
+  }
+  if (coverageStartDate) {
+    const parsedStart = parseYMD(coverageStartDate);
+    if (parsedStart) {
+      const derived = addMonthsClamped(parsedStart.year, parsedStart.month, parsedStart.day, 1);
+      return formatYMD(derived.year, derived.month, derived.day);
+    }
+  }
+  return '';
+}
+
+/**
  * 台灣定期檢驗 / 排氣檢驗推算演算法 (實務車主習性對齊版)
  * - 車主僅需填寫：此次檢驗日（不論是否逾期）與 下次定檢日（行照蓋印）。
  * - 寬限期：由系統根據「下次定檢日」自動前後推 1 個月（共 2 個月有效視窗）。
