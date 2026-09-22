@@ -78,7 +78,16 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     const window = deriveInspectionWindow(dateStr);
     setCoverageStartDate(window.coverageStartDate);
     setCoverageEndDate(window.coverageEndDate);
+  };
+
+  // 牌照稅 / 公路養管費：鎖定整年度，繳費日變動時依繳費日所在年重新計算 1/1 ~ 12/31
+  const handleAnnualPaidDateChange = (dateStr: string) => {
     setPaidDate(dateStr);
+    const year = dateStr.trim() ? parseInt(dateStr.trim().substring(0, 4), 10) : NaN;
+    if (!isNaN(year)) {
+      setCoverageStartDate(`${year}-01-01`);
+      setCoverageEndDate(`${year}-12-31`);
+    }
   };
 
   useEffect(() => {
@@ -104,9 +113,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       return;
     }
 
-    const finalPaidDate = category === 'inspection' ? (nextInspectionDate.trim() || paidDate.trim()) : paidDate.trim();
-
-    if (!finalPaidDate || !coverageStartDate.trim() || !coverageEndDate.trim()) {
+    if (!paidDate.trim() || !coverageStartDate.trim() || !coverageEndDate.trim()) {
       Alert.alert(t('common.status.error'), t('recurring.validation.dateRequired'));
       return;
     }
@@ -122,7 +129,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
         category,
         title: title.trim(),
         amount: amtNum,
-        paid_date: finalPaidDate,
+        paid_date: paidDate.trim(),
         coverage_start_date: coverageStartDate.trim(),
         coverage_end_date: coverageEndDate.trim(),
         notes: notes.trim() ? notes.trim() : null,
@@ -240,33 +247,71 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             {/* 依類別區分日期輸入欄位 */}
             {category === 'inspection' ? (
               <>
-                {/* 規定定檢日期 */}
+                {/* 此次檢驗日（不論是否逾期，實際受檢日） */}
                 <DatePickerInput
-                  label={t('recurring.inspectionDetails.statutoryInspectionDate')}
+                  label={t('recurring.inspectionDetails.thisInspectionDate')}
                   required
-                  value={nextInspectionDate}
-                  onChange={handleNextInspectionDateChange}
-                  placeholder={t('recurring.inspectionDetails.statutoryInspectionDatePlaceholder')}
+                  value={paidDate}
+                  onChange={setPaidDate}
+                  maximumDate={new Date()}
+                  placeholder={t('recurring.inspectionDetails.thisInspectionDatePlaceholder')}
                   containerClassName="mb-3.5"
                 />
 
-                {/* 法定檢驗寬限期即時提示卡片（前後各 1 個月） */}
-                {Boolean(coverageStartDate && coverageEndDate) && (
-                  <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
-                    <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
-                    <View className="flex-1">
-                      <Text className="text-white text-xs font-medium">
-                        {t('recurring.inspectionDetails.gracePeriodHeader')}
-                      </Text>
-                      <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
-                        {t('recurring.inspectionDetails.gracePeriodDesc', {
-                          start: coverageStartDate,
-                          end: coverageEndDate,
-                        })}
-                      </Text>
-                    </View>
+                {/* 下次定檢日（行照蓋印） */}
+                <DatePickerInput
+                  label={t('recurring.inspectionDetails.nextInspectionDate')}
+                  required
+                  value={nextInspectionDate}
+                  onChange={handleNextInspectionDateChange}
+                  placeholder={t('recurring.inspectionDetails.nextInspectionDatePlaceholder')}
+                  containerClassName="mb-3.5"
+                />
+
+                {/* 法定檢驗寬限期即時提示卡片（前後各 1 個月，系統自動計算，不可編輯） */}
+                <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
+                  <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
+                  <View className="flex-1">
+                    <Text className="text-white text-xs font-medium">
+                      {t('recurring.inspectionDetails.gracePeriodHeader')}
+                    </Text>
+                    <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
+                      {t('recurring.inspectionDetails.gracePeriodDesc', {
+                        start: coverageStartDate,
+                        end: coverageEndDate,
+                      })}
+                    </Text>
                   </View>
-                )}
+                </View>
+              </>
+            ) : category === 'license_tax' || category === 'road_maintenance_fee' ? (
+              <>
+                {/* 牌照稅 / 公路養管費：僅需輸入繳費日期，年度效期由系統鎖定 */}
+                <DatePickerInput
+                  label={t('recurring.fields.paidDateLabel')}
+                  required
+                  value={paidDate}
+                  onChange={handleAnnualPaidDateChange}
+                  maximumDate={new Date()}
+                  placeholder={t('recurring.fields.paidDatePlaceholder')}
+                  containerClassName="mb-3.5"
+                />
+
+                {/* 年度效期即時提示卡片（系統自動鎖定整年度，不可編輯） */}
+                <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3 mb-3.5 flex-row items-center gap-2.5">
+                  <Ionicons name="calendar-outline" size={18} color="#06b6d4" />
+                  <View className="flex-1">
+                    <Text className="text-white text-xs font-medium">
+                      {t('recurring.annualDetails.coverageHeader')}
+                    </Text>
+                    <Text className="text-cyan-400 text-[11px] font-mono mt-0.5">
+                      {t('recurring.annualDetails.coverageDesc', {
+                        start: coverageStartDate,
+                        end: coverageEndDate,
+                      })}
+                    </Text>
+                  </View>
+                </View>
               </>
             ) : (
               <>

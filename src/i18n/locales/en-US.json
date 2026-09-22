@@ -305,8 +305,6 @@
       "thisInspectionDatePlaceholder": "Select actual inspection date",
       "nextInspectionDate": "Next Inspection Date (Stamp)",
       "nextInspectionDatePlaceholder": "Select stamped next inspection date",
-      "statutoryInspectionDate": "Statutory Inspection Date",
-      "statutoryInspectionDatePlaceholder": "Select stamped statutory inspection date",
       "gracePeriodHeader": "Inspection Window (+/- 1 Month)",
       "gracePeriodDesc": "{{start}} ~ {{end}}",
       "statusCanInspect": "Can Inspect",
@@ -315,6 +313,10 @@
       "statusFirstApproaching": "1st Inspection Due",
       "incompletePrompt": "No registration date; reminders activate after 1st inspection",
       "firstInspectionNotice": "Vehicle approaching 5 years; prepare for first periodic inspection"
+    },
+    "annualDetails": {
+      "coverageHeader": "Annual Coverage (Locked to Full Year)",
+      "coverageDesc": "{{start}} ~ {{end}}"
     },
     "fields": {
       "category": "Expense Category",

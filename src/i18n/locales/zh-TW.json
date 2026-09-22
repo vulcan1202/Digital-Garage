@@ -305,8 +305,6 @@
       "thisInspectionDatePlaceholder": "選取實際受檢日期",
       "nextInspectionDate": "下次定檢日 (行照蓋印)",
       "nextInspectionDatePlaceholder": "選取行照蓋印之指定定檢日",
-      "statutoryInspectionDate": "規定定檢日期",
-      "statutoryInspectionDatePlaceholder": "選取行照蓋印之規定定檢日",
       "gracePeriodHeader": "法定檢驗寬限期 (前後各 1 個月皆可受檢)",
       "gracePeriodDesc": "{{start}} ～ {{end}}",
       "statusCanInspect": "可驗車",
@@ -315,6 +313,10 @@
       "statusFirstApproaching": "首檢即將到來",
       "incompletePrompt": "未登記行照發照日期，待首次驗車登記後啟動通知",
       "firstInspectionNotice": "車輛即將屆滿 5 年，請留意首次定期檢驗"
+    },
+    "annualDetails": {
+      "coverageHeader": "年度效期（系統自動鎖定全年度）",
+      "coverageDesc": "{{start}} ～ {{end}}"
     },
     "fields": {
       "category": "規費類別",

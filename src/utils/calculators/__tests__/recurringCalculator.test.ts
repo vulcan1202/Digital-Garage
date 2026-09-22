@@ -6,7 +6,6 @@ import {
   getSmartPreFill,
   calculateInspectionPreFill,
   deriveInspectionWindow,
-  deriveInspectionDateFromWindow,
   calculateRecurringAlertCounts,
 } from '../recurringCalculator';
 
@@ -241,22 +240,6 @@ describe('recurringCalculator', () => {
 
       expect(counts.dueSoon).toBe(1);
       expect(counts.overdue).toBe(1);
-    });
-  });
-
-  describe('deriveInspectionDateFromWindow', () => {
-    it('從 coverageEndDate 正確反推規定定檢日（減 1 個月）', () => {
-      const derived = deriveInspectionDateFromWindow('2026-03-15', '2026-05-15');
-      expect(derived).toBe('2026-04-15');
-    });
-
-    it('僅有 coverageStartDate 時正確反推規定定檢日（加 1 個月）', () => {
-      const derived = deriveInspectionDateFromWindow('2026-03-15', null);
-      expect(derived).toBe('2026-04-15');
-    });
-
-    it('皆為空值時回傳空字串', () => {
-      expect(deriveInspectionDateFromWindow(null, null)).toBe('');
     });
   });
 });
